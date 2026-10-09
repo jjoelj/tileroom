@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Groups and house words (SPEC §4.10). Words change only through proposals that every current member votes yes on.
-import { and, asc, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, like, lt, ne, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { WORD_RE } from '../../shared/dictionary';
@@ -110,6 +110,26 @@ function announce(outcomes: Outcome[]) {
         : `${VERB[o.action][0]!.toUpperCase()}${VERB[o.action].slice(1)} ${o.word} ${o.status === 'expired' ? "didn't get every vote in 7 days" : 'was voted down'}`;
     void notify(memberIds(db, o.groupId), { title: groupName(o.groupId), body, url: `/groups/${o.groupId}`, tag: `group-${o.groupId}` });
   }
+}
+
+const ORPHAN = 'orphaned-';
+const hasGames = (q: Q, groupId: string) => !!q.select({ id: games.id }).from(games).where(eq(games.groupId, groupId)).limit(1).get();
+
+/** Removes a group and everything that hangs off it. Only for groups no game points at. */
+function deleteGroup(tx: Tx, groupId: string) {
+  // children first, explicitly: group_words points at proposals too
+  tx.delete(groupWords).where(eq(groupWords.groupId, groupId)).run();
+  const ids = tx.select({ id: proposals.id }).from(proposals).where(eq(proposals.groupId, groupId)).all().map((p) => p.id);
+  if (ids.length) tx.delete(proposalVotes).where(inArray(proposalVotes.proposalId, ids)).run();
+  tx.delete(proposals).where(eq(proposals.groupId, groupId)).run();
+  tx.delete(groupMembers).where(eq(groupMembers.groupId, groupId)).run();
+  tx.delete(groups).where(eq(groups.id, groupId)).run();
+}
+
+/** At startup and every 10 minutes: orphaned groups whose last game is gone (e.g. voided) are deleted. */
+export function deleteEmptyOrphans() {
+  const orphans = db.select({ id: groups.id }).from(groups).where(like(groups.joinCode, `${ORPHAN}%`)).all();
+  for (const { id } of orphans) db.transaction((tx) => !hasGames(tx, id) && deleteGroup(tx, id));
 }
 
 /** Every 10 minutes: proposals past their 7 days expire as rejected (SPEC §4.10). */
@@ -289,13 +309,25 @@ export const groupRoutes = new Hono<AppEnv>()
       if (!hasAdmin) {
         const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, group.id)).orderBy(...joinOrder).limit(1).get();
         if (next) tx.update(groupMembers).set({ role: 'admin' }).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, next.userId))).run();
-        // Nobody left: orphan it. Joins only accept 8-character codes, so this token can never be typed; the row
-        // stays because its games still point at it (for the group's name).
-        else tx.update(groups).set({ joinCode: `orphaned-${randomId()}` }).where(eq(groups.id, group.id)).run();
+        // Nobody left: delete it, or if games still point at it (for the group's name), orphan it. Joins only
+        // accept 8-character codes, so the orphan token can never be typed.
+        else if (!hasGames(tx, group.id)) deleteGroup(tx, group.id);
+        else tx.update(groups).set({ joinCode: `${ORPHAN}${randomId()}` }).where(eq(groups.id, group.id)).run();
       }
       return reevaluate(tx, group.id);
     });
     announce(outcomes);
+    return c.json({ ok: true });
+  })
+
+  .delete('/groups/:id', (c) => {
+    const { group, role } = myGroup(db, c.req.param('id'), c.var.user.id);
+    requireAdmin(role);
+    db.transaction((tx) => {
+      // a group game shows the group's name, so groups with games stay
+      if (hasGames(tx, group.id)) throw new ApiError(409, 'group_has_games', 'Only a group with no games can be deleted');
+      deleteGroup(tx, group.id);
+    });
     return c.json({ ok: true });
   })
 

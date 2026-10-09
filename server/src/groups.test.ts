@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { gamePlayers, groupWords } from './db/schema';
-import { expireProposals } from './groups';
+import { gamePlayers, games, groups, groupWords } from './db/schema';
+import { deleteEmptyOrphans, expireProposals } from './groups';
 import { sockets } from './realtime';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
@@ -67,13 +67,50 @@ describe('membership', () => {
   });
 });
 
-test('when the last member leaves, the group is orphaned: no code reaches it again', async () => {
-  const { id, code, members } = await groupOf(2);
-  for (const u of members) expect((await call(`/groups/${id}/members/me`, { method: 'DELETE', cookie: u.cookie })).status).toBe(200);
-  const stranger = await newUser();
-  expect((await call(`/groups/join/${code}`, { cookie: stranger.cookie })).status).toBe(404);
-  expect((await call(`/groups/join/${code}`, { method: 'POST', cookie: stranger.cookie })).status).toBe(404);
-  expect((await call(`/groups/${id}`, { cookie: stranger.cookie })).status).toBe(404);
+describe('the end of a group', () => {
+  const exists = (id: string) => !!db.select().from(groups).where(eq(groups.id, id)).get();
+  const leaveAll = async (id: string, members: TestUser[]) => {
+    for (const u of members) expect((await call(`/groups/${id}/members/me`, { method: 'DELETE', cookie: u.cookie })).status).toBe(200);
+  };
+  const newGame = (id: string, u: TestUser) => call('/games', { method: 'POST', cookie: u.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
+
+  test('admins can delete a group with no games, with its votes and words', async () => {
+    const { id, members } = await groupOf(2);
+    const [a, b] = members as [TestUser, TestUser];
+    const pid = (await propose(id, a, 'QXZR', 'add')).json.proposals[0].id;
+    await vote(pid, b, 'yes');
+    await propose(id, a, 'QXZS', 'add'); // still open
+    expect((await call(`/groups/${id}`, { method: 'DELETE', cookie: b.cookie })).status).toBe(403);
+    expect((await call(`/groups/${id}`, { method: 'DELETE', cookie: a.cookie })).status).toBe(200);
+    expect(exists(id)).toBe(false);
+    expect(db.select().from(groupWords).where(eq(groupWords.groupId, id)).all()).toEqual([]);
+  });
+
+  test("a group with games can't be deleted: its games show its name", async () => {
+    const { id, members } = await groupOf(1);
+    await newGame(id, members[0]!);
+    expect((await call(`/groups/${id}`, { method: 'DELETE', cookie: members[0]!.cookie })).json.error).toBe('group_has_games');
+  });
+
+  test('the last member leaving deletes a group with no games', async () => {
+    const { id, members } = await groupOf(2);
+    await leaveAll(id, members);
+    expect(exists(id)).toBe(false);
+  });
+
+  test('with games, it is orphaned instead: no code reaches it; once its games are gone, it is deleted', async () => {
+    const { id, code, members } = await groupOf(2);
+    const g = await newGame(id, members[0]!);
+    await leaveAll(id, members);
+    expect(exists(id)).toBe(true);
+    const stranger = await newUser();
+    expect((await call(`/groups/join/${code}`, { cookie: stranger.cookie })).status).toBe(404);
+    expect((await call(`/groups/join/${code}`, { method: 'POST', cookie: stranger.cookie })).status).toBe(404);
+    expect((await call(`/groups/${id}`, { cookie: stranger.cookie })).status).toBe(404);
+    db.delete(games).where(eq(games.id, g.json.id)).run(); // e.g. voided after 7 days
+    deleteEmptyOrphans();
+    expect(exists(id)).toBe(false);
+  });
 });
 
 describe('house words (unanimous)', () => {
