@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.1.2 (2026-10-09)
 
 - While you're using the app, news from your other games and groups (your turn, a new group game, votes) shows as a banner at the top. Tap it to go there.
 - When someone opens a game in your group, you get a notification so you can join before it starts. A group page that's open shows the new game right away.
