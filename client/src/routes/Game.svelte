@@ -396,6 +396,31 @@
     }
   }
 
+  // Before the start, a player can leave; the last one out cancels the game.
+  async function leaveGame() {
+    if (!view) return;
+    const alone = view.players.length === 1;
+    const next = view.players.find((p) => p.userId !== session.me?.id);
+    const host = view.hostUserId === session.me?.id;
+    const ok = await confirm(
+      alone
+        ? { title: 'Cancel this game?', body: "Nobody else has joined, so it's deleted.", action: 'Cancel game', danger: true }
+        : {
+            title: 'Leave this game?',
+            body: host && next ? `${next.displayName} becomes the host. You can rejoin with the code until it starts.` : 'You can rejoin with the code until it starts.',
+            action: 'Leave',
+            danger: true,
+          },
+    );
+    if (!ok) return;
+    try {
+      await api(`/games/${id}/players/me`, { method: 'DELETE' });
+      go(view.group ? `/groups/${view.group.id}` : '/');
+    } catch (e) {
+      sayError(e);
+    }
+  }
+
   // A group member looking at a group game's lobby can take a seat.
   async function joinGame() {
     busy = true;
@@ -552,6 +577,9 @@
           <button class="primary" disabled={busy} onclick={joinGame}>Join this game</button>
         {:else}
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
+        {/if}
+        {#if view.role === 'player'}
+          <button class="textbtn leave" onclick={leaveGame}>{view.players.length === 1 ? 'Cancel game' : 'Leave game'}</button>
         {/if}
       </section>
     {:else}
@@ -790,6 +818,7 @@
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .away { position: fixed; inset: 0; z-index: 9; }
   .pair { display: flex; gap: 8px; }
+  .leave { color: var(--bad); align-self: center; }
   .popover[role='dialog'] { display: flex; flex-direction: column; gap: 6px; }
   .watchers { min-width: 44px; height: 44px; padding: 0 8px; border: none; border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 14px; color: var(--muted); }
   .watching-panel { padding: 8px 16px 20px; display: flex; flex-direction: column; gap: 10px; margin-top: auto; }

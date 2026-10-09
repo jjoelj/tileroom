@@ -74,6 +74,34 @@ describe('lobby', () => {
     expect(s.json.players).toHaveLength(3);
   });
 
+  test('players can leave before the start: seats close up, the host role passes on, the last one out deletes it', async () => {
+    const { host, id, joinCode } = await lobby();
+    const [a, b] = [await newUser(), await newUser()];
+    for (const u of [a, b]) await call(`/join/${joinCode}`, { method: 'POST', cookie: u.cookie });
+    const leave = (u: TestUser) => call(`/games/${id}/players/me`, { method: 'DELETE', cookie: u.cookie });
+
+    expect((await leave(a)).status).toBe(200);
+    let v = (await view(id, host)).json;
+    expect(v.players.map((p: { userId: string; seat: number }) => [p.userId, p.seat])).toEqual([
+      [host.id, 0],
+      [b.id, 1],
+    ]);
+    expect((await view(id, a)).status).toBe(404);
+    await call(`/join/${joinCode}`, { method: 'POST', cookie: a.cookie }); // rejoining takes the next seat
+    expect((await leave(host)).status).toBe(200);
+    v = (await view(id, b)).json;
+    expect(v.hostUserId).toBe(b.id);
+    expect(v.players.map((p: { userId: string }) => p.userId)).toEqual([b.id, a.id]);
+    await leave(b);
+    await leave(a);
+    expect(db.select().from(games).where(eq(games.id, id)).get()).toBeUndefined();
+  });
+
+  test("a started game can't be left", async () => {
+    const { id, players } = await started(2);
+    expect((await call(`/games/${id}/players/me`, { method: 'DELETE', cookie: players[1]!.cookie })).json.error).toBe('already_started');
+  });
+
   test('random order still seats everyone once', async () => {
     const { host, id, joinCode } = await lobby(true);
     const a = await newUser();

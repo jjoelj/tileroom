@@ -11,7 +11,7 @@ import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema
 import { ApiError, body, rateLimit } from './http';
 import { approvedWords, deleteEmptyOrphans, expireProposals } from './groups';
 import { notify } from './push';
-import { changed, viewOf, watching } from './realtime';
+import { changed, groupChanged, viewOf, watching } from './realtime';
 import { db } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { dictionary, isExpired, isMember, loadGame, type LoadedGame, stateOf, voidGame } from './store';
@@ -172,6 +172,31 @@ export const gameRoutes = new Hono<AppEnv>()
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
     changed(g.game.id);
     return c.json(viewFor(g.game.id, c.var.user.id));
+  })
+
+  // Leave a game before it starts. Seats close up (they're join order); the host role passes to the next to join;
+  // the last one out deletes the game.
+  .delete('/games/:id/players/me', (c) => {
+    const { g } = myGame(c.req.param('id'), c.var.user.id);
+    if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', "The game has started, so it can't be left");
+    const uid = c.var.user.id;
+    const gone = db.transaction((tx) => {
+      const fresh = loadGame(tx, g.game.id)!;
+      const rest = fresh.seats.filter((s) => s.userId !== uid);
+      if (!rest.length) {
+        voidGame(tx, g.game.id);
+        return true;
+      }
+      tx.delete(gamePlayers).where(eq(gamePlayers.gameId, g.game.id)).run();
+      tx.insert(gamePlayers)
+        .values(rest.map((s, seat) => ({ gameId: g.game.id, seat, userId: s.userId, joinedAt: s.joinedAt })))
+        .run();
+      if (fresh.game.hostId === uid) tx.update(games).set({ hostId: rest[0]!.userId }).where(eq(games.id, g.game.id)).run();
+      return false;
+    });
+    if (!gone) changed(g.game.id);
+    if (g.group) groupChanged(g.group.id);
+    return c.json({ ok: true });
   })
 
   .post('/games/:id/start', (c) => {
