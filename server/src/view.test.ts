@@ -124,6 +124,32 @@ test('indistinguishability: shuffling hidden tiles never changes what a player r
   );
 });
 
+test('indistinguishability for spectators without trays: shuffling every hidden tile changes nothing (SPEC §6.1)', () => {
+  fc.assert(
+    fc.property(fc.integer({ min: 2, max: 6 }), fc.integer({ min: 0, max: 30 }), fc.infiniteStream(fc.nat()), fc.infiniteStream(fc.nat()), (n, steps, gameRand, hiddenRand) => {
+      const g1 = gameRand[Symbol.iterator]();
+      const { s, rows } = randomGame(n, steps, (max) => g1.next().value % max);
+      fc.pre(s.status === 'active');
+      // pool every rack and the bag, deal them out again
+      const h = hiddenRand[Symbol.iterator]();
+      const pool = [...s.players.flatMap((p) => p.rack), ...Object.entries(s.bag).flatMap(([l, k]) => Array<string>(k).fill(l))];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = h.next().value % (i + 1);
+        [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+      }
+      const s2: GameState = structuredClone(s);
+      for (const p of s2.players) p.rack = pool.splice(0, p.rack.length);
+      const bag: Bag = {};
+      for (const l of pool) bag[l] = (bag[l] ?? 0) + 1;
+      s2.bag = bag;
+      const rows2 = rows.map((m) => (m.private ? { ...m, private: { swapped: m.private.swapped?.map(() => 'Z'), drawn: m.private.drawn.map(() => 'Q') } } : m));
+      expect(JSON.stringify(toView(loaded(s2), null, rows2.at(-1)))).toBe(JSON.stringify(toView(loaded(s), null, rows.at(-1))));
+      expect(JSON.stringify(rows2.map((m) => toLogMove(m, -1)))).toBe(JSON.stringify(rows.map((m) => toLogMove(m, -1))));
+    }),
+    { numRuns: 200 },
+  );
+});
+
 test('web-push encrypts under Bun (SPEC §11: verify early)', async () => {
   const ecdh = createECDH('prime256v1');
   ecdh.generateKeys();

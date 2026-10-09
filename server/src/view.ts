@@ -30,9 +30,16 @@ export function toLogMove(m: MoveRow, viewerSeat: number): LogMove {
   return { ...pub, private: { ...(p.swapped && { swapped: [...p.swapped] }), drawn: [...p.drawn] } };
 }
 
-export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: number, last: MoveRow | undefined): GameView {
-  const me = seats.find((s) => s.seat === viewerSeat);
+export type Watcher = { userId: string; displayName: string };
+
+/**
+ * What one viewer may see: a seat number for a player (public state + their own rack), or `null` for a spectator
+ * (public state, plus every rack only if this game's frozen `spectator_racks` allows it; SPEC §4.11).
+ */
+export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: number | null, last: MoveRow | undefined, watching: Watcher[] = []): GameView {
+  const me = viewerSeat === null ? undefined : seats.find((s) => s.seat === viewerSeat);
   const finished = game.status === 'finished';
+  const spectator = viewerSeat === null;
   return {
     id: game.id,
     status: game.status,
@@ -55,12 +62,12 @@ export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: nu
       score: s.score,
       rackCount: s.rack.length,
     })),
-    role: 'player',
+    role: spectator ? 'spectator' : 'player',
     mySeat: me ? me.seat : null,
     myRack: me ? [...me.rack] : null,
-    spectatorRacks: null,
-    spectatorsSeeRacks: false,
-    watching: [],
+    spectatorRacks: spectator && game.spectatorRacks && game.status === 'active' ? seats.map((s) => ({ seat: s.seat, rack: [...s.rack] })) : null,
+    spectatorsSeeRacks: game.spectatorRacks,
+    watching: watching.map((w) => ({ userId: w.userId, displayName: w.displayName })),
     group: group ? { id: group.id, name: group.name } : null,
     houseWords: { add: [...house.add], ban: [...house.ban] },
     lastMove: last ? toPublicMove(last) : null,

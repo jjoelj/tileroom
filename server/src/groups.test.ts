@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { gamePlayers, groupWords } from './db/schema';
 import { expireProposals } from './groups';
+import { sockets } from './realtime';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
-import { call, newUser, pushesTo, type TestUser } from './test-utils';
+import { call, newUser, ORIGIN, pushesTo, type TestUser } from './test-utils';
 
 beforeEach(resetRateLimits);
 
@@ -186,5 +187,68 @@ describe('group games', () => {
     );
     expect((await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: a.cookie, body: across('QXZJ') })).status).toBe(200);
     expect((await call(`/games/${g.json.id}`, { cookie: b.cookie })).json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
+  });
+});
+
+describe('spectating (SPEC §4.11)', () => {
+  /** A started group game: a and b seated, c a member watching. Optionally with trays visible to spectators. */
+  async function watched(racks = false) {
+    const { id: groupId, members } = await groupOf(3);
+    const [a, b, c] = members as [TestUser, TestUser, TestUser];
+    if (racks) await call(`/groups/${groupId}/settings`, { method: 'PATCH', cookie: a.cookie, body: { spectatorsSeeRacks: true } });
+    const g = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId } });
+    await call(`/join/${g.json.joinCode}`, { method: 'POST', cookie: b.cookie });
+    await call(`/games/${g.json.id}/start`, { method: 'POST', cookie: a.cookie });
+    return { groupId, gameId: g.json.id as string, a, b, c };
+  }
+
+  test('members who are not seated watch read-only; outsiders get 404', async () => {
+    const { gameId, a, c } = await watched();
+    const v = await call(`/games/${gameId}`, { cookie: c.cookie });
+    expect(v.json).toMatchObject({ role: 'spectator', mySeat: null, myRack: null, spectatorRacks: null, spectatorsSeeRacks: false });
+    expect((await call(`/games/${gameId}/log`, { cookie: c.cookie })).status).toBe(200);
+    expect((await call(`/games/${gameId}/moves`, { method: 'POST', cookie: c.cookie, body: { turnNumber: 0, type: 'pass' } })).status).toBe(404);
+    expect((await call(`/games/${gameId}/nudge`, { method: 'POST', cookie: c.cookie })).status).toBe(404);
+    expect((await call(`/games/${gameId}`, { cookie: (await newUser()).cookie })).status).toBe(404);
+    expect((await call(`/games/${gameId}`, { cookie: a.cookie })).json.role).toBe('player'); // seated: never a spectator view
+  });
+
+  test('trays: copied at start; turning off applies at once, turning on only to later games', async () => {
+    const { groupId, gameId, a, c } = await watched(true);
+    const v = await call(`/games/${gameId}`, { cookie: c.cookie });
+    expect(v.json.spectatorsSeeRacks).toBe(true);
+    expect(v.json.spectatorRacks.map((r: { rack: string[] }) => r.rack.length)).toEqual([7, 7]);
+    expect((await call(`/games/${gameId}`, { cookie: a.cookie })).json.spectatorRacks).toBeNull(); // players never see others' trays
+
+    await call(`/groups/${groupId}/settings`, { method: 'PATCH', cookie: a.cookie, body: { spectatorsSeeRacks: false } });
+    expect((await call(`/games/${gameId}`, { cookie: c.cookie })).json).toMatchObject({ spectatorsSeeRacks: false, spectatorRacks: null });
+    await call(`/groups/${groupId}/settings`, { method: 'PATCH', cookie: a.cookie, body: { spectatorsSeeRacks: true } });
+    expect((await call(`/games/${gameId}`, { cookie: c.cookie })).json.spectatorRacks).toBeNull(); // never re-exposed
+    expect((await call(`/groups/${groupId}/settings`, { method: 'PATCH', cookie: c.cookie, body: { spectatorsSeeRacks: false } })).status).toBe(403);
+  });
+
+  test('players see who is watching, live; spectators get no turn pushes', async () => {
+    const { gameId, a, b, c } = await watched();
+    const got: { t: string; view?: { watching: { userId: string; displayName: string }[]; role: string } }[] = [];
+    const open = (u: TestUser, sink: typeof got) => {
+      const ws = { send: (s: string) => void sink.push(JSON.parse(s)), close() {} };
+      const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin: ORIGIN, cookie: u.cookie } }))!;
+      sockets.open(ws, w);
+      return { sub: (sub: string) => sockets.message(ws, w, JSON.stringify({ sub })), close: () => sockets.close(ws, w) };
+    };
+    const seen: typeof got = [];
+    const sa = open(a, got);
+    sa.sub(gameId);
+    const sc = open(c, seen);
+    sc.sub(gameId);
+    expect(got.at(-1)!.view!.watching).toEqual([{ userId: c.id, displayName: expect.any(String) }]);
+    expect(seen.at(-1)!.view!.role).toBe('spectator');
+    const before = pushesTo(c).length;
+    expect((await call(`/games/${gameId}/moves`, { method: 'POST', cookie: a.cookie, body: { turnNumber: 0, type: 'pass' } })).status).toBe(200);
+    expect(pushesTo(c)).toHaveLength(before);
+    expect(pushesTo(b).at(-1)).toContain('Your turn.');
+    sc.close();
+    expect(got.at(-1)!.view!.watching).toEqual([]);
+    sa.close();
   });
 });

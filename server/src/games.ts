@@ -7,15 +7,15 @@ import { names } from '../../shared/plural';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
-import { gamePlayers, games, gameWords, groupMembers, groups, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { approvedWords, expireProposals } from './groups';
 import { notify } from './push';
-import { changed, watching } from './realtime';
+import { changed, viewOf, watching } from './realtime';
 import { db } from './runtime/db';
 import { clientIp } from './runtime/ip';
-import { dictionary, isExpired, lastMove, loadGame, type LoadedGame, stateOf, voidGame } from './store';
-import { toLogMove, toView } from './view';
+import { dictionary, isExpired, isMember, loadGame, type LoadedGame, stateOf, voidGame } from './store';
+import { toLogMove } from './view';
 
 const DAY = 86_400_000;
 
@@ -33,10 +33,17 @@ function myGame(id: string, userId: string) {
   return { g, seat };
 }
 
-const isMember = (groupId: string, userId: string) =>
-  !!db.select({ u: groupMembers.userId }).from(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).get();
+/** The game as this user may see it: seated players and, for group games, members watching. 404 for anyone else. */
+function visibleGame(id: string, userId: string) {
+  const g = loadGame(db, id);
+  if (g && isExpired(g.game)) voidGame(db, id);
+  const view = g && !isExpired(g.game) ? viewOf(g, userId) : null;
+  if (!g || !view) throw new ApiError(404, 'not_found');
+  return { g, view };
+}
 
-const viewFor = (id: string, seat: number) => toView(loadGame(db, id)!, seat, lastMove(db, id));
+/** A fresh view of the game for this user, with who's watching. */
+const viewFor = (id: string, userId: string) => viewOf(loadGame(db, id)!, userId)!;
 
 /** What a game is called for one player: everyone else in it ("Sam & Ben"). Games have no names. */
 const titleFor = (g: LoadedGame, userId: string) => names(g.seats.filter((s) => s.userId !== userId).map((s) => s.displayName)) || 'Tileroom';
@@ -112,7 +119,7 @@ export const gameRoutes = new Hono<AppEnv>()
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),
     );
-    if (b.groupId && !isMember(b.groupId, c.var.user.id)) throw new ApiError(404, 'not_found');
+    if (b.groupId && !isMember(db, b.groupId, c.var.user.id)) throw new ApiError(404, 'not_found');
     const id = randomId();
     db.transaction((tx) => {
       let joinCode = newJoinCode();
@@ -121,7 +128,7 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.insert(games).values({ id, ...b, hostId: c.var.user.id, joinCode }).run();
       tx.insert(gamePlayers).values({ gameId: id, seat: 0, userId: c.var.user.id }).run();
     });
-    return c.json(viewFor(id, 0), 201);
+    return c.json(viewFor(id, c.var.user.id), 201);
   })
 
   .get('/join/:code', (c) => {
@@ -135,7 +142,7 @@ export const gameRoutes = new Hono<AppEnv>()
       joined: seatOf(g, c.var.user.id) !== undefined,
       group: g.group,
       // a group game takes only that group's members (SPEC §4.10)
-      canJoin: !g.group || isMember(g.group.id, c.var.user.id),
+      canJoin: !g.group || isMember(db, g.group.id, c.var.user.id),
     });
   })
 
@@ -143,32 +150,28 @@ export const gameRoutes = new Hono<AppEnv>()
     const g = joinTarget(c, clientIp(c));
     const uid = c.var.user.id;
     const existing = seatOf(g, uid);
-    if (existing !== undefined) return c.json(viewFor(g.game.id, existing));
+    if (existing !== undefined) return c.json(viewFor(g.game.id, uid));
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', 'This game has already started');
-    if (g.group && !isMember(g.group.id, uid)) throw new ApiError(403, 'not_group_member', `This game is for ${g.group.name}. Join the group first.`);
-    const seat = db.transaction((tx) => {
+    if (g.group && !isMember(db, g.group.id, uid)) throw new ApiError(403, 'not_group_member', `This game is for ${g.group.name}. Join the group first.`);
+    db.transaction((tx) => {
       const fresh = loadGame(tx, g.game.id)!;
       if (fresh.seats.length >= MAX_PLAYERS) throw new ApiError(409, 'game_full', 'This game is full');
       tx.insert(gamePlayers).values({ gameId: g.game.id, seat: fresh.seats.length, userId: uid }).run();
-      return fresh.seats.length;
     });
     changed(g.game.id);
-    return c.json(viewFor(g.game.id, seat));
+    return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
-  .get('/games/:id', (c) => {
-    const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
-    return c.json(toView(g, seat, lastMove(db, g.game.id)));
-  })
+  .get('/games/:id', (c) => c.json(visibleGame(c.req.param('id'), c.var.user.id).view))
 
   .patch('/games/:id', async (c) => {
-    const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
+    const { g } = myGame(c.req.param('id'), c.var.user.id);
     const b = await body(c, z.object({ expandedWords: z.boolean().optional() }));
     if (g.game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
     changed(g.game.id);
-    return c.json(viewFor(g.game.id, seat));
+    return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
   .post('/games/:id/start', (c) => {
@@ -217,8 +220,7 @@ export const gameRoutes = new Hono<AppEnv>()
       notifyGame(g, [s.userId], seat === state.currentSeat ? "The game has started. It's your turn." : 'The game has started.');
     });
     changed(game.id);
-    const mySeat = order.findIndex((s) => s.userId === c.var.user.id);
-    return c.json(viewFor(game.id, mySeat));
+    return c.json(viewFor(game.id, c.var.user.id));
   })
 
   .post('/games/:id/moves', async (c) => {
@@ -289,13 +291,14 @@ export const gameRoutes = new Hono<AppEnv>()
         record.type === 'play' ? `${mover} played ${record.words![0]!.word} (${record.score})` : record.type === 'swap' ? `${mover} swapped tiles` : `${mover} passed`;
       notifyGame(g, [g.seats[state.currentSeat]!.userId], `Your turn. ${did}`);
     }
-    return c.json(viewFor(id, seat));
+    return c.json(viewFor(id, uid));
   })
 
   .get('/games/:id/log', (c) => {
-    const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
+    const { g, view } = visibleGame(c.req.param('id'), c.var.user.id);
     const rows = db.select().from(moves).where(eq(moves.gameId, g.game.id)).orderBy(desc(moves.id)).all();
-    return c.json({ moves: rows.map((m) => toLogMove(m, seat)) });
+    // spectators (no seat) get the public log only
+    return c.json({ moves: rows.map((m) => toLogMove(m, view.mySeat ?? -1)) });
   })
 
   .post('/games/:id/nudge', (c) => {

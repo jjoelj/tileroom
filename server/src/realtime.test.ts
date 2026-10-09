@@ -31,6 +31,8 @@ test('watchers of a game get their own view; players on the lobby get a nudge; n
   ss.sub(id); // not seated: must get nothing
   expect(watching(a.id, id)).toBe(true);
   expect(watching(b.id, id)).toBe(false);
+  expect(ss.got).toEqual([]); // not seated, not in a group: nothing, not even on subscribe
+  for (const s of [sa, sb]) s.got.length = 0; // subscribing sends a fresh view (watcher lists); start counting now
 
   const tiles = [{ r: 7, c: 6, letter: 'C' }, { r: 7, c: 7, letter: 'A' }, { r: 7, c: 8, letter: 'T' }];
   expect((await call(`/games/${id}/moves`, { method: 'POST', cookie: a.cookie, body: { turnNumber: 0, type: 'play', tiles } })).status).toBe(200);

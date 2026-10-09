@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from 'node:fs';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { effectiveDictionary, parseWordList, type IsWord } from '../../shared/dictionary';
 import { turnExpired } from '../../shared/rules';
 import type { GameState } from '../../shared/types';
-import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groupMembers, groups, moves, users } from './db/schema';
 import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
@@ -58,6 +58,13 @@ export const voidGame = (q: Q, id: string) => q.delete(games).where(eq(games.id,
 const lists: Record<string, Set<string>> = {};
 const load = (name: 'words' | 'abbreviations') =>
   (lists[name] ??= parseWordList(readFileSync(new URL(`../../wordlists/${name}.txt`, import.meta.url), 'utf8')));
+
+export const isMember = (q: Q, groupId: string, userId: string) =>
+  !!q.select({ u: groupMembers.userId }).from(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).get();
+
+/** A group member who isn't seated in this group game may watch it (SPEC §4.11). Open games can't be watched. */
+export const canSpectate = (q: Q, g: LoadedGame, userId: string) =>
+  !!g.group && !g.seats.some((s) => s.userId === userId) && isMember(q, g.group.id, userId);
 
 /** The base word list (no abbreviations): what group proposals are checked against. */
 export const baseWords = () => load('words');

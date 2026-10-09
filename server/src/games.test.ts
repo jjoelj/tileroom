@@ -45,7 +45,7 @@ describe('lobby', () => {
     expect(joinCode).toMatch(/^[0-9A-Z]{3}-[0-9A-Z]{3}$/);
     const guest = await newUser();
     const preview = await call(`/join/${joinCode.toLowerCase().replace('-', '')}`, { cookie: guest.cookie });
-    expect(preview.json).toMatchObject({ id, players: ['User ' + host.username.match(/\d+/)![0]], joined: false });
+    expect(preview.json).toMatchObject({ id, players: [`User ${host.username.match(/\d+/)![0]}`], joined: false });
     expect(preview.json.name).toBeUndefined();
     expect((await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie })).json.error).toBe('not_enough_players');
     await call(`/join/${joinCode}`, { method: 'POST', cookie: guest.cookie });
