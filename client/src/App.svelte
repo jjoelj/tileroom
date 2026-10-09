@@ -140,6 +140,9 @@
 {/if}
 
 <footer>
+  {#if update.ready}
+    <button class="reload" transition:show onclick={() => location.reload()}><span>Update ready · Reload</span></button>
+  {/if}
   <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener" title="View source" aria-label={`View source (${VERSION})`}>{VERSION}</a>
 </footer>
 
@@ -166,5 +169,8 @@
   }
   .news { overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
   footer { height: var(--foot); max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-end; }
+  /* 44px tap target; the visible pill inside is smaller so the footer stays slim */
+  .reload { margin-right: auto; margin-left: 8px; height: 44px; padding: 0 8px; border: none; background: none; }
+  .reload span { display: flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; }
   footer a { min-height: 44px; display: flex; align-items: center; padding: 0 16px; font: 400 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); opacity: 0.7; text-decoration: none; }
 </style>

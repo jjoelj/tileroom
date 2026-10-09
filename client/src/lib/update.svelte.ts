@@ -3,11 +3,13 @@
 // app (App.svelte) while we ask for a new version. If there is one, it installs and the page reloads behind the
 // splash, so nothing being typed or looked at is ever interrupted. (sw.ts takes over at once: skipWaiting + claim.)
 
-export const update = $state<{ phase: 'checking' | 'updating' | null }>({ phase: null });
+/** `ready`: a new version took over while the app was in use; the footer offers to reload (App.svelte). */
+export const update = $state<{ phase: 'checking' | 'updating' | null; ready: boolean }>({ phase: null, ready: false });
 
 const AWAY_MS = 60_000; // shorter trips (a quick app switch) don't get a splash
 const CHECK_MS = 3_000; // offline or slow: open the app anyway
 const INSTALL_MS = 15_000; // a slow install: open the app; it updates on the next return
+const POLL_MS = 10 * 60_000; // while in use: look for a new version this often, then offer it (never forced)
 
 // A new version that took over mid-use (the browser checks on its own too): this page is stale; reload at the next check.
 let stale = false;
@@ -36,8 +38,12 @@ export function checkForUpdates() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
   const hadController = !!navigator.serviceWorker.controller; // a first install's takeover isn't an update
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController && update.phase === null) stale = true;
+    if (hadController && update.phase === null) stale = update.ready = true;
   });
+  // In use for a while (mid-game): check now and then; a new version takes over and the footer offers a reload.
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && update.phase === null) void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+  }, POLL_MS);
   void check();
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
