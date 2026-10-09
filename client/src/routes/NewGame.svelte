@@ -6,18 +6,31 @@
   import { show } from '../lib/motion';
   import { go } from '../lib/state.svelte';
 
-  // /new?group=ID: a group game (its words, its members only); otherwise an open game.
-  const groupId = new URLSearchParams(location.search).get('group');
-  let groupName = $state('');
+  // A group game uses that group's words and takes only its members; no group means anyone with the code.
+  // /new?group=ID (from a group's page) starts with that group chosen.
+  const cameFrom = new URLSearchParams(location.search).get('group');
+  let groupId = $state(cameFrom ?? '');
+  let groups = $state<{ id: string; name: string }[]>([]);
   let words = $state<{ add: string[]; ban: string[] } | null>(null);
-  if (groupId) {
-    api<{ name: string; words: { add: string[]; ban: string[] } }>(`/groups/${encodeURIComponent(groupId)}`)
-      .then((g) => {
-        groupName = g.name;
-        words = g.words;
-      })
+  const groupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
+
+  api<{ groups: { id: string; name: string }[] }>('/groups')
+    .then((r) => (groups = r.groups))
+    .catch(() => {});
+
+  // the chosen group's house words, shown before the game is made
+  $effect(() => {
+    const id = groupId;
+    words = null;
+    if (!id) return;
+    let current = true;
+    api<{ words: { add: string[]; ban: string[] } }>(`/groups/${encodeURIComponent(id)}`)
+      .then((g) => current && (words = g.words))
       .catch(() => {});
-  }
+    return () => {
+      current = false;
+    };
+  });
 
   let bagSize = $state<100 | 150>(100);
   let randomOrder = $state(true);
@@ -38,28 +51,40 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back" onclick={() => go(groupId ? `/groups/${groupId}` : '/')}>
+    <button class="iconbtn" aria-label="Back" onclick={() => go(cameFrom ? `/groups/${cameFrom}` : '/')}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
     <h1 class="h1" style="font-size: 22px; flex-grow: 1">New game</h1>
-    {#if groupId}<span class="tag">{groupName || 'Group game'}</span>{/if}
+    {#if groupName}<span class="tag">{groupName}</span>{/if}
   </header>
 
   <div style="padding: 4px 16px 0; display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
-    {#if groupId && words}
-      <!-- what this game will be played with: copied from the group when the game starts -->
-      <div class="card" in:show={{ y: 6 }}>
-        <div class="line">
-          <div class="stack" style="gap: 1px">
-            <span class="strong">House words</span>
-            <span class="hint">{words.add.length || words.ban.length ? 'Locked in when the game starts' : 'None yet, so the standard list applies'}</span>
+    {#if groups.length}
+      <div class="card">
+        <label class="line">
+          <span class="stack" style="gap: 1px">
+            <span class="strong">Group</span>
+            <span class="hint">{groupId ? 'Its house words, its members only' : 'Anyone with the code can join'}</span>
+          </span>
+          <select bind:value={groupId} aria-label="Group">
+            <option value="">No group</option>
+            {#each groups as g (g.id)}<option value={g.id}>{g.name}</option>{/each}
+          </select>
+        </label>
+        <!-- what this game will be played with: copied from the group when the game starts -->
+        {#if groupId && words}
+          <div class="line">
+            <span class="stack" style="gap: 1px">
+              <span class="strong">House words</span>
+              <span class="hint">{words.add.length || words.ban.length ? 'Locked in when the game starts' : 'None yet, so the standard list applies'}</span>
+            </span>
           </div>
-        </div>
-        {#if words.add.length}
-          <div class="line words"><span class="what">Added</span><span class="list">{words.add.join(', ')}</span></div>
-        {/if}
-        {#if words.ban.length}
-          <div class="line words"><span class="what">Banned</span><span class="list">{words.ban.join(', ')}</span></div>
+          {#if words.add.length}
+            <div class="line words"><span class="what">Added</span><span class="list">{words.add.join(', ')}</span></div>
+          {/if}
+          {#if words.ban.length}
+            <div class="line words"><span class="what">Banned</span><span class="list">{words.ban.join(', ')}</span></div>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -119,6 +144,7 @@
   .words .list { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-align: right; line-height: 1.5; overflow-wrap: anywhere; max-height: 90px; overflow: auto; }
   .strong { font-weight: 800; font-size: 16px; }
   .segment { display: flex; background: var(--well); border-radius: 12px; padding: 3px; }
+  select { height: 44px; max-width: 55%; padding: 0 12px; border: none; border-radius: 12px; background: var(--well); color: var(--ink); font-weight: 700; font-size: 14px; }
   .segment button { height: 38px; min-width: 52px; padding: 0 12px; border-radius: 9px; border: none; background: transparent; font-weight: 700; font-size: 14px; }
   .segment button.on { background: var(--surface); }
   .toggle { padding-right: 14px; font-weight: 800; font-size: 15px; }
