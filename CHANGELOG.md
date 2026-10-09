@@ -3,18 +3,18 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.4.0 (2026-10-09)
 
 - If a new version comes out while you're playing, an "Update ready · Reload" button appears at the bottom within moments of the release. Tap it when you're ready; nothing reloads on its own.
 - The zoom button is gone, so it no longer covers the bottom-right square. Double-tap or pinch the board to zoom (Ctrl+scroll on a computer).
 - Updates install themselves. When you open the app, or come back after a while, it checks for a new version behind a short splash screen before showing anything.
 
-## v0.1.3 (2026-10-09)
+## v0.3.0 (2026-10-09)
 
 - "Sam played SUN" names the word most of Sam's new tiles went into, not whichever word happened to be found first.
 - In a game, a player's dot pulses while they have the game open, so you can see who's there right now.
 
-## v0.1.2 (2026-10-09)
+## v0.2.0 (2026-10-09)
 
 - While you're using the app, news from your other games and groups (your turn, a new group game, votes) shows as a banner at the top. Tap it to go there.
 - When someone opens a game in your group, you get a notification so you can join before it starts. A group page that's open shows the new game right away.
