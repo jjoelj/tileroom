@@ -19,10 +19,12 @@
   import SignIn from './routes/SignIn.svelte';
   import SignUp from './routes/SignUp.svelte';
 
-  // Gate 1 (SPEC §9.6): only the installed app runs. The bypass exists in dev builds only.
+  // Gate 1 (SPEC §9.6): on phones and tablets only the installed app runs (iOS push needs it); desktop browsers
+  // push from a tab, so they skip it. iPadOS reports a Mac UA, hence the touch check. The bypass is dev-only.
   const standalone =
     matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  const installed = standalone || (import.meta.env.DEV && import.meta.env.VITE_SKIP_PWA_GATE === '1');
+  const mobile = /Android|iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const installed = standalone || !mobile || (import.meta.env.DEV && import.meta.env.VITE_SKIP_PWA_GATE === '1');
 
   onMount(() => {
     api<Me>('/me')
