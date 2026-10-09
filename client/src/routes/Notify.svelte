@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { pushSupported, subscribe } from '../lib/push';
-  import { session } from '../lib/state.svelte';
+  import { device, session } from '../lib/state.svelte';
 
-  let permission = $state<NotificationPermission | 'unsupported'>(pushSupported() ? Notification.permission : 'unsupported');
+  const permission = $derived(pushSupported() ? device.permission : 'unsupported');
   let error = $state('');
   let busy = $state(false);
 
@@ -19,8 +19,8 @@
     busy = true;
     error = '';
     try {
-      permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
+      device.permission = await Notification.requestPermission();
+      if (device.permission !== 'granted') return;
       await subscribe();
       if (session.me) session.me.pushReady = true;
     } catch {
@@ -31,8 +31,8 @@
   }
 
   function check() {
-    permission = Notification.permission;
-    if (permission === 'granted') void enable();
+    device.permission = Notification.permission;
+    if (device.permission === 'granted') void enable();
   }
 </script>
 

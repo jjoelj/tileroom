@@ -4,7 +4,7 @@
   import { api } from './lib/api';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
-  import { go, type Me, route, session } from './lib/state.svelte';
+  import { device, go, type Me, route, session } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Install from './routes/Install.svelte';
   import Lobby from './routes/Lobby.svelte';
@@ -31,7 +31,7 @@
   // Permission granted but the session lost its subscription (new sign-in, iOS dropped it): re-subscribe silently.
   $effect(() => {
     const me = session.me;
-    if (me && !me.pushReady && pushSupported() && Notification.permission === 'granted') {
+    if (me && !me.pushReady && pushSupported() && device.permission === 'granted') {
       subscribe()
         .then(() => (me.pushReady = true))
         .catch(() => {});
@@ -47,7 +47,7 @@
   <div class="screen" aria-busy="true"></div>
 {:else if session.me === null}
   {#if route.path === '/signup'}<SignUp />{:else}<SignIn />{/if}
-{:else if !session.me.pushReady}
+{:else if !session.me.pushReady || device.permission !== 'granted'}
   <Notify />
 {:else if gameId}
   {#key gameId}<Game id={gameId} />{/key}
