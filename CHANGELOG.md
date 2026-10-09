@@ -5,6 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
+- Admins have an Admin page (Settings > Admin) with invites and every group: its members and how many games it has going and has played.
 - If a new version comes out while you're playing, an "Update ready · Reload" button appears at the bottom. Tap it when you're ready; nothing reloads on its own.
 - The zoom button is gone, so it no longer covers the bottom-right square. Double-tap or pinch the board to zoom (Ctrl+scroll on a computer).
 - Updates install themselves. When you open the app, or come back after a while, it checks for a new version behind a short splash screen before showing anything.

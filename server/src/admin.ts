@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Admin tools. Admins make as many invites as they like and see who used each one. No game visibility (SPEC §6.1).
-import { and, desc, eq, isNull } from 'drizzle-orm';
+// Admin tools. Admins make as many invites as they like and see who used each one, and see every group with its
+// members and how many games it has. Counts only: no boards, racks or moves (no game visibility, SPEC §6.1).
+import { and, asc, count, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { AppEnv } from './auth';
-import { invites, users } from './db/schema';
+import { games, groupMembers, groups, invites, users } from './db/schema';
 import { ApiError } from './http';
 import { db } from './runtime/db';
 import { createInvite } from './store';
@@ -35,6 +36,29 @@ export const adminRoutes = new Hono<AppEnv>()
       .orderBy(desc(invites.createdAt))
       .all();
     return c.json({ invites: rows.map((r) => ({ ...r, usedBy: r.usedBy?.username ? r.usedBy : null })) });
+  })
+
+  .get('/admin/groups', (c) => {
+    const members = db
+      .select({ groupId: groupMembers.groupId, username: users.username, displayName: users.displayName, role: groupMembers.role })
+      .from(groupMembers)
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .orderBy(asc(groupMembers.joinedAt))
+      .all();
+    const tallies = db
+      .select({ groupId: games.groupId, status: games.status, n: count() })
+      .from(games)
+      .where(isNotNull(games.groupId))
+      .groupBy(games.groupId, games.status)
+      .all();
+    const list = db.select({ id: groups.id, name: groups.name, createdAt: groups.createdAt }).from(groups).orderBy(asc(groups.name)).all();
+    return c.json({
+      groups: list.map((g) => ({
+        ...g,
+        members: members.filter((m) => m.groupId === g.id).map(({ groupId, ...m }) => m),
+        games: Object.fromEntries((['lobby', 'active', 'finished'] as const).map((s) => [s, tallies.find((t) => t.groupId === g.id && t.status === s)?.n ?? 0])),
+      })),
+    });
   })
 
   .delete('/admin/invites/:id', (c) => {

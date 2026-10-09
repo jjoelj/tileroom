@@ -46,3 +46,22 @@ test('a new invite never reuses an existing code', () => {
   const codes = [taken, taken, fresh];
   expect(createInvite(db, null, () => codes.shift()!)).toBe(fresh);
 });
+
+test('admins see every group, its members and its game counts; nothing about the games themselves', async () => {
+  const [admin, a, b, outsider] = [await newUser(), await newUser(), await newUser(), await newUser()];
+  db.update(users).set({ isAdmin: true }).where(eq(users.id, admin.id)).run();
+  const g = (await call('/groups', { method: 'POST', cookie: a.cookie, body: { name: 'Admin view' } })).json;
+  await call(`/groups/join/${g.joinCode}`, { method: 'POST', cookie: b.cookie });
+  const game = (await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: g.id } })).json;
+  await call(`/join/${game.joinCode}`, { method: 'POST', cookie: b.cookie });
+  await call(`/games/${game.id}/start`, { method: 'POST', cookie: a.cookie });
+  await call('/games', { method: 'POST', cookie: b.cookie, body: { bagSize: 100, randomOrder: false, groupId: g.id } });
+
+  expect((await call('/admin/groups', { cookie: outsider.cookie })).status).toBe(403);
+  const list = (await call('/admin/groups', { cookie: admin.cookie })).json.groups;
+  const mine = list.find((x: { id: string }) => x.id === g.id);
+  expect(mine.members.map((m: { role: string }) => m.role)).toEqual(['admin', 'member']);
+  expect(mine.games).toEqual({ lobby: 1, active: 1, finished: 0 });
+  expect(JSON.stringify(mine)).not.toMatch(/rack|board|bag|joinCode/);
+  expect((await call(`/games/${game.id}`, { cookie: admin.cookie })).status).toBe(404); // still no game visibility
+});

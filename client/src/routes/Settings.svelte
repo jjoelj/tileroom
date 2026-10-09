@@ -1,12 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ms, show } from '../lib/motion';
   import { say } from '../lib/say.svelte';
   import { api } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
-  import { canShare, copy, shareText } from '../lib/share';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { go, session } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
@@ -36,31 +34,6 @@
       () => (me.displayName = displayName),
       () => {},
     );
-  }
-
-  // Admins: unlimited invites, and who used each one.
-  type Invite = { id: string; hint: string; createdAt: number; createdBy: string | null; usedAt: number | null; usedBy: { username: string; displayName: string } | null };
-  let invites = $state<Invite[]>([]);
-  let fresh = $state(''); // the code just made: shown once, only its hash is stored
-  const loadInvites = () => api<{ invites: Invite[] }>('/admin/invites').then((r) => (invites = r.invites), () => {});
-  onMount(() => void (session.me?.isAdmin && loadInvites()));
-
-  async function makeInvite() {
-    try {
-      fresh = (await api<{ code: string }>('/admin/invites', { method: 'POST' })).code;
-      void loadInvites();
-    } catch (err) {
-      sayError(err);
-    }
-  }
-  const day = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const link = $derived(`${location.origin}/signup/${fresh}`);
-
-  async function revoke(inv: Invite) {
-    const ok = await confirm({ title: 'Revoke this invite?', body: `The invite ending ${inv.hint} will stop working and be deleted.`, action: 'Revoke', danger: true });
-    if (!ok) return;
-    await api(`/admin/invites/${inv.id}`, { method: 'DELETE' }).catch(sayError);
-    void loadInvites();
   }
 
   // Change password (SPEC §9.6): confirm field with a live match check; other devices get signed out.
@@ -147,38 +120,7 @@
 
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
     <button class="secondary" onclick={() => go('/whats-new')}>What's new</button>
-    {#if session.me?.isAdmin}
-      <div style="display: flex; flex-direction: column; gap: 10px">
-        <span class="label">Invites</span>
-        <button class="primary" onclick={makeInvite}>Create invite</button>
-        {#if fresh}
-          <div class="card fresh">
-            <span class="code">{fresh}</span>
-            <span class="hint">Shown once. Works for one signup.</span>
-            <div style="display: flex; gap: 8px; margin-top: 6px">
-              {#if canShare}
-                <button class="secondary" onclick={() => shareText(`Join me on Tileroom: ${link}`)}>Share invite</button>
-              {:else}
-                <button class="secondary" onclick={() => copy(link, 'Link')}>Copy link</button>
-                <button class="secondary" onclick={() => copy(fresh, 'Code')}>Copy code</button>
-              {/if}
-            </div>
-          </div>
-        {/if}
-        {#each invites as inv (inv.id)}
-          <div class="card item">
-            <span class="grow">
-              <span class="hint-code">…{inv.hint}</span>
-              <span class="hint">
-                {#if inv.usedBy}Used by {inv.usedBy.displayName} (@{inv.usedBy.username}) · {day(inv.usedAt!)}
-                {:else}Unused · made {day(inv.createdAt)}{inv.createdBy ? ` by ${inv.createdBy}` : ' on the server'}{/if}
-              </span>
-            </span>
-            {#if !inv.usedBy}<button class="secondary small" onclick={() => revoke(inv)}>Revoke</button>{/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
+    {#if session.me?.isAdmin}<button class="secondary" onclick={() => go('/admin')}>Admin</button>{/if}
 
     <button class="secondary signout" onclick={signOut}>Sign out</button>
   </div>
@@ -187,11 +129,7 @@
 <style>
   .item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
   .grow { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .hint-code { font: 700 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.05em; }
-  .code { font: 700 17px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.05em; }
   .signout { color: var(--bad); border-color: var(--bad); margin-top: 12px; }
-  .fresh { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; }
-  .small { width: auto; height: 44px; padding: 0 14px; flex-shrink: 0; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }
   .themes button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }
   .themes button.on { background: var(--surface); }
