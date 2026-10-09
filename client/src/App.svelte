@@ -111,13 +111,13 @@
 {/key}
 
 <footer>
-  <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener">{VERSION} · Source code</a>
+  <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener" title="View source" aria-label={`View source (${VERSION})`}>{VERSION}</a>
 </footer>
 
 <Dialog />
 <Toast />
 
 <style>
-  footer { height: var(--foot); display: flex; align-items: center; justify-content: center; }
-  footer a { min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; }
+  footer { height: var(--foot); max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-end; }
+  footer a { min-height: 44px; display: flex; align-items: center; padding: 0 16px; font: 400 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); opacity: 0.7; text-decoration: none; }
 </style>
