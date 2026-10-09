@@ -323,6 +323,6 @@
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
   .outline { position: absolute; left: 0; top: 0; overflow: visible; z-index: 2; pointer-events: none; fill: var(--valid); }
-  .bubble { transition: background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
-  .bubble.valid { background: var(--valid); }
+  .bubble { transition: background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--bubble-idle); color: var(--bubble-fg); border: 2px solid var(--surface); font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
+  .bubble.valid { background: var(--valid); color: var(--on-valid); }
 </style>

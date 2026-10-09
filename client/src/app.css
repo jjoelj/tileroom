@@ -15,7 +15,7 @@
   --dw-bg: #f3c7ae; --dw-fg: #8a3414; --tw-bg: #b8441e; --tw-fg: #ffffff;
   --tile: #f2cf73; --tile-top: #f8dd92; --tile-edge: #c9a24a; --tile-fg: #1e1a10;
   --tile-pending: #fff1c2; --tile-last: #f7de9c;
-  --valid: #84cc16; --bubble-idle: #b9b5a8; --gold: #c9a227;
+  --valid: #84cc16; --on-valid: #16161a; --bubble-idle: #b9b5a8; --bubble-fg: #16161a; --gold: #c9a227;
   --link: #2f66a3; --ok: #246649; --bad: #9a3a19;
   /* player colors: text on light surfaces / badge backgrounds */
   --p0: #2f66a3; --p1: #9a3a19; --p2: #246649; --p3: #5b3fa3; --p4: #a0306a; --p5: #7a5a12;
@@ -37,7 +37,7 @@
     --dw-bg: #55301f; --dw-fg: #f3c7ae; --tw-bg: #b8441e; --tw-fg: #ffffff;
     --tile: #e8c468; --tile-top: #f1d68c; --tile-edge: #b08a37; --tile-fg: #1e1a10;
     --tile-pending: #f5e6b0; --tile-last: #f2d58a;
-    --valid: #84cc16; --bubble-idle: #6b6b74; --gold: #e0b83a;
+    --valid: #84cc16; --on-valid: #16161a; --bubble-idle: #6b6b74; --bubble-fg: #ffffff; --gold: #e0b83a;
     --link: #8ab8ea; --ok: #6fcf97; --bad: #f08a6a;
     --p0: #8ab8ea; --p1: #f0997a; --p2: #6fcf97; --p3: #b3a0ec; --p4: #ec8fbd; --p5: #e0c070;
   }
@@ -53,7 +53,7 @@
   --dw-bg: #55301f; --dw-fg: #f3c7ae; --tw-bg: #b8441e; --tw-fg: #ffffff;
   --tile: #e8c468; --tile-top: #f1d68c; --tile-edge: #b08a37; --tile-fg: #1e1a10;
   --tile-pending: #f5e6b0; --tile-last: #f2d58a;
-  --valid: #84cc16; --bubble-idle: #6b6b74; --gold: #e0b83a;
+  --valid: #84cc16; --on-valid: #16161a; --bubble-idle: #6b6b74; --bubble-fg: #ffffff; --gold: #e0b83a;
   --link: #8ab8ea; --ok: #6fcf97; --bad: #f08a6a;
   --p0: #8ab8ea; --p1: #f0997a; --p2: #6fcf97; --p3: #b3a0ec; --p4: #ec8fbd; --p5: #e0c070;
 }
