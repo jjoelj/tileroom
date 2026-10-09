@@ -73,9 +73,10 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 button, input, a { font: inherit; color: inherit; touch-action: manipulation; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
-/* hover: tint with the button's own text color, so dark buttons lighten and light ones darken. Mouse only (no sticky hover on touch). */
+/* hover: tint with the button's own text color, so dark buttons lighten and light ones darken. Mouse only (no sticky hover on touch).
+   Not on board squares or tiles: they have their own drag and selection feedback. */
 @media (hover: hover) {
-  button:not(:disabled):hover { background-image: linear-gradient(color-mix(in srgb, currentColor 10%, transparent) 0 0); }
+  button:not(:disabled):not(.cell):not(.tile-face):hover { background-image: linear-gradient(color-mix(in srgb, currentColor 10%, transparent) 0 0); }
   a:hover { text-decoration: underline; }
 }
 a { color: var(--link); }

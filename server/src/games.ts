@@ -9,7 +9,7 @@ import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
-import { approvedWords, deleteEmptyOrphans, expireProposals } from './groups';
+import { approvedWords, deleteEmptyOrphans, expireProposals, gameOpened } from './groups';
 import { notify } from './push';
 import { changed, groupChanged, viewOf, watching } from './realtime';
 import { db } from './runtime/db';
@@ -128,6 +128,8 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.insert(games).values({ id, ...b, hostId: c.var.user.id, joinCode }).run();
       tx.insert(gamePlayers).values({ gameId: id, seat: 0, userId: c.var.user.id }).run();
     });
+    changed(id); // open group pages list it right away
+    if (b.groupId) gameOpened(b.groupId, c.var.user);
     return c.json(viewFor(id, c.var.user.id), 201);
   })
 

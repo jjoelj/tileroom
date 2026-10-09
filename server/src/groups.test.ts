@@ -336,3 +336,22 @@ describe('spectating (SPEC §4.11)', () => {
     sa.close();
   });
 });
+
+test('opening a group game tells the other members, except anyone on the group page', async () => {
+  const { id, members } = await groupOf(3);
+  const [a, b, c] = members as [TestUser, TestUser, TestUser];
+  const got: unknown[] = [];
+  const ws = { send: (m: string) => void got.push(JSON.parse(m)), close() {} };
+  const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin: ORIGIN, cookie: b.cookie } }))!;
+  sockets.open(ws, w);
+  sockets.message(ws, w, JSON.stringify({ sub: `group:${id}` }));
+  got.length = 0; // subscribing nudges a refetch; count from here
+  const [aBefore, bBefore] = [pushesTo(a).length, pushesTo(b).length];
+  const r = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
+  expect(r.status).toBe(201);
+  expect(pushesTo(c).at(-1)).toMatch(/opened a game\. Join before it starts\.$/);
+  expect(pushesTo(a)).toHaveLength(aBefore); // the host knows
+  expect(pushesTo(b)).toHaveLength(bBefore); // on the page: sees it live instead
+  expect(got).toContainEqual({ t: 'group' });
+  sockets.close(ws, w);
+});

@@ -5,6 +5,8 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
+- When someone opens a game in your group, you get a notification so you can join before it starts. A group page that's open shows the new game right away.
+- Board squares and tiles no longer get the hover tint.
 - What's new: after an update, a popup lists what changed. It's also in Settings > What's new.
 - Change your password in Settings. Your other devices are signed out; the one you're on stays signed in.
 - "You're all set" only goes to the device you just set up. The Settings test notification still goes to all of them.

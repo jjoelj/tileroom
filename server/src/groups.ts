@@ -106,6 +106,12 @@ function notifyGroup(groupId: string, userIds: string[], body: string) {
   void notify(to, { title: groupName(groupId), body, url: `/groups/${groupId}`, tag: `group-${groupId}` });
 }
 
+/** A member opened a game in the group: everyone else hears about it while they can still join. */
+export function gameOpened(groupId: string, host: { id: string; displayName: string }) {
+  const others = memberIds(db, groupId).filter((u) => u !== host.id);
+  notifyGroup(groupId, others, `${host.displayName} opened a game. Join before it starts.`);
+}
+
 const groupName = (groupId: string) => db.select({ name: groups.name }).from(groups).where(eq(groups.id, groupId)).get()?.name ?? 'Tileroom';
 
 /** Tell every member how a proposal ended. */
