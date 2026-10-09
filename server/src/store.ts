@@ -56,6 +56,6 @@ let base: Set<string> | undefined;
 
 /** Base list only until groups land (milestone 5). */
 export function dictionary(): IsWord {
-  base ??= parseWordList(readFileSync(new URL('../../client/public/words/words.txt', import.meta.url), 'utf8'));
+  base ??= parseWordList(readFileSync(new URL('../../wordlists/words.txt', import.meta.url), 'utf8'));
   return effectiveDictionary(base);
 }
