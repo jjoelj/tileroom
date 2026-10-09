@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 COPY . .
+ARG STAGING
 RUN bun run build
 
 FROM oven/bun:1.4.2-slim

@@ -35,6 +35,7 @@ production on `127.0.0.1:3100`, staging on `127.0.0.1:3101`. Each is its own che
    `.env` in each:
    ```sh
    PORT=3100                               # staging: 3101
+   STAGING=1                               # staging only: blue icon, "Staging" name
    PUBLIC_ORIGIN=https://tileroom.org      # staging: https://staging.tileroom.org
    VAPID_PUBLIC_KEY=...
    VAPID_PRIVATE_KEY=...

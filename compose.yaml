@@ -2,7 +2,10 @@
 # One checkout per origin (production, staging), each with its own .env and server/data. See deploy/README.md.
 services:
   tileroom:
-    build: .
+    build:
+      context: .
+      args:
+        STAGING: ${STAGING:-} # 1 in the staging checkout's .env: staging name and icons
     restart: unless-stopped
     # Host networking: the app binds 127.0.0.1:$PORT itself and sees Nginx as 127.0.0.1, so X-Forwarded-For is trusted only from it.
     network_mode: host
