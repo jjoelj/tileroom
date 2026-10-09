@@ -223,7 +223,10 @@
     landing = onBoard;
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    ghost.style.transition = `transform ${ms}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ${ms}ms`;
+    // The shape eases too (height, radius, ring, text), not just the transform: one small out-of-flow element.
+    const ease = `${ms}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+    ghost.style.setProperty('--ease', ease);
+    ghost.style.transition = ['transform', 'opacity', 'height', 'border-radius', 'box-shadow'].map((p) => `${p} ${ease}`).join(', ');
     ghost.style.opacity = '1';
     // On the board the ghost turns square with the board tile's proportions (.ghost.landing), so it scales evenly
     // and matches the placed tile exactly; --k keeps its ring 2px on screen after scaling.
@@ -686,6 +689,7 @@
   .ghost .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
   /* Landing on the board: Board.svelte's tile proportions at a 44px cell (font 0.6, points 0.26, radius 0.16). */
   .ghost.landing { height: 44px; border-radius: 7.04px; box-shadow: inset 0 0 0 calc(2px * var(--k, 1)) var(--link), 0 calc(1px * var(--k, 1)) calc(2px * var(--k, 1)) rgba(0, 0, 0, 0.25); }
+  .ghost .ch, .ghost .pt { transition: font-size var(--ease, 0s), right var(--ease, 0s), bottom var(--ease, 0s); }
   .ghost.landing .ch { font-size: 26.4px; }
   .ghost.landing .pt { right: 3.52px; bottom: 1.76px; font-size: 11.44px; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
