@@ -4,9 +4,9 @@ import './app.css';
 import App from './App.svelte';
 import { registerServiceWorker } from './lib/push';
 import { getTheme, setTheme } from './lib/theme';
-import { reloadOnReturn } from './lib/update';
+import { checkForUpdates } from './lib/update.svelte';
 
 setTheme(getTheme());
 registerServiceWorker();
-reloadOnReturn();
+checkForUpdates();
 mount(App, { target: document.getElementById('app')! });

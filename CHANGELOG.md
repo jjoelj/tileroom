@@ -5,7 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
-- Updates install themselves: the app reloads into the new version when you open it or come back to it, never in the middle of a move.
+- Updates install themselves. When you open the app, or come back after a while, it checks for a new version behind a short splash screen before showing anything.
 
 ## v0.1.3 (2026-10-09)
 
