@@ -15,20 +15,42 @@
     status: 'lobby' | 'active' | 'finished';
     currentSeat: number;
     mySeat: number;
+    group: { id: string; name: string } | null;
     players: { seat: number; displayName: string; score: number }[];
   };
   type Games = { yourTurn: Summary[]; waiting: Summary[]; lobby: Summary[]; finished: Summary[] };
 
   let games = $state<Games | null>(null);
+  type GroupSummary = { id: string; name: string; memberCount: number; wordCount: number; pendingVotes: number };
+  let groups = $state<GroupSummary[]>([]);
+  let creating = $state(false);
+  let groupName = $state('');
+  let groupError = $state('');
+
+  async function createGroup(e: SubmitEvent) {
+    e.preventDefault();
+    groupError = '';
+    try {
+      const g = await api<{ id: string }>('/groups', { method: 'POST', body: { name: groupName } });
+      go(`/groups/${g.id}`);
+    } catch (err) {
+      groupError = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+    }
+  }
   let joining = $state(false);
   let code = $state('');
   let joinError = $state('');
   let menu = $state(false);
 
   const load = () =>
-    api<Games>('/games')
-      .then((g) => (games = g))
-      .catch(() => {});
+    Promise.all([
+      api<Games>('/games')
+        .then((g) => (games = g))
+        .catch(() => {}),
+      api<{ groups: GroupSummary[] }>('/groups')
+        .then((g) => (groups = g.groups))
+        .catch(() => {}),
+    ]);
 
   $effect(() => {
     if (updates.n) void load();
@@ -52,6 +74,8 @@
   async function join(e: SubmitEvent) {
     e.preventDefault();
     joinError = '';
+    // Group codes have 8 characters, game codes 6: one box takes both.
+    if (code.replace(/[^0-9a-z]/gi, '').length === 8) return go(`/groups/join/${encodeURIComponent(code.trim())}`);
     try {
       const view = await api<{ id: string }>(`/join/${encodeURIComponent(code)}`, { method: 'POST' });
       go(`/games/${view.id}`);
@@ -76,6 +100,7 @@
     go('/');
   }
 
+  const tag = (g: Summary) => (g.group ? `${g.group.name} · ` : '');
   const others = (g: Summary) => g.players.filter((p) => p.seat !== g.mySeat);
   // Games have no names: they're called by who else is in them.
   const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
@@ -131,7 +156,7 @@
 
   {#if joining}
     <form onsubmit={join} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
-      <label for="jc" class="label">Game code</label>
+      <label for="jc" class="label">Game or group code</label>
       <div style="display: flex; gap: 8px">
         <input id="jc" class="field" bind:value={code} placeholder="K7Q-4XM" autocomplete="off" autocapitalize="characters" spellcheck="false" style="letter-spacing: 0.1em; font-weight: 800" />
         <button class="primary" style="width: 96px" disabled={!code.trim()}>Join</button>
@@ -146,7 +171,7 @@
       {#each games.yourTurn as g (g.id)}
         <button class="card game mine" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="row"><span class="name">{title(g)}</span><span class="pill">Play</span></span>
-          <span class="sub">{scoreLine(g)}</span>
+          <span class="sub">{tag(g)}{scoreLine(g)}</span>
         </button>
       {/each}
     {/if}
@@ -156,7 +181,7 @@
       {#each games.waiting as g (g.id)}
         <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="name small">{title(g)}</span>
-          <span class="sub">{turnOf(g)}'s turn · {scoreLine(g)}</span>
+          <span class="sub">{tag(g)}{turnOf(g)}'s turn · {scoreLine(g)}</span>
         </button>
       {/each}
     {/if}
@@ -166,9 +191,32 @@
       {#each games.lobby as g (g.id)}
         <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="name small">{title(g)}</span>
-          <span class="sub">{plural(g.players.length, 'player', 'players')} joined · up to {MAX_PLAYERS}</span>
+          <span class="sub">{tag(g)}{plural(g.players.length, 'player', 'players')} joined · up to {MAX_PLAYERS}</span>
         </button>
       {/each}
+    {/if}
+
+    <h2 class="label section">Groups</h2>
+    {#each groups as gr (gr.id)}
+      <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/groups/${gr.id}`)}>
+        <span class="row">
+          <span class="name small">{gr.name}</span>
+          {#if gr.pendingVotes}<span class="pill">{plural(gr.pendingVotes, 'vote', 'votes')}</span>{/if}
+        </span>
+        <span class="sub">{plural(gr.memberCount, 'member', 'members')} · {plural(gr.wordCount, 'house word', 'house words')}</span>
+      </button>
+    {/each}
+    {#if creating}
+      <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="display: flex; flex-direction: column; gap: 8px">
+        <label for="gn" class="label">Group name</label>
+        <div style="display: flex; gap: 8px">
+          <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
+          <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
+        </div>
+        {#if groupError}<span class="error" role="alert" transition:show>{groupError}</span>{/if}
+      </form>
+    {:else}
+      <button class="textbtn" style="align-self: flex-start" onclick={() => (creating = true)}>+ New group</button>
     {/if}
 
     {#if games.finished.length}
@@ -176,7 +224,7 @@
       {#each games.finished as g (g.id)}
         <button class="game done" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="name small">{title(g)}</span>
-          <span class="sub">{result(g)}</span>
+          <span class="sub">{tag(g)}{result(g)}</span>
         </button>
       {/each}
     {/if}

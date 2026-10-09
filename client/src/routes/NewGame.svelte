@@ -5,6 +5,15 @@
   import { show } from '../lib/motion';
   import { go } from '../lib/state.svelte';
 
+  // /new?group=ID: a group game (its words, its members only); otherwise an open game.
+  const groupId = new URLSearchParams(location.search).get('group');
+  let groupName = $state('');
+  if (groupId) {
+    api<{ name: string }>(`/groups/${encodeURIComponent(groupId)}`)
+      .then((g) => (groupName = g.name))
+      .catch(() => {});
+  }
+
   let bagSize = $state<100 | 150>(100);
   let randomOrder = $state(true);
   let expandedWords = $state(false);
@@ -15,7 +24,7 @@
     busy = true;
     error = '';
     try {
-      const view = await api<{ id: string }>('/games', { method: 'POST', body: { bagSize, randomOrder, expandedWords } });
+      const view = await api<{ id: string }>('/games', { method: 'POST', body: { bagSize, randomOrder, expandedWords, ...(groupId && { groupId }) } });
       go(`/games/${view.id}`);
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
@@ -26,11 +35,11 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back to games" onclick={() => go('/')}>
+    <button class="iconbtn" aria-label="Back" onclick={() => go(groupId ? `/groups/${groupId}` : '/')}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
     <h1 class="h1" style="font-size: 22px; flex-grow: 1">New game</h1>
-    <span class="tag">Open game</span>
+    <span class="tag">{groupId ? groupName || 'Group game' : 'Open game'}</span>
   </header>
 
   <div style="padding: 4px 16px 0; display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
@@ -71,7 +80,11 @@
   <div style="padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px">
     {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" onclick={create} disabled={busy}>Create game</button>
-    <div class="hint" style="text-align: center">You'll get a code to share. Up to {MAX_PLAYERS} can join, and you start whenever you're ready.</div>
+    <div class="hint" style="text-align: center">
+      {groupId
+        ? `Uses ${groupName || 'the group'}'s house words. Only members can join, up to ${MAX_PLAYERS}.`
+        : `You'll get a code to share. Up to ${MAX_PLAYERS} can join, and you start whenever you're ready.`}
+    </div>
   </div>
 </main>
 

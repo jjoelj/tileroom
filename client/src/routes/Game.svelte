@@ -27,6 +27,8 @@
   let swapPick = $state<number[]>([]);
   let unseenOpen = $state(false);
   let menuOpen = $state(false);
+  let watchersOpen = $state(false);
+  let wordsOpen = $state(false);
   let zoomed = $state(false);
   let boardRef = $state<Board>();
   let rackEl = $state<HTMLDivElement>();
@@ -122,12 +124,13 @@
   $effect(() => {
     const w = words;
     const expanded = !!view?.expandedWords;
+    const house = $state.snapshot(view?.houseWords) ?? { add: [], ban: [] }; // the group's frozen words
     if (!w) {
       lookup = null;
       return;
     }
     let live = true;
-    void invalidWords(w.split(' '), expanded).then((bad) => live && (lookup = { words: w, invalid: bad }));
+    void invalidWords(w.split(' '), expanded, house).then((bad) => live && (lookup = { words: w, invalid: bad }));
     return () => {
       live = false;
     };
@@ -390,6 +393,18 @@
     }
   }
 
+  // A group member looking at a group game's lobby can take a seat.
+  async function joinGame() {
+    busy = true;
+    try {
+      apply(await api<GameView>(`/join/${encodeURIComponent(view!.joinCode!)}`, { method: 'POST' }));
+    } catch (e) {
+      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+    } finally {
+      busy = false;
+    }
+  }
+
   async function start() {
     busy = true;
     try {
@@ -439,7 +454,11 @@
         ? 'Game over'
         : `${view.lastMove ? `${describe(view.lastMove)} · ` : ''}${myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}`,
   );
-  const line = $derived(message || problem || (view?.status === 'active' ? 'Drag tiles onto the board · drag back to the rack to undo' : ''));
+  const line = $derived(
+    message ||
+      problem ||
+      (view?.status !== 'active' ? '' : view.role === 'spectator' ? "You're watching" : 'Drag tiles onto the board · drag back to the rack to undo'),
+  );
 
   const standings = $derived(view ? [...view.players].sort((a, b) => b.score - a.score) : []);
 </script>
@@ -457,9 +476,16 @@
       </button>
       <div class="title">
         <h1>{title}</h1>
-        <span>Open game{view.expandedWords ? ' · expanded word list' : ''}</span>
+        <span>{view.group ? view.group.name : 'Open game'}{view.expandedWords ? ' · expanded word list' : ''}</span>
       </div>
-      {#if view.status === 'active'}
+      <!-- Players always know they're watched (SPEC §4.11): an eye and a count, hidden at 0. -->
+      {#if view.watching.length}
+        <button class="watchers" transition:pop aria-label={`${plural(view.watching.length, 'person', 'people')} watching`} aria-expanded={watchersOpen} onclick={() => (watchersOpen = !watchersOpen)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+          {view.watching.length}
+        </button>
+      {/if}
+      {#if view.status !== 'lobby' && (view.role === 'player' || view.group)}
         <button class="iconbtn" aria-label="Game menu" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
         </button>
@@ -468,11 +494,23 @@
       {/if}
       {#if menuOpen}
         <div class="card popover" role="menu" transition:grow>
-          {#if myTurn}
-            <button class="secondary" role="menuitem" disabled={busy} onclick={pass}>Pass this turn</button>
-          {:else}
-            <button class="secondary" role="menuitem" onclick={nudge}>Nudge {nameOf(view.currentSeat)}</button>
+          {#if view.role === 'player' && view.status === 'active'}
+            {#if myTurn}
+              <button class="secondary" role="menuitem" disabled={busy} onclick={pass}>Pass this turn</button>
+            {:else}
+              <button class="secondary" role="menuitem" onclick={nudge}>Nudge {nameOf(view.currentSeat)}</button>
+            {/if}
           {/if}
+          {#if view.group}
+            <button class="secondary" role="menuitem" onclick={() => ((wordsOpen = true), (menuOpen = false))}>House words</button>
+          {/if}
+        </div>
+      {/if}
+      {#if watchersOpen}
+        <div class="card popover" role="dialog" aria-label="Watching" transition:grow>
+          <span class="label">Watching</span>
+          {#each view.watching as w (w.userId)}<span style="font-weight: 700">{w.userId === session.me?.id ? 'You' : w.displayName}</span>{/each}
+          <span class="hint">{view.spectatorsSeeRacks ? 'Spectators can see trays in this game' : "Spectators can't see trays in this game"}</span>
         </div>
       {/if}
     </header>
@@ -502,6 +540,8 @@
                 ? `Start now, or wait for more (up to ${MAX_PLAYERS})`
                 : 'The game is full'}
           </span>
+        {:else if view.role === 'spectator' && view.joinCode && view.players.length < MAX_PLAYERS}
+          <button class="primary" disabled={busy} onclick={joinGame}>Join this game</button>
         {:else}
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
         {/if}
@@ -564,6 +604,19 @@
             </div>
           {/each}
           <button class="primary" onclick={() => go('/')}>Back to games</button>
+        </section>
+      {:else if view.role === 'spectator'}
+        <!-- Read-only: no rack, no controls. Trays only if this game allows it. -->
+        <section class="watching-panel">
+          {#if view.spectatorRacks}
+            {#each view.spectatorRacks as r (r.seat)}
+              <div class="row">
+                <span style="font-weight: 700">{nameOf(r.seat)}</span>
+                <span class="mini-rack">{#each r.rack as l, i (i)}<span class="tile-face mini">{l === '?' ? '' : l}</span>{/each}</span>
+              </div>
+            {/each}
+          {/if}
+          <button class="secondary" onclick={() => go(view?.group ? `/groups/${view.group.id}` : '/')}>Back to {view.group?.name ?? 'games'}</button>
         </section>
       {:else}
         <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
@@ -644,6 +697,24 @@
     </div>
   {/if}
 
+  {#if wordsOpen && view.group}
+    <div class="sheet-bg" transition:show role="presentation" onclick={() => (wordsOpen = false)}></div>
+    <div class="sheet" transition:rise role="dialog" aria-label="House words">
+      <span class="label">{view.group.name} house words</span>
+      <span class="hint">Frozen when this game started. Changes are voted on in the group, never in a game.</span>
+      {#if view.houseWords.add.length}
+        <span style="font-weight: 800">Added</span>
+        <span class="wordlist">{view.houseWords.add.join(' · ')}</span>
+      {/if}
+      {#if view.houseWords.ban.length}
+        <span style="font-weight: 800">Banned</span>
+        <span class="wordlist">{view.houseWords.ban.join(' · ')}</span>
+      {/if}
+      {#if !view.houseWords.add.length && !view.houseWords.ban.length}<span class="lead">None. This game uses the standard list.</span>{/if}
+      <button class="secondary" onclick={() => (wordsOpen = false)}>Close</button>
+    </div>
+  {/if}
+
   {#if swapOpen}
     <div class="sheet-bg" transition:show role="presentation" onclick={() => (swapOpen = false)}></div>
     <div class="sheet" transition:rise role="dialog" aria-label="Swap tiles">
@@ -710,6 +781,12 @@
   .seat { display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 52px; }
   .seat + .seat { border-top: 1px solid var(--line-soft); }
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .popover[role='dialog'] { display: flex; flex-direction: column; gap: 6px; }
+  .watchers { min-width: 44px; height: 44px; padding: 0 8px; border: none; border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 14px; color: var(--muted); }
+  .watching-panel { padding: 8px 16px 20px; display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+  .watching-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .mini-rack { display: flex; gap: 3px; }
+  .wordlist { font-weight: 700; line-height: 1.6; overflow-wrap: anywhere; }
   .final { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .final .row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 10px 14px; }
   .final .row span:first-child { font-weight: 700; flex-grow: 1; }

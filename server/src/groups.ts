@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { WORD_RE } from '../../shared/dictionary';
 import type { AppEnv } from './auth';
-import { formatGroupCode, newGroupCode, normalizeCode, randomId } from './codes';
+import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { notify } from './push';
@@ -367,6 +367,13 @@ export function groupGames(groupId: string, userId: string) {
       .where(eq(gamePlayers.gameId, g.id))
       .orderBy(asc(gamePlayers.seat))
       .all();
-    return { id: g.id, status: g.status, currentSeat: g.currentSeat, players: seats, mine: seats.some((s) => s.userId === userId) };
+    return {
+      id: g.id,
+      status: g.status,
+      currentSeat: g.currentSeat,
+      players: seats,
+      mine: seats.some((s) => s.userId === userId),
+      joinCode: g.status === 'lobby' ? formatJoinCode(g.joinCode) : null, // members may join any group lobby
+    };
   });
 }

@@ -21,12 +21,13 @@ function get() {
 /** Starts loading the base list in the background; call after first paint. */
 export const preloadWords = () => get().postMessage({ id: -1, preload: [wordsUrl] });
 
-/** The words (uppercase) that aren't in this game's dictionary. House words come with groups (milestone 5). */
-export function invalidWords(words: string[], expanded: boolean): Promise<string[]> {
+/** The words (uppercase) that aren't in this game's dictionary: (base ∪ house adds) − house bans (SPEC §4.9). */
+export async function invalidWords(words: string[], expanded: boolean, house: { add: string[]; ban: string[] } = { add: [], ban: [] }): Promise<string[]> {
   const id = nextId++;
   const urls = expanded ? [wordsUrl, abbreviationsUrl] : [wordsUrl];
-  return new Promise((resolve) => {
+  const notInBase = await new Promise<string[]>((resolve) => {
     waiting.set(id, resolve);
-    get().postMessage({ id, words, urls });
+    get().postMessage({ id, words: words.filter((w) => !house.add.includes(w)), urls });
   });
+  return words.filter((w) => house.ban.includes(w) || notInBase.includes(w));
 }

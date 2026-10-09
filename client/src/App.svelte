@@ -7,6 +7,8 @@
   import { pushSupported, subscribe } from './lib/push';
   import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
+  import Group from './routes/Group.svelte';
+  import GroupJoin from './routes/GroupJoin.svelte';
   import Install from './routes/Install.svelte';
   import Join from './routes/Join.svelte';
   import Lobby from './routes/Lobby.svelte';
@@ -46,6 +48,8 @@
   });
 
   const gameId = $derived(route.path.match(/^\/games\/([\w-]+)$/)?.[1]);
+  const groupCode = $derived(route.path.match(/^\/groups\/join\/([\w-]+)$/)?.[1]);
+  const groupId = $derived(groupCode ? undefined : route.path.match(/^\/groups\/([\w-]+)$/)?.[1]);
   const joinCode = $derived(joinCodeIn(route.path));
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
@@ -59,7 +63,11 @@
             ? 'notify'
             : gameId
               ? `game:${gameId}`
-              : joinCode
+              : groupCode
+                ? `groupjoin:${groupCode}`
+                : groupId
+                  ? `group:${groupId}`
+                  : joinCode
                 ? `join:${joinCode}`
                 : route.path === '/new' ? 'new' : 'lobby',
   );
@@ -77,6 +85,10 @@
   <Notify />
 {:else if gameId}
   {#key gameId}<Game id={gameId} />{/key}
+{:else if groupCode}
+  {#key groupCode}<GroupJoin code={groupCode} />{/key}
+{:else if groupId}
+  {#key groupId}<Group id={groupId} />{/key}
 {:else if joinCode}
   {#key joinCode}<Join code={joinCode} />{/key}
 {:else if route.path === '/new'}

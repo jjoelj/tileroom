@@ -9,7 +9,15 @@
 
   let { code }: { code: string } = $props();
 
-  type Preview = { id: string; status: 'lobby' | 'active' | 'finished'; hostName: string | null; players: string[]; joined: boolean };
+  type Preview = {
+    id: string;
+    status: 'lobby' | 'active' | 'finished';
+    hostName: string | null;
+    players: string[];
+    joined: boolean;
+    group: { id: string; name: string } | null;
+    canJoin: boolean;
+  };
 
   let game = $state<Preview | null>(null);
   let error = $state('');
@@ -64,16 +72,19 @@
         {game.hostName ? `${game.hostName} invited you.` : ''}
         {plural(game.players.length, 'player has', 'players have')} joined, up to {MAX_PLAYERS}.
       </p>
+      {#if game.group}<span class="hint">A {game.group.name} game, with its house words</span>{/if}
       {#if game.status !== 'lobby'}
         <p class="error" in:show>This game has already started.</p>
       {:else if full}
         <p class="error" in:show>This game is full.</p>
+      {:else if !game.canJoin}
+        <p class="error" in:show>This game is for {game.group?.name} members. Join the group first with its group code.</p>
       {/if}
     {/if}
     {#if error}<p class="error" role="alert" transition:show>{error}</p>{/if}
 
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
-      {#if game && game.status === 'lobby' && !full}
+      {#if game && game.status === 'lobby' && !full && game.canJoin}
         <button class="primary" in:show disabled={busy} onclick={join}>Join game</button>
       {/if}
       <button class="secondary" onclick={back}>Back to games</button>
