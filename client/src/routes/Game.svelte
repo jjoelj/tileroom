@@ -400,9 +400,8 @@
     const left: Record<string, number> = { ...BAGS[view.bagSize] };
     for (const row of view.board) for (const t of row) if (t) left[t.blank ? '?' : t.letter]!--;
     for (const l of rack) left[l]!--;
-    return Object.entries(left)
-      .filter(([, n]) => n > 0)
-      .sort(([a], [b]) => (a === '?' ? 1 : b === '?' ? -1 : a.localeCompare(b)));
+    // every letter stays, even at ×0, so each one keeps its place in the grid
+    return Object.entries(left).sort(([a], [b]) => (a === '?' ? 1 : b === '?' ? -1 : a.localeCompare(b)));
   });
   const unseenTotal = $derived(unseen.reduce((sum, [, n]) => sum + n, 0));
 
@@ -599,7 +598,7 @@
       <span class="hint">{plural(view.bagCount, 'tile', 'tiles')} in the bag · {plural(unseenTotal - view.bagCount, 'tile', 'tiles')} on other racks</span>
       <div class="unseen">
         {#each unseen as [letter, n] (letter)}
-          <div class="u">
+          <div class="u" class:gone={n === 0}>
             <span class="tile-face mini" aria-label={letter === '?' ? 'Blank' : letter}>{letter === '?' ? '' : letter}</span>
             <span class="n">×{n}</span>
           </div>
@@ -684,6 +683,8 @@
   .u { display: flex; align-items: center; gap: 4px; }
   .mini { width: 28px; height: 30px; border-radius: 5px; font-size: 16px; flex-shrink: 0; }
   .n { font-size: 13px; font-weight: 700; color: var(--muted); }
+  .gone .mini { background: none; box-shadow: none; border: 1.5px dashed var(--dash); color: var(--muted); }
+  .gone .n { opacity: 0.6; }
   .letters { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
   .letters button { height: 44px; border-radius: 8px; border: none; font-size: 20px; }
 </style>
