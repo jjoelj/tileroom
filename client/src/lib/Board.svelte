@@ -114,10 +114,9 @@
     eased(() => zoomAt(1.4, (c + 0.5) * step, (r + 0.5) * step));
   }
 
-  /** Screen position of a cell's center (for animating a tile into it). */
-  export function cellCenter(r: number, c: number) {
-    const g = grid.getBoundingClientRect();
-    return { x: g.left + ((c + 0.5) / SIZE) * g.width, y: g.top + ((r + 0.5) / SIZE) * g.height };
+  /** A cell's on-screen box, zoom included (for animating a tile exactly into it). */
+  export function cellRect(r: number, c: number) {
+    return (grid.children[r * SIZE + c] as HTMLElement).getBoundingClientRect();
   }
 
   /** The board cell under a screen point, if it's visible. */

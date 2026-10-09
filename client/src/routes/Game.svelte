@@ -88,7 +88,16 @@
   });
 
   // ---- live preview (SPEC §9.2) ----
-  const preview = $derived(view && pending.length ? previewPlay(view.board, pending, () => true) : null);
+  // The preview (and its word lookups) runs two frames after a change, so placing a tile only costs the swap.
+  let settled = $state<PendingTile[]>([]);
+  $effect(() => {
+    const snap = $state.snapshot(pending) as PendingTile[];
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => (settled = snap));
+    });
+    return () => cancelAnimationFrame(id);
+  });
+  const preview = $derived(view && pending.length && settled.length === pending.length ? previewPlay(view.board, settled, () => true) : null);
   $effect(() => {
     const p = preview;
     invalid = null;
@@ -130,8 +139,6 @@
         : pending.find((p) => p.r === from.r && p.c === from.c);
     if (!tile) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
-    const origin = (e.target as Element).closest('.rk, .cell')?.getBoundingClientRect();
-    const home = origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : { x: e.clientX, y: e.clientY };
     const rackBox = rackEl?.getBoundingClientRect(); // read once; the rack doesn't move during a drag
     const x0 = e.clientX;
     const y0 = e.clientY;
@@ -165,22 +172,32 @@
       if (!drag) return;
       justDragged = true;
       setTimeout(() => (justDragged = false));
-      const to = ev.type === 'pointerup' ? await drop(from, ev.clientX, ev.clientY) : null;
-      await glide(to ?? home); // nowhere to go: back where it came from
+      // Decide where the tile ends up, glide the ghost onto exactly that spot (same size and look),
+      // then swap in the real tile and drop the ghost in the same update: nothing jumps.
+      const plan = (ev.type === 'pointerup' && (await planDrop(from, tile.slot, ev.clientX, ev.clientY))) || (await planHome(from, tile.slot));
+      await glide(plan.rect, plan.onBoard);
+      plan.commit?.();
       drag = null;
+      landing = false;
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', end);
     addEventListener('pointercancel', end);
   }
 
-  /** Animates the ghost to a screen point (the center of where the tile is going). */
-  function glide(to: { x: number; y: number }) {
-    if (!ghost) return Promise.resolve();
-    ghost.style.transition = 'transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 160ms';
+  let landing = $state(false); // the ghost takes the placed-tile look while it lands on the board
+  const GHOST = { w: 44, h: 48 };
+
+  /** Moves and resizes the ghost onto `rect`. */
+  function glide(rect: DOMRect | undefined, onBoard: boolean) {
+    if (!ghost || !rect) return Promise.resolve();
+    landing = onBoard;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    ghost.style.transition = 'transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms';
     ghost.style.opacity = '1';
-    ghost.style.transform = `translate3d(${to.x}px, ${to.y}px, 0) translate(-50%, -50%)`;
-    return new Promise<void>((resolve) => setTimeout(resolve, 170));
+    ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%) scale(${rect.width / GHOST.w}, ${rect.height / GHOST.h})`;
+    return new Promise<void>((resolve) => setTimeout(resolve, 125));
   }
 
   const overRack = (y: number, r: DOMRect) => y >= r.top - 24 && y <= r.bottom + 24;
@@ -191,33 +208,46 @@
     rest.splice(to, 0, slot);
     order = rest;
   }
+  const slotRect = (slot: number) => rackEl?.querySelector(`[data-slot="${slot}"] .rk`)?.getBoundingClientRect();
 
-  /** Applies a drop; returns where the ghost should glide to, or null to send it home. */
-  async function drop(from: DragFrom, x: number, y: number): Promise<{ x: number; y: number } | null> {
+  type Plan = { rect: DOMRect | undefined; onBoard: boolean; commit?: () => void };
+
+  /** Where a released tile goes, without changing anything yet. Null: nowhere valid. */
+  async function planDrop(from: DragFrom, slot: number, x: number, y: number): Promise<Plan | null> {
     const cell = boardRef?.cellAt(x, y); // exactly where it's released
-    const placed = from.kind === 'board' ? pending.findIndex((p) => p.r === from.r && p.c === from.c) : -1;
     if (cell && isFree(cell.r, cell.c, from)) {
-      const target = boardRef?.cellCenter(cell.r, cell.c) ?? { x, y };
-      await glide(target); // land first, then the tile appears in the square
-      if (from.kind === 'board') Object.assign(pending[placed]!, cell);
-      else if (rack[from.slot] === '?') blankAt = { ...cell, slot: from.slot };
-      else pending.push({ ...cell, letter: rack[from.slot]!, blank: false, slot: from.slot });
-      if (from.kind === 'rack') boardRef?.zoomToward(cell.r, cell.c);
-      navigator.vibrate?.(8);
-      return target;
+      return {
+        rect: boardRef?.cellRect(cell.r, cell.c),
+        onBoard: true,
+        commit: () => {
+          if (from.kind === 'board') Object.assign(pending.find((p) => p.r === from.r && p.c === from.c)!, cell);
+          else if (rack[slot] === '?') blankAt = { ...cell, slot };
+          else pending.push({ ...cell, letter: rack[slot]!, blank: false, slot });
+          if (from.kind === 'rack') requestAnimationFrame(() => boardRef?.zoomToward(cell.r, cell.c)); // after the swap
+        },
+      };
     }
     const r = rackEl?.getBoundingClientRect();
     if (r && overRack(y, r)) {
-      // Back to the rack, into the gap it was hovering over: a placed tile returns, a rack tile stays put.
-      const slot = from.kind === 'board' ? pending[placed]!.slot : from.slot;
-      if (placed >= 0) pending.splice(placed, 1);
+      // Into the gap it was hovering over; for a placed tile, that gap is its empty slot.
       moveSlot(slot, slotIndex(x, r));
-      navigator.vibrate?.(8);
-      await tick(); // the other tiles slide (flip); the ghost glides into the gap
-      const gap = rackEl?.querySelector(`[data-slot="${slot}"]`)?.getBoundingClientRect();
-      return gap ? { x: gap.left + gap.width / 2, y: gap.top + gap.height / 2 } : null;
+      await tick();
+      return {
+        rect: slotRect(slot),
+        onBoard: false,
+        commit: () => {
+          if (from.kind === 'board') pending = pending.filter((p) => !(p.r === from.r && p.c === from.c));
+        },
+      };
     }
-    return null; // anywhere else: the tile stays where it came from
+    return null;
+  }
+
+  /** Back where it came from: its square, or its (possibly moved) slot in the rack. */
+  async function planHome(from: DragFrom, slot: number): Promise<Plan> {
+    if (from.kind === 'board') return { rect: boardRef?.cellRect(from.r, from.c), onBoard: true };
+    await tick();
+    return { rect: slotRect(slot), onBoard: false };
   }
 
   function tapSlot(slot: number) {
@@ -236,7 +266,7 @@
     const letter = rack[selected]!;
     if (letter === '?') blankAt = { r, c, slot: selected };
     else pending.push({ r, c, letter, blank: false, slot: selected });
-    boardRef?.zoomToward(r, c);
+    requestAnimationFrame(() => boardRef?.zoomToward(r, c));
     selected = null;
   }
 
@@ -504,7 +534,7 @@
   </main>
 
   {#if drag}
-    <div class="ghost tile-face" bind:this={ghost} aria-hidden="true">
+    <div class="ghost tile-face" class:landing bind:this={ghost} aria-hidden="true">
       <span class="ch">{drag.blank && drag.from.kind === 'rack' ? '' : drag.letter}</span>
       {#if !drag.blank}<span class="pt">{VALUES[drag.letter]}</span>{/if}
     </div>
@@ -583,7 +613,8 @@
   .rack { display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
   .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
-  .ghost .ch { font-size: 24px; }
+  .ghost .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
+  .ghost.landing { background: var(--tile-pending); box-shadow: inset 0 0 0 4px var(--link); }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
   .rk.empty { display: block; background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
