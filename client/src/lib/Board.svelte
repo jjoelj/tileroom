@@ -305,6 +305,6 @@
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
   .outline { transition: left 150ms, top 150ms, width 150ms, height 150ms; position: absolute; box-sizing: border-box; border: 3px solid var(--valid); border-radius: 6px; z-index: 2; pointer-events: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
-  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; translate: -60% -60%; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
+  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
   .bubble.valid { background: var(--valid); }
 </style>
