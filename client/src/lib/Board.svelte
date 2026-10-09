@@ -338,14 +338,14 @@
   .p-T { background: var(--tw-bg); color: var(--tw-fg); }
   .p-star .lab { font-size: calc(var(--cs) * 0.5); }
   /* A tile is its own layer over the square, so it can animate in and out. */
-  .piece { position: absolute; inset: 0; border-radius: calc(var(--cs) * 0.16); z-index: 1; transition: box-shadow 300ms; }
+  .piece { position: absolute; inset: 0; border-radius: calc(var(--cs) * 0.16); z-index: 1; transition: box-shadow 300ms, filter 300ms; }
   /* last move: a warm wash and a dot that fade in and out */
   .piece::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--tile-last); opacity: 0; transition: opacity 400ms; }
   .piece::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--p4-bg); opacity: 0; transition: opacity 400ms; }
   .piece.last::before { opacity: 0.6; }
   .piece.last::after { opacity: 1; }
-  /* placed this turn: a blue ring that fades away once the move is played */
-  .piece.pending { box-shadow: inset 0 0 0 2px var(--link), 0 1px 2px rgba(0, 0, 0, 0.25); cursor: grab; }
+  /* placed this turn: the normal tile (same bevel, same size), paler, with a thin blue ring; both fade once played */
+  .piece.pending { box-shadow: inset 0 0 0 1px var(--link), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -2px 0 var(--tile-edge), 0 1px 2px rgba(0, 0, 0, 0.25); filter: brightness(1.08) saturate(0.7); cursor: grab; }
   .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
