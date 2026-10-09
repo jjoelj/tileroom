@@ -13,6 +13,7 @@
   import { invalidWords } from '../lib/dict';
   import { confirm } from '../lib/ask.svelte';
   import { say, sayError } from '../lib/say.svelte';
+  import { canShare, copy, shareText } from '../lib/share';
   import { live, watch } from '../lib/live.svelte';
   import { clearGameNotifications } from '../lib/push';
   import { go, session, updates } from '../lib/state.svelte';
@@ -419,17 +420,7 @@
   }
 
   // Phones get the share sheet; anything with a mouse just copies.
-  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
-  function share() {
-    if (!view?.joinCode) return;
-    const text = `Join my Tileroom game with code ${view.joinCode}: ${location.origin}/join/${view.joinCode}`;
-    if (canShare) navigator.share({ text }).catch(() => {});
-    else
-      navigator.clipboard?.writeText(text).then(
-        () => say('Copied. Paste it to the other players.'),
-        () => say(`Copy this: ${text}`),
-      );
-  }
+  const inviteLink = $derived(view?.joinCode ? `${location.origin}/join/${view.joinCode}` : '');
 
   const describe = (m: PublicMove) =>
     m.type === 'play'
@@ -527,7 +518,14 @@
       <section class="lobby">
         <span class="label">Game code</span>
         <div class="code">{view.joinCode}</div>
-        <button class="secondary" onclick={share}>{canShare ? 'Share code' : 'Copy invite'}</button>
+        {#if canShare}
+          <button class="secondary" onclick={() => shareText(`Join my Tileroom game with code ${view?.joinCode}: ${inviteLink}`)}>Share code</button>
+        {:else}
+          <div class="pair">
+            <button class="secondary" onclick={() => copy(view!.joinCode!, 'Code')}>Copy code</button>
+            <button class="secondary" onclick={() => copy(inviteLink, 'Link')}>Copy link</button>
+          </div>
+        {/if}
         <div class="card seats">
           {#each view.players as p (p.userId)}
             <div class="seat">
@@ -789,6 +787,7 @@
   .seat + .seat { border-top: 1px solid var(--line-soft); }
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .away { position: fixed; inset: 0; z-index: 9; }
+  .pair { display: flex; gap: 8px; }
   .popover[role='dialog'] { display: flex; flex-direction: column; gap: 6px; }
   .watchers { min-width: 44px; height: 44px; padding: 0 8px; border: none; border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 14px; color: var(--muted); }
   .watching-panel { padding: 8px 16px 20px; display: flex; flex-direction: column; gap: 10px; margin-top: auto; }

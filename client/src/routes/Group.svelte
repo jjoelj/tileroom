@@ -7,6 +7,7 @@
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { say, sayError } from '../lib/say.svelte';
+  import { canShare, copy, shareText } from '../lib/share';
   import { show } from '../lib/motion';
   import { go, session, updates } from '../lib/state.svelte';
 
@@ -151,17 +152,7 @@
     }
   }
 
-  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
-  function share() {
-    if (!group) return;
-    const text = `Join my Tileroom group ${group.name} with code ${group.joinCode}: ${location.origin}/groups/join/${group.joinCode}`;
-    if (canShare) navigator.share({ text }).catch(() => {});
-    else
-      navigator.clipboard?.writeText(text).then(
-        () => say('Copied. Paste it to the people you want in the group.'),
-        () => say(`Copy this: ${text}`),
-      );
-  }
+  const inviteLink = $derived(group ? `${location.origin}/groups/join/${group.joinCode}` : '');
 
   async function rename() {
     if (!group) return;
@@ -329,7 +320,12 @@
         <span class="hint">Group code</span>
         <span class="code">{group.joinCode}</span>
       </span>
-      <button class="pill" onclick={share}>{canShare ? 'Share' : 'Copy'}</button>
+      {#if canShare}
+        <button class="pill" onclick={() => shareText(`Join my Tileroom group ${group?.name} with code ${group?.joinCode}: ${inviteLink}`)}>Share</button>
+      {:else}
+        <button class="pill quiet" onclick={() => copy(group!.joinCode, 'Code')}>Copy code</button>
+        <button class="pill" onclick={() => copy(inviteLink, 'Link')}>Copy link</button>
+      {/if}
     </div>
     {#if admin}<button class="textbtn" disabled={busy} onclick={newCode}>Make a new code</button>{/if}
 
