@@ -5,6 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
+- What's new: after an update, a popup lists what changed. It's also in Settings > What's new.
 - Change your password in Settings. Your other devices are signed out; the one you're on stays signed in.
 - "You're all set" only goes to the device you just set up. The Settings test notification still goes to all of them.
 

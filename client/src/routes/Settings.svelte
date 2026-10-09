@@ -146,6 +146,7 @@
     </div>
 
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
+    <button class="secondary" onclick={() => go('/whats-new')}>What's new</button>
     {#if session.me?.isAdmin}
       <div style="display: flex; flex-direction: column; gap: 10px">
         <span class="label">Invites</span>

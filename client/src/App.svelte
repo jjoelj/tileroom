@@ -4,10 +4,13 @@
   import { api } from './lib/api';
   import Dialog from './lib/Dialog.svelte';
   import Toast from './lib/Toast.svelte';
-  import { show } from './lib/motion';
+  import { rise, show } from './lib/motion';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
   import { say } from './lib/say.svelte';
+  import { markSeen, REPO, unseenReleases, VERSION } from './lib/changelog';
+  import WhatsNew from './lib/WhatsNew.svelte';
+  import WhatsNewPage from './routes/WhatsNew.svelte';
   import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Group from './routes/Group.svelte';
@@ -66,9 +69,12 @@
   const groupCode = $derived(route.path.match(/^\/groups\/join\/([\w-]+)$/)?.[1]);
   const groupId = $derived(groupCode ? undefined : route.path.match(/^\/groups\/([\w-]+)$/)?.[1]);
   const joinCode = $derived(joinCodeIn(route.path));
-  // AGPL: every page links the source of exactly what's running. VITE_VERSION is the tag (prod) or commit (staging); see deploy.sh.
-  const REPO = 'https://github.com/jjoelj/tileroom';
-  const VERSION: string = import.meta.env.VITE_VERSION || 'dev';
+  // After an update: what's new since this device's last version, once, over the app proper (not the gates).
+  let news = $state(unseenReleases());
+  const closeNews = () => {
+    markSeen();
+    news = [];
+  };
 
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
@@ -88,7 +94,7 @@
                   ? `group:${groupId}`
                   : joinCode
                 ? `join:${joinCode}`
-                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : 'lobby',
+                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : route.path === '/whats-new' ? 'whats-new' : 'lobby',
   );
 </script>
 
@@ -114,6 +120,8 @@
   <NewGame />
 {:else if route.path === '/settings'}
   <Settings />
+{:else if route.path === '/whats-new'}
+  <WhatsNewPage />
 {:else}
   <Lobby />
 {/if}
@@ -124,10 +132,27 @@
   <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener" title="View source" aria-label={`View source (${VERSION})`}>{VERSION}</a>
 </footer>
 
+{#if news.length && session.me?.pushReady && device.permission === 'granted'}
+  <div class="bg" transition:show role="presentation" onclick={closeNews}></div>
+  <div class="sheet" transition:rise role="dialog" aria-modal="true" aria-labelledby="news-title">
+    <h2 id="news-title" class="h1" style="font-size: 22px">What's new</h2>
+    <div class="news"><WhatsNew list={news} /></div>
+    <button class="primary" onclick={closeNews}>Got it</button>
+  </div>
+{/if}
+
 <Dialog />
 <Toast />
 
 <style>
+  .bg { position: fixed; inset: 0; background: var(--scrim); z-index: 40; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; max-width: 480px; max-height: 80dvh; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 16px;
+    background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 30px var(--shadow);
+  }
+  .news { overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
   footer { height: var(--foot); max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-end; }
   footer a { min-height: 44px; display: flex; align-items: center; padding: 0 16px; font: 400 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); opacity: 0.7; text-decoration: none; }
 </style>
