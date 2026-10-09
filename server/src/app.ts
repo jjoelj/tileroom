@@ -7,20 +7,20 @@ import { groupRoutes } from './groups';
 import { ApiError } from './http';
 import { push, requirePush } from './push';
 
+/** The only routes a signed-out client may call. Everything else needs a session (default deny). */
+export const PUBLIC = new Set(['POST /api/auth/login', 'POST /api/auth/signup', 'POST /api/auth/logout', 'POST /api/invites/check']);
+
 const api = new Hono<AppEnv>()
   .use(checkOrigin, loadSession)
+  .use((c, next) => (PUBLIC.has(`${c.req.method} ${c.req.path}`) ? next() : requireUser(c, next)))
   .route('/', auth)
-  .use('/push/*', requireUser)
   .route('/', push)
-  .use('/games/*', requireUser, requirePush)
-  .use('/games', requireUser, requirePush)
-  .use('/join/*', requireUser, requirePush)
+  .use('/games/*', requirePush)
+  .use('/games', requirePush)
+  .use('/join/*', requirePush)
   .route('/', gameRoutes)
-  .use('/groups', requireUser)
-  .use('/groups/*', requireUser)
-  .use('/proposals/*', requireUser)
   .route('/', groupRoutes)
-  .use('/admin/*', requireUser, requireAdmin)
+  .use('/admin/*', requireAdmin)
   .route('/', adminRoutes);
 
 export const app = new Hono()

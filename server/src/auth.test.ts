@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
+import { app, PUBLIC } from './app';
 import { invites, users } from './db/schema';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
@@ -172,4 +173,14 @@ test('display names can be changed: 1 to 24 characters, shown everywhere', async
   expect((await call('/me', { cookie: u.cookie })).json.displayName).toBe('Joel J');
   const g = await call('/games', { method: 'POST', cookie: u.cookie, body: { bagSize: 100, randomOrder: false } });
   expect(g.json.players[0].displayName).toBe('Joel J');
+});
+
+test('default deny: every route but the public few needs a session', async () => {
+  const routes = app.routes.filter((r) => r.path.startsWith('/api/') && r.method !== 'ALL');
+  expect(routes.length).toBeGreaterThan(30);
+  for (const { method, path } of routes) {
+    const res = await call(path.replace(/^\/api/, '').replace(/:\w+/g, 'x'), { method, body: method === 'GET' ? undefined : {} });
+    if (PUBLIC.has(`${method} ${path}`)) expect(res.status, `${method} ${path}`).not.toBe(401);
+    else expect(res.status, `${method} ${path}`).toBe(401);
+  }
 });

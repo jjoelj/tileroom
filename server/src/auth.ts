@@ -167,7 +167,7 @@ export const auth = new Hono<AppEnv>()
     return c.json({ ok: true });
   })
 
-  .get('/me', requireUser, (c) => {
+  .get('/me', (c) => {
     const u = c.var.user;
     return c.json({
       id: u.id,
@@ -179,7 +179,7 @@ export const auth = new Hono<AppEnv>()
     });
   })
 
-  .patch('/me/settings', requireUser, async (c) => {
+  .patch('/me/settings', async (c) => {
     const b = await body(c, z.object({ remindTurn: z.boolean().optional(), displayName: DisplayName.optional() }));
     const uid = c.var.user.id;
     if (b.remindTurn !== undefined) db.update(users).set({ remindTurn: b.remindTurn }).where(eq(users.id, uid)).run();
