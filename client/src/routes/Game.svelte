@@ -92,7 +92,8 @@
     });
   });
   const allValid = $derived(!!preview?.ok && invalid !== null && invalid.length === 0);
-  const outlines = $derived(preview?.ok && invalid ? preview.words.filter((w) => !invalid!.includes(w.word)) : []);
+  // Lime outlines only when the whole move is valid; one bad word means none at all.
+  const outlines = $derived(allValid && preview?.ok ? preview.words : []);
   const bubble = $derived(preview?.ok ? { ...preview.anchor, score: preview.score, valid: allValid } : null);
   const problem = $derived(
     invalid?.length
@@ -283,7 +284,7 @@
           <div class="pc" class:on={view.status === 'active' && p.seat === view.currentSeat}>
             <div class="pn" style="color: var(--p{p.colorIndex % 6})">
               <span class="dot"></span>{p.seat === view.mySeat ? 'You' : p.displayName}
-              {#if view.winnerSeats?.includes(p.seat)}<svg role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="#C9A227"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
+              {#if view.winnerSeats?.includes(p.seat)}<svg role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
             </div>
             <div class="sc">{p.score}</div>
           </div>
@@ -407,7 +408,7 @@
   .title { flex-grow: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
   .title h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .title span { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .popover { position: absolute; right: 8px; top: 52px; z-index: 10; width: 220px; padding: 12px; box-shadow: 0 10px 30px rgba(22, 22, 26, 0.18); }
+  .popover { position: absolute; right: 8px; top: 52px; z-index: 10; width: 220px; padding: 12px; box-shadow: 0 10px 30px var(--shadow); }
   .strip { display: flex; gap: 6px; padding: 0 8px 10px; overflow-x: auto; }
   .pc { flex: 0 0 auto; min-width: 68px; background: var(--surface); border-radius: 12px; padding: 7px 10px; display: flex; flex-direction: column; gap: 1px; }
   .pc.on { outline: 2px solid var(--p0); outline-offset: -2px; }
@@ -415,19 +416,19 @@
   .dot { width: 8px; height: 8px; border-radius: 4px; background: currentColor; }
   .sc { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; }
   .status { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
-  .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: rgba(22, 22, 26, 0.82); color: #fff; display: flex; align-items: center; justify-content: center; z-index: 4; }
+  .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--float); color: #fff; backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 4; }
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
   .rack { display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; background: var(--tile); color: var(--tile-fg); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.16); display: flex; align-items: center; justify-content: center; transition: transform 0.12s; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
-  .rk.empty { background: transparent; border: 1.5px dashed #c9c5b8; box-shadow: none; }
+  .rk.empty { background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
   .rk .ch { font-size: 24px; font-weight: 800; }
   .rk .pt { position: absolute; right: 5px; bottom: 3px; font-size: 10px; font-weight: 700; }
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
   .tool { width: 48px; height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
   .tool.wide { width: auto; padding: 0 14px; }
   .tool:disabled { opacity: 0.4; }
-  .playbtn { height: 52px; flex-grow: 1; border-radius: 14px; border: none; background: var(--ink); color: #fff; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .playbtn { height: 52px; flex-grow: 1; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .playbtn:disabled { opacity: 0.35; }
   .ready { width: 8px; height: 8px; border-radius: 4px; background: var(--valid); }
   .lobby { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -435,12 +436,12 @@
   .seats { overflow: hidden; }
   .seat { display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 52px; }
   .seat + .seat { border-top: 1px solid var(--line-soft); }
-  .av { width: 34px; height: 34px; border-radius: 17px; color: #fff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .av.open { border: 1.5px dashed #b9b5a8; }
+  .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .av.open { border: 1.5px dashed var(--dash); }
   .final { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .final .row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 10px 14px; }
   .final .row span:first-child { font-weight: 700; flex-grow: 1; }
-  .sheet-bg { position: fixed; inset: 0; background: rgba(22, 22, 26, 0.4); z-index: 20; }
+  .sheet-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 20; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 480px; margin: 0 auto; background: var(--ground); border-radius: 20px 20px 0 0; padding: 18px 16px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
   .letters { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
   .letters button { height: 44px; border-radius: 8px; border: none; background: var(--tile-pending); font-weight: 800; font-size: 18px; }

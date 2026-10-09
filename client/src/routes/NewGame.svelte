@@ -105,7 +105,7 @@
 </main>
 
 <style>
-  .tag { height: 30px; padding: 0 10px; margin-right: 8px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; }
+  .tag { height: 30px; padding: 0 10px; margin-right: 8px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; display: flex; align-items: center; }
   .card { overflow: hidden; }
   .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 8px 0 14px; min-height: 60px; }
   .line + .line { border-top: 1px solid var(--line-soft); }
@@ -113,7 +113,7 @@
   .count { width: 32px; text-align: center; font-family: var(--display); font-weight: 800; font-size: 22px; }
   .step { width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; }
   .step:disabled { opacity: 0.35; }
-  .segment { display: flex; background: #f0eee7; border-radius: 12px; padding: 3px; }
+  .segment { display: flex; background: var(--well); border-radius: 12px; padding: 3px; }
   .segment button { height: 38px; min-width: 52px; padding: 0 12px; border-radius: 9px; border: none; background: transparent; font-weight: 700; font-size: 14px; }
   .segment button.on { background: var(--surface); }
   .toggle { padding-right: 14px; font-weight: 800; font-size: 15px; }

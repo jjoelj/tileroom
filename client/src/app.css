@@ -3,17 +3,59 @@
 @font-face { font-family: 'Figtree'; src: url('/fonts/figtree.woff2') format('woff2'); font-weight: 400 800; font-display: swap; }
 @font-face { font-family: 'Bricolage Grotesque'; src: url('/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 800; font-display: swap; }
 
+/* Light (default). Every color in the app is one of these tokens, so themes only swap values. */
 :root {
+  color-scheme: light;
   --ground: #f5f4ef; --surface: #ffffff; --ink: #16161a; --muted: #5e5e66; --body: #3a3a40; --line: #dedcd4; --line-soft: #eceae3;
+  --well: #f0eee7; --dash: #b9b5a8;
+  --primary: #16161a; --on-primary: #ffffff; --on-color: #ffffff;
+  --scrim: rgba(22, 22, 26, 0.4); --shadow: rgba(22, 22, 26, 0.18); --float: rgba(22, 22, 26, 0.82);
   --cell: #e9e6dc;
   --dl-bg: #cfe0ee; --dl-fg: #24527e; --tl-bg: #2f66a3; --tl-fg: #ffffff;
   --dw-bg: #f3c7ae; --dw-fg: #8a3414; --tw-bg: #b8441e; --tw-fg: #ffffff;
-  --tile: #f2cf73; --tile-fg: #1e1a10; --tile-pending: #fff1c2; --tile-last: #f7de9c;
-  --valid: #84cc16; --link: #2f66a3; --ok: #246649; --bad: #9a3a19;
+  --tile: #f2cf73; --tile-top: #f8dd92; --tile-edge: #c9a24a; --tile-fg: #1e1a10;
+  --tile-pending: #fff1c2; --tile-last: #f7de9c;
+  --valid: #84cc16; --bubble-idle: #b9b5a8; --gold: #c9a227;
+  --link: #2f66a3; --ok: #246649; --bad: #9a3a19;
+  /* player colors: text on light surfaces / badge backgrounds */
   --p0: #2f66a3; --p1: #9a3a19; --p2: #246649; --p3: #5b3fa3; --p4: #a0306a; --p5: #7a5a12;
   --p0-bg: #2f66a3; --p1-bg: #b8441e; --p2-bg: #2e7d5b; --p3-bg: #5b3fa3; --p4-bg: #a0306a; --p5-bg: #7a5a12;
   --display: 'Bricolage Grotesque', sans-serif;
   --ui: 'Figtree', sans-serif;
+}
+
+/* Dark: follows the system unless data-theme="light"; data-theme="dark" forces it. Keep both blocks identical. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --ground: #121214; --surface: #1d1d21; --ink: #f2f1ec; --muted: #a3a3ab; --body: #cfcfd4; --line: #35353c; --line-soft: #2a2a30;
+    --well: #2a2a30; --dash: #55555e;
+    --primary: #f2f1ec; --on-primary: #16161a; --on-color: #ffffff;
+    --scrim: rgba(0, 0, 0, 0.6); --shadow: rgba(0, 0, 0, 0.5); --float: rgba(242, 241, 236, 0.16);
+    --cell: #26262b;
+    --dl-bg: #1f3a52; --dl-fg: #a9cbea; --tl-bg: #2f66a3; --tl-fg: #ffffff;
+    --dw-bg: #55301f; --dw-fg: #f3c7ae; --tw-bg: #b8441e; --tw-fg: #ffffff;
+    --tile: #e8c468; --tile-top: #f1d68c; --tile-edge: #b08a37; --tile-fg: #1e1a10;
+    --tile-pending: #f5e6b0; --tile-last: #f2d58a;
+    --valid: #84cc16; --bubble-idle: #6b6b74; --gold: #e0b83a;
+    --link: #8ab8ea; --ok: #6fcf97; --bad: #f08a6a;
+    --p0: #8ab8ea; --p1: #f0997a; --p2: #6fcf97; --p3: #b3a0ec; --p4: #ec8fbd; --p5: #e0c070;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ground: #121214; --surface: #1d1d21; --ink: #f2f1ec; --muted: #a3a3ab; --body: #cfcfd4; --line: #35353c; --line-soft: #2a2a30;
+  --well: #2a2a30; --dash: #55555e;
+  --primary: #f2f1ec; --on-primary: #16161a; --on-color: #ffffff;
+  --scrim: rgba(0, 0, 0, 0.6); --shadow: rgba(0, 0, 0, 0.5); --float: rgba(242, 241, 236, 0.16);
+  --cell: #26262b;
+  --dl-bg: #1f3a52; --dl-fg: #a9cbea; --tl-bg: #2f66a3; --tl-fg: #ffffff;
+  --dw-bg: #55301f; --dw-fg: #f3c7ae; --tw-bg: #b8441e; --tw-fg: #ffffff;
+  --tile: #e8c468; --tile-top: #f1d68c; --tile-edge: #b08a37; --tile-fg: #1e1a10;
+  --tile-pending: #f5e6b0; --tile-last: #f2d58a;
+  --valid: #84cc16; --bubble-idle: #6b6b74; --gold: #e0b83a;
+  --link: #8ab8ea; --ok: #6fcf97; --bad: #f08a6a;
+  --p0: #8ab8ea; --p1: #f0997a; --p2: #6fcf97; --p3: #b3a0ec; --p4: #ec8fbd; --p5: #e0c070;
 }
 
 * { box-sizing: border-box; }
@@ -35,7 +77,7 @@ a { color: var(--link); }
 .field { height: 54px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); padding: 0 16px; font-size: 17px; font-weight: 600; width: 100%; }
 .hint { font-size: 12px; font-weight: 600; color: var(--muted); }
 .stack { display: flex; flex-direction: column; gap: 8px; }
-.primary { height: 56px; border-radius: 16px; border: none; background: var(--ink); color: #fff; font-weight: 800; font-size: 16px; width: 100%; }
+.primary { height: 56px; border-radius: 16px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; width: 100%; }
 .primary:disabled { opacity: 0.35; }
 .secondary { height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 700; font-size: 15px; width: 100%; }
 .textbtn { min-height: 44px; border: none; background: transparent; color: var(--link); font-weight: 700; font-size: 14px; }
@@ -44,5 +86,15 @@ a { color: var(--link); }
 .iconbtn { width: 44px; height: 44px; border-radius: 22px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; }
 .card { background: var(--surface); border-radius: 16px; }
 .brand { display: flex; gap: 4px; }
-.brand span { width: 40px; height: 40px; border-radius: 8px; background: var(--tile); color: var(--tile-fg); font-weight: 800; font-size: 22px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.16); }
+.brand span { width: 40px; height: 40px; border-radius: 8px; font-size: 22px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* A letter tile: one look for the board, the rack, the drag ghost and the logo. Size comes from the parent. */
+.tile-face, .brand span {
+  background: linear-gradient(180deg, var(--tile-top), var(--tile) 55%);
+  color: var(--tile-fg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -2px 0 var(--tile-edge), 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-family: var(--display);
+  font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}

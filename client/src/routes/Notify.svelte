@@ -56,7 +56,7 @@
   </div>
 
   <div aria-hidden="true" class="card preview">
-    <span class="icon">T</span>
+    <span class="icon tile-face">T</span>
     <div style="display: flex; flex-direction: column; gap: 2px">
       <span style="font-weight: 800; font-size: 14px">Your turn in Thursday Night</span>
       <span style="font-size: 14px; color: var(--body)">Ben played SPICY for 24.</span>
@@ -79,6 +79,6 @@
 </main>
 
 <style>
-  .preview { margin-top: 28px; border-radius: 18px; padding: 14px; display: flex; gap: 12px; box-shadow: 0 8px 24px rgba(22, 22, 26, 0.08); }
-  .icon { width: 40px; height: 40px; border-radius: 10px; background: var(--tile); color: var(--tile-fg); font-weight: 800; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .preview { margin-top: 28px; border-radius: 18px; padding: 14px; display: flex; gap: 12px; box-shadow: 0 8px 24px var(--shadow); }
+  .icon { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; flex-shrink: 0; }
 </style>

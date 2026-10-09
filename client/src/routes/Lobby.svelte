@@ -4,6 +4,7 @@
   import { plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
   import { go, session } from '../lib/state.svelte';
+  import { getTheme, setTheme, type Theme } from '../lib/theme';
 
   type Summary = {
     id: string;
@@ -50,6 +51,7 @@
     }
   }
 
+  let theme = $state<Theme>(getTheme());
   let tested = $state('');
   async function testPush() {
     tested = 'Sending…';
@@ -79,7 +81,7 @@
 <main class="screen" style="padding: 0 16px 32px">
   <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; position: relative">
     <div style="display: flex; flex-direction: column; gap: 4px">
-      <div class="mini-brand" aria-hidden="true"><span>T</span><span>R</span></div>
+      <div class="mini-brand" aria-hidden="true"><span class="tile-face">T</span><span class="tile-face">R</span></div>
       <h1 class="h1" style="font-size: 34px">Tileroom</h1>
     </div>
     <button class="avatar" aria-label="Account" aria-expanded={menu} onclick={() => (menu = !menu)}>
@@ -89,6 +91,19 @@
       <div class="card popover" role="menu">
         <span style="font-weight: 800">{session.me?.displayName}</span>
         <span class="hint">@{session.me?.username}</span>
+        <div class="themes" role="radiogroup" aria-label="Theme">
+          {#each ['system', 'light', 'dark'] as const as t (t)}
+            <button
+              role="radio"
+              aria-checked={theme === t}
+              class:on={theme === t}
+              onclick={() => {
+                theme = t;
+                setTheme(t);
+              }}>{t[0]!.toUpperCase() + t.slice(1)}</button
+            >
+          {/each}
+        </div>
         <button class="secondary" role="menuitem" onclick={testPush}>{tested || 'Send test notification'}</button>
         <button class="secondary" role="menuitem" onclick={signOut}>Sign out</button>
       </div>
@@ -163,11 +178,14 @@
 
 <style>
   .mini-brand { display: flex; gap: 3px; }
-  .mini-brand span { width: 26px; height: 26px; border-radius: 5px; background: var(--tile); color: var(--tile-fg); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.14); }
-  .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: #fff; font-weight: 800; font-size: 16px; }
-  .popover { position: absolute; right: 0; top: 80px; z-index: 5; width: 220px; padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px rgba(22, 22, 26, 0.18); }
+  .mini-brand span { width: 26px; height: 26px; border-radius: 5px; font-size: 15px; }
+  .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: var(--on-color); font-weight: 800; font-size: 16px; }
+  .popover { position: absolute; right: 0; top: 80px; z-index: 5; width: 220px; padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px var(--shadow); }
+  .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin: 4px 0; }
+  .themes button { flex: 1; height: 36px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 13px; }
+  .themes button.on { background: var(--surface); }
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .dark { border: none; background: var(--ink); color: #fff; }
+  .dark { border: none; background: var(--primary); color: var(--on-primary); }
   .outline { border: 1.5px solid var(--ink); background: transparent; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
@@ -177,5 +195,5 @@
   .name { font-family: var(--display); font-weight: 800; font-size: 20px; }
   .name.small { font-family: var(--ui); font-size: 16px; }
   .sub { font-size: 13px; color: var(--muted); }
-  .pill { font-size: 12px; font-weight: 800; color: #fff; background: var(--p0-bg); padding: 4px 10px; border-radius: 999px; }
+  .pill { font-size: 12px; font-weight: 800; color: var(--on-color); background: var(--p0-bg); padding: 4px 10px; border-radius: 999px; }
 </style>
