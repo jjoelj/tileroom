@@ -26,6 +26,8 @@
     matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const mobile = /Android|iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const installed = standalone || !mobile || (import.meta.env.DEV && import.meta.env.VITE_SKIP_PWA_GATE === '1');
+  // Signing up doesn't need the app: make the account here, then install (the install screen says to sign in there).
+  const gated = $derived(!installed && !(route.path.startsWith('/signup') && !session.me));
 
   onMount(() => {
     api<Me>('/me')
@@ -62,7 +64,7 @@
 
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
-    !installed
+    gated
       ? 'install'
       : session.me === undefined
         ? 'loading'
@@ -84,7 +86,7 @@
 
 {#key screen}
 <div in:show={{ duration: 180 }}>
-{#if !installed}
+{#if gated}
   <Install />
 {:else if session.me === undefined}
   <div class="screen" aria-busy="true"></div>
