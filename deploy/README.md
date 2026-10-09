@@ -28,8 +28,8 @@ production on `127.0.0.1:3100`, staging on `127.0.0.1:3101`. Each is its own che
 5. **Checkouts:**
    ```sh
    cd ~/docker-apps
-   git clone git@github.com:<you>/tileroom.git tileroom
-   git clone git@github.com:<you>/tileroom.git tileroom-staging
+   git clone https://github.com/jjoelj/tileroom.git tileroom   # public: HTTPS needs no key
+   git clone https://github.com/jjoelj/tileroom.git tileroom-staging
    docker run --rm oven/bun:1.4.2 bunx web-push generate-vapid-keys   # once; same keys in both
    ```
    `.env` in each:
