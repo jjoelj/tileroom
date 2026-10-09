@@ -6,6 +6,7 @@
 
   const permission = $derived(pushSupported() ? device.permission : 'unsupported');
   let error = $state('');
+  let hint = $state('');
   let busy = $state(false);
 
   const ua = navigator.userAgent;
@@ -19,14 +20,22 @@
   async function enable() {
     busy = true;
     error = '';
+    hint = '';
     try {
       device.permission = await Notification.requestPermission();
+      // Edge (and Chrome's quiet mode) can hide the prompt behind an address-bar icon and answer "no decision".
+      if (device.permission === 'default') {
+        hint = 'Your browser hid the request. Look for a bell or lock icon in the address bar, choose Allow, then tap again.';
+      }
       if (device.permission !== 'granted') return;
       await subscribe();
       await api('/push/test', { method: 'POST' }).catch(() => {});
       if (session.me) session.me.pushReady = true;
-    } catch {
-      error = "Couldn't turn on notifications. Try again.";
+    } catch (e) {
+      const why = e instanceof Error ? e.message : String(e);
+      error = /permission denied|incognito|private/i.test(why)
+        ? "This window can't receive notifications. Private windows don't support them; use a normal window or the installed app."
+        : `Couldn't turn on notifications: ${why}`;
     } finally {
       busy = false;
     }
@@ -60,6 +69,7 @@
       <p class="lead" style="font-size: 15px"><b>Notifications are blocked.</b> {steps}</p>
       <button class="primary" onclick={check}>Check again</button>
     {:else}
+      {#if hint}<p class="lead" role="status" style="font-size: 15px">{hint}</p>{/if}
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       <button class="primary" onclick={enable} disabled={busy}>Turn on notifications</button>
       <div style="text-align: center; font-size: 13px; line-height: 1.45; color: var(--muted)">Only for your games: your turn, starts and ends.</div>

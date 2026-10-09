@@ -17,7 +17,10 @@ const toBytes = (b64url: string) => {
 
 /** Subscribes this device (or reuses its subscription) and attaches it to the session (SPEC §8). */
 export async function subscribe() {
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The app's background worker didn't start. Reload and try again.")), 10_000)),
+  ]);
   const { publicKey } = await api<{ publicKey: string }>('/push/key');
   const sub =
     (await reg.pushManager.getSubscription()) ??
