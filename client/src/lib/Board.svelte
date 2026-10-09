@@ -65,19 +65,39 @@
     });
   });
 
-  // One outline around all valid words together, drawn as a single SVG mask: every word's box grown by 2px,
-  // minus every word's box. Crossings merge cleanly and nothing is drawn over the tiles.
+  // One outline around all valid words together, drawn as a single SVG mask: the covered cells grown by 2px,
+  // minus the covered cells with every gap between covered neighbours filled in. Built per cell, not per word,
+  // so blocks (a 2×2 square, a row laid along another) merge too. Only outside corners are rounded.
   let W = $state(0); // untransformed board width
-  const pitch = $derived((W - (SIZE - 1)) / SIZE + 1); // cell + 1px gap
-  const boxes = $derived(
-    outlines.map((w) => ({
-      x: w.c * pitch,
-      y: w.r * pitch,
-      w: (w.dir === 'across' ? w.length : 1) * pitch - 1,
-      h: (w.dir === 'down' ? w.length : 1) * pitch - 1,
-    })),
-  );
   const RING = 2;
+  /** A rectangle path with its own radius per corner (tl, tr, br, bl); all clockwise, so subpaths union. */
+  const rect = (x: number, y: number, w: number, h: number, [tl, tr, br, bl]: number[]) =>
+    `M${x + tl!},${y}H${x + w - tr!}A${tr},${tr} 0 0 1 ${x + w},${y + tr!}V${y + h - br!}A${br},${br} 0 0 1 ${x + w - br!},${y + h}` +
+    `H${x + bl!}A${bl},${bl} 0 0 1 ${x},${y + h - bl!}V${y + tl!}A${tl},${tl} 0 0 1 ${x + tl!},${y}Z`;
+  const ring = $derived.by(() => {
+    const on = new Set<number>();
+    for (const w of outlines) for (let k = 0; k < w.length; k++) on.add(w.dir === 'across' ? w.r * SIZE + w.c + k : (w.r + k) * SIZE + w.c);
+    if (!on.size) return null;
+    const has = (r: number, c: number) => r >= 0 && c >= 0 && r < SIZE && c < SIZE && on.has(r * SIZE + c);
+    const cs = (W - (SIZE - 1)) / SIZE;
+    const rx = cs * 0.16; // the tiles' own corner radius
+    let outer = '';
+    let inner = '';
+    for (const i of on) {
+      const r = Math.floor(i / SIZE);
+      const c = i % SIZE;
+      const [x, y] = [c * (cs + 1), r * (cs + 1)];
+      const [t, rt, b, l] = [!has(r - 1, c), !has(r, c + 1), !has(r + 1, c), !has(r, c - 1)];
+      const round = (k: number) => [t && l, t && rt, b && rt, b && l].map((convex) => (convex ? k : 0));
+      outer += rect(x - RING, y - RING, cs + 2 * RING, cs + 2 * RING, round(rx + RING));
+      inner += rect(x, y, cs, cs, round(rx));
+      const none = [0, 0, 0, 0];
+      if (!rt) inner += rect(x + cs, y, 1, cs, none); // the gap to the right neighbour
+      if (!b) inner += rect(x, y + cs, cs, 1, none); // the gap below
+      if (!rt && !b && has(r + 1, c + 1)) inner += rect(x + cs, y + cs, 1, 1, none); // where four gaps meet
+    }
+    return { outer, inner };
+  });
 
   const pos = (r: number, c: number) => `left: calc(${c} * (var(--cs) + 1px)); top: calc(${r} * (var(--cs) + 1px));`;
   // On the anchor tile's bottom-right corner, but kept inside the board on the last row/column.
@@ -268,12 +288,11 @@
       </button>
     {/each}
 
-    {#if boxes.length}
-      {@const rx = (pitch - 1) * 0.16}
+    {#if ring}
       <svg class="outline" width={W} height={W} aria-hidden="true" transition:show={{ duration: 140 }}>
         <mask id="word-ring" maskUnits="userSpaceOnUse" x={-RING} y={-RING} width={W + 2 * RING} height={W + 2 * RING}>
-          {#each boxes as b, i (i)}<rect x={b.x - RING} y={b.y - RING} width={b.w + 2 * RING} height={b.h + 2 * RING} rx={rx + RING} fill="#fff" />{/each}
-          {#each boxes as b, i (i)}<rect x={b.x} y={b.y} width={b.w} height={b.h} rx={rx} fill="#000" />{/each}
+          <path d={ring.outer} fill="#fff" />
+          <path d={ring.inner} fill="#000" />
         </mask>
         <rect x={-RING} y={-RING} width={W + 2 * RING} height={W + 2 * RING} mask="url(#word-ring)" />
       </svg>
