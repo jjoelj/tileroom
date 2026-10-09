@@ -1,4 +1,4 @@
 {
-  "files": { "includes": ["shared/**", "server/**", "!server/drizzle"] },
+  "files": { "includes": ["shared/**", "server/**", "client/src/**/*.ts", "client/vite.config.ts", "scripts/**", "wordlists/*.ts", "!server/drizzle"] },
   "linter": { "rules": { "recommended": true, "style": { "noNonNullAssertion": "off" } } }
 }

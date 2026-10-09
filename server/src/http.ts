@@ -3,7 +3,8 @@ import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { z } from 'zod';
 
-export const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN ?? 'http://localhost:5173';
+/** Origins the app is served from, comma-separated (e.g. localhost plus a Tailscale Funnel URL in dev). */
+export const PUBLIC_ORIGINS = (process.env.PUBLIC_ORIGIN ?? 'http://localhost:5173').split(',').map((o) => o.trim());
 
 /** An expected failure: becomes `{error, message?}` with this status. */
 export class ApiError extends Error {

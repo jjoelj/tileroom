@@ -6,7 +6,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 import { newToken, normalizeCode, randomId, sha256 } from './codes';
 import { invites, sessions, users } from './db/schema';
-import { ApiError, body, PUBLIC_ORIGIN, rateLimit } from './http';
+import { ApiError, body, PUBLIC_ORIGINS, rateLimit } from './http';
 import { db, type Tx } from './runtime/db';
 import { hashPassword, needsRehash, verifyPassword } from './runtime/hash';
 import { clientIp } from './runtime/ip';
@@ -37,7 +37,7 @@ export function createSession(tx: Tx, c: Context, userId: string) {
     .run();
   setCookie(c, COOKIE, token, {
     httpOnly: true,
-    secure: PUBLIC_ORIGIN.startsWith('https:'),
+    secure: PUBLIC_ORIGINS.every((o) => o.startsWith('https:')), // production; dev may mix http://localhost in
     sameSite: 'Lax',
     path: '/',
     maxAge: SESSION_MS / 1000,
@@ -68,7 +68,7 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 /** Non-GET requests must come from our own origin (SPEC §6, §10). */
 export const checkOrigin: MiddlewareHandler = async (c, next) => {
-  if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && c.req.header('origin') !== PUBLIC_ORIGIN) {
+  if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && !PUBLIC_ORIGINS.includes(c.req.header('origin') ?? '')) {
     throw new ApiError(403, 'bad_origin');
   }
   await next();

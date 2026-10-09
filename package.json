@@ -5,10 +5,13 @@
   "license": "AGPL-3.0-or-later",
   "packageManager": "bun@1.4.2",
   "scripts": {
-    "dev": "bun --watch server/src/index.ts",
+    "dev": "bun scripts/dev.ts",
+    "dev:server": "bun --watch server/src/index.ts",
+    "dev:client": "VITE_SKIP_PWA_GATE=1 vite --config client/vite.config.ts",
+    "build": "vite build --config client/vite.config.ts",
     "start": "bun server/src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p client/tsconfig.worker.json && svelte-check --tsconfig client/tsconfig.json --threshold error",
     "lint": "biome lint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun server/src/db/migrate.ts",
@@ -16,11 +19,18 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/bun": "1.4.2",
     "@types/web-push": "3.6.4",
     "drizzle-kit": "0.31.11",
     "fast-check": "4.10.2",
-    "typescript": "7.0.2"
+    "svelte": "5.57.2",
+    "svelte-check": "4.7.6",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vite-plugin-pwa": "2.0.0",
+    "workbox-build": "7.4.1",
+    "workbox-precaching": "7.4.1"
   },
   "dependencies": {
     "drizzle-orm": "0.45.4",
