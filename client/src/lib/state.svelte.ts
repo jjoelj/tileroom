@@ -27,6 +27,34 @@ export function go(path: string) {
   scrollTo(0, 0);
 }
 
+// A /join/CODE link survives install, sign-in and sign-up (sessionStorage is per tab and per installed app).
+const JOIN_KEY = 'tileroom:join';
+export const joinCodeIn = (path: string) => path.match(/^\/join\/([\w-]+)$/)?.[1];
+const remembered = joinCodeIn(location.pathname);
+try {
+  if (remembered) sessionStorage.setItem(JOIN_KEY, remembered);
+} catch {
+  // storage blocked: the link still works if they stay on this page
+}
+
+/** Where to land after signing in: the pending join link, else the lobby. */
+export function home() {
+  try {
+    const code = sessionStorage.getItem(JOIN_KEY);
+    return code ? `/join/${code}` : '/';
+  } catch {
+    return '/';
+  }
+}
+
+export function forgetJoin() {
+  try {
+    sessionStorage.removeItem(JOIN_KEY);
+  } catch {
+    // nothing stored
+  }
+}
+
 addEventListener('popstate', () => {
   route.path = location.pathname;
 });

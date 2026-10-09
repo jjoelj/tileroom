@@ -191,11 +191,17 @@
     }
   }
 
+  // Phones get the share sheet; anything with a mouse just copies.
+  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   function share() {
     if (!view?.joinCode) return;
     const text = `Join my Tileroom game: code ${view.joinCode} — ${location.origin}/join/${view.joinCode}`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else navigator.clipboard?.writeText(text).then(() => (message = 'Copied the invite.'));
+    if (canShare) navigator.share({ text }).catch(() => {});
+    else
+      navigator.clipboard?.writeText(text).then(
+        () => (message = 'Copied. Paste it to the other players.'),
+        () => (message = `Copy this: ${text}`),
+      );
   }
 
   const describe = (m: PublicMove) =>
@@ -245,7 +251,7 @@
       <section class="lobby">
         <span class="label">Game code</span>
         <div class="code">{view.joinCode}</div>
-        <button class="secondary" onclick={share}>Share code</button>
+        <button class="secondary" onclick={share}>{canShare ? 'Share code' : 'Copy invite'}</button>
         <div class="card seats">
           {#each Array.from({ length: view.seatCount }, (_, i) => view!.players[i]) as p, i (i)}
             <div class="seat">

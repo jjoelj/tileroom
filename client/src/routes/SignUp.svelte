@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
-  import { go, type Me, session } from '../lib/state.svelte';
+  import { go, home, type Me, session } from '../lib/state.svelte';
 
   type Check = { valid: boolean; invitedBy: string | null };
 
@@ -38,7 +38,7 @@
     try {
       await api('/auth/signup', { method: 'POST', body: { inviteCode, username, displayName, password } });
       session.me = await api<Me>('/me');
-      go('/');
+      go(home());
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
     } finally {

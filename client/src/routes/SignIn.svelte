@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
-  import { go, type Me, session } from '../lib/state.svelte';
+  import { go, home, type Me, session } from '../lib/state.svelte';
 
   let username = $state('');
   let password = $state('');
@@ -15,7 +15,7 @@
     try {
       await api('/auth/login', { method: 'POST', body: { username, password } });
       session.me = await api<Me>('/me');
-      go('/');
+      go(home());
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
     } finally {

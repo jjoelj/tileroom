@@ -4,9 +4,10 @@
   import { api } from './lib/api';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
-  import { device, go, type Me, route, session } from './lib/state.svelte';
+  import { device, go, joinCodeIn, type Me, route, session } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Install from './routes/Install.svelte';
+  import Join from './routes/Join.svelte';
   import Lobby from './routes/Lobby.svelte';
   import NewGame from './routes/NewGame.svelte';
   import Notify from './routes/Notify.svelte';
@@ -39,6 +40,7 @@
   });
 
   const gameId = $derived(route.path.match(/^\/games\/([\w-]+)$/)?.[1]);
+  const joinCode = $derived(joinCodeIn(route.path));
 </script>
 
 {#if !installed}
@@ -51,6 +53,8 @@
   <Notify />
 {:else if gameId}
   {#key gameId}<Game id={gameId} />{/key}
+{:else if joinCode}
+  {#key joinCode}<Join code={joinCode} />{/key}
 {:else if route.path === '/new'}
   <NewGame />
 {:else}
