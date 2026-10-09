@@ -32,7 +32,7 @@
     onPendingDown: (e: PointerEvent, r: number, c: number) => void;
   } = $props();
 
-  const LABEL = { '.': '', d: 'DL', t: 'TL', D: 'DW', T: 'TW', '*': '★' } as const;
+  const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '★' } as const;
   const NAME = { '.': '', d: 'double letter', t: 'triple letter', D: 'double word', T: 'triple word', '*': 'start' } as const;
   const COLS = 'ABCDEFGHIJKLMNO';
 
