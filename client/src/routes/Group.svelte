@@ -232,7 +232,6 @@
       {#if admin}<button class="textbtn" style="margin-left: auto" disabled={busy} onclick={rename}>Rename</button>{/if}
     </header>
 
-
     <h2 class="label section">Games</h2>
     <button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>
     {#each current as g (g.id)}
@@ -332,16 +331,25 @@
       </span>
       <button class="pill" onclick={share}>{canShare ? 'Share' : 'Copy'}</button>
     </div>
-    {#if admin}
-      <button class="textbtn" disabled={busy} onclick={newCode}>Make a new code</button>
-      <label class="card item toggle">
-        <span class="grow">
-          <span class="strong">Spectators can see trays</span>
-          <span class="hint">{group.spectatorsSeeRacks ? 'For games started from now on. Turning it off applies at once.' : 'Members watching a game see only the board'}</span>
+    {#if admin}<button class="textbtn" disabled={busy} onclick={newCode}>Make a new code</button>{/if}
+
+    <!-- Everyone sees the settings; only admins change them. -->
+    <h2 class="label section">Settings</h2>
+    <label class="card item toggle" class:readonly={!admin}>
+      <span class="grow">
+        <span class="strong">Spectators can see trays</span>
+        <span class="hint">
+          {group.spectatorsSeeRacks ? 'Applies to games started from now on. Turning it off applies at once.' : 'Members watching a game see only the board'}
+          {admin ? '' : ' · Only admins can change this'}
         </span>
-        <input type="checkbox" checked={group.spectatorsSeeRacks} disabled={busy} onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })} />
-      </label>
-    {/if}
+      </span>
+      <input
+        type="checkbox"
+        checked={group.spectatorsSeeRacks}
+        disabled={busy || !admin}
+        onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
+      />
+    </label>
 
     {#if group.history.length}
       <h2 class="label section">Past votes</h2>
@@ -382,6 +390,7 @@
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .code { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: 0.08em; }
   .toggle input { width: 22px; height: 22px; accent-color: var(--ink); flex-shrink: 0; }
+  .toggle.readonly input { opacity: 0.5; }
   .past { display: block; margin-top: 4px; }
   .leave { color: var(--bad); margin-top: 24px; }
 </style>
