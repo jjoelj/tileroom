@@ -29,7 +29,9 @@ main() {
 
     git checkout --quiet "$ref" || { log "$1" "checkout $ref failed"; return 1; }
     # Compose builds before replacing the container, so a failed build leaves the old one running.
-    if docker compose up -d --build >/dev/null 2>&1; then
+    # The version shown in the app: the tag in prod, the commit on staging.
+    [ "$1" = prod ] && version=$ref || version=$new
+    if VERSION=$version docker compose up -d --build >/dev/null 2>&1; then
         log "$1" "$old -> $new deployed"
     else
         log "$1" "$old -> $new build failed, old container still running"

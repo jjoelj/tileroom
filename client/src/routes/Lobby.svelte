@@ -2,15 +2,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { grow, ms, show } from '../lib/motion';
+  import { ms, show } from '../lib/motion';
   import { names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
-  import { prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
-  import { getTheme, setTheme, type Theme } from '../lib/theme';
 
   type Summary = {
     id: string;
@@ -39,7 +37,6 @@
   }
   let joining = $state(false);
   let code = $state('');
-  let menu = $state(false);
 
   const load = () =>
     Promise.all([
@@ -82,39 +79,6 @@
     }
   }
 
-  let theme = $state<Theme>(getTheme());
-  let tested = $state('');
-  async function testPush() {
-    tested = 'Sending…';
-    tested = await api('/push/test', { method: 'POST' }).then(
-      () => 'Sent. Check your notifications',
-      () => "Couldn't send. Try again",
-    );
-  }
-
-  async function rename() {
-    const me = session.me;
-    if (!me) return;
-    menu = false;
-    const displayName = await prompt({
-      title: 'Change your name',
-      body: 'This is what other players see in games and groups.',
-      action: 'Save',
-      input: { label: 'Display name', value: me.displayName, maxlength: 24 },
-    });
-    if (!displayName || displayName === me.displayName) return;
-    await api('/me/settings', { method: 'PATCH', body: { displayName } }).then(
-      () => (me.displayName = displayName),
-      () => {},
-    );
-  }
-
-  async function signOut() {
-    await api('/auth/logout', { method: 'POST' }).catch(() => {});
-    session.me = null;
-    go('/');
-  }
-
   const tag = (g: Summary) => (g.group ? `${g.group.name} · ` : '');
   const others = (g: Summary) => g.players.filter((p) => p.seat !== g.mySeat);
   // Games have no names: they're called by who else is in them.
@@ -129,41 +93,15 @@
   };
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (menu = false)} />
-
 <main class="screen" style="padding: 0 16px 32px">
-  <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; position: relative">
+  <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; ">
     <div style="display: flex; flex-direction: column; gap: 4px">
       <div class="mini-brand" aria-hidden="true"><span class="tile-face">T</span><span class="tile-face">R</span></div>
       <h1 class="h1" style="font-size: 34px">Tileroom</h1>
     </div>
-    <button class="avatar" aria-label="Account" aria-expanded={menu} onclick={() => (menu = !menu)}>
+    <button class="avatar" aria-label="Settings" onclick={() => go('/settings')}>
       {session.me?.displayName[0]?.toUpperCase()}
     </button>
-    {#if menu}
-      <!-- a tap anywhere else closes the menu -->
-      <div class="away" role="presentation" onclick={() => (menu = false)}></div>
-      <div class="card popover" role="menu" transition:grow>
-        <span style="font-weight: 800">{session.me?.displayName}</span>
-        <span class="hint">@{session.me?.username}</span>
-        <div class="themes" role="radiogroup" aria-label="Theme">
-          {#each ['system', 'light', 'dark'] as const as t (t)}
-            <button
-              role="radio"
-              aria-checked={theme === t}
-              class:on={theme === t}
-              onclick={() => {
-                theme = t;
-                setTheme(t);
-              }}>{t[0]!.toUpperCase() + t.slice(1)}</button
-            >
-          {/each}
-        </div>
-        <button class="secondary" role="menuitem" onclick={rename}>Change name</button>
-        <button class="secondary" role="menuitem" onclick={testPush}>{tested || 'Send test notification'}</button>
-        <button class="secondary" role="menuitem" onclick={signOut}>Sign out</button>
-      </div>
-    {/if}
   </header>
 
   <div style="display: flex; gap: 8px">
@@ -257,11 +195,6 @@
   .mini-brand { display: flex; gap: 3px; }
   .mini-brand span { width: 26px; height: 26px; border-radius: 5px; font-size: 15px; }
   .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: var(--on-color); font-weight: 800; font-size: 16px; }
-  .popover { transform-origin: top right; position: absolute; right: 0; top: 80px; z-index: 5; width: 220px; padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px var(--shadow); }
-  .away { position: fixed; inset: 0; z-index: 4; }
-  .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin: 4px 0; }
-  .themes button { flex: 1; height: 36px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 13px; }
-  .themes button.on { background: var(--surface); }
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .dark { border: none; background: var(--primary); color: var(--on-primary); }
   .outline { border: 1.5px solid var(--ink); background: transparent; }

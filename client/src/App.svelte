@@ -17,6 +17,7 @@
   import NewGame from './routes/NewGame.svelte';
   import Notify from './routes/Notify.svelte';
   import SignIn from './routes/SignIn.svelte';
+  import Settings from './routes/Settings.svelte';
   import SignUp from './routes/SignUp.svelte';
 
   // Gate 1 (SPEC §9.6): on phones and tablets only the installed app runs (iOS push needs it); desktop browsers
@@ -73,7 +74,7 @@
                   ? `group:${groupId}`
                   : joinCode
                 ? `join:${joinCode}`
-                : route.path === '/new' ? 'new' : 'lobby',
+                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : 'lobby',
   );
 </script>
 
@@ -97,6 +98,8 @@
   {#key joinCode}<Join code={joinCode} />{/key}
 {:else if route.path === '/new'}
   <NewGame />
+{:else if route.path === '/settings'}
+  <Settings />
 {:else}
   <Lobby />
 {/if}
