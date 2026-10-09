@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { newToken, normalizeCode, randomId, sha256 } from './codes';
 import { invites, sessions, users } from './db/schema';
 import { ApiError, body, PUBLIC_ORIGINS, rateLimit } from './http';
+import { renamed } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { hashPassword, needsRehash, verifyPassword } from './runtime/hash';
 import { clientIp } from './runtime/ip';
@@ -22,7 +23,8 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 // Only passwords that pass the length rule can matter, so the bundled list keeps just those (SecLists 10k, MIT).
 const COMMON = new Set(readFileSync(new URL('./common-passwords.txt', import.meta.url), 'utf8').split(/\r?\n/));
 
-export const Username = z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,20}$/, 'Usernames are 3–20 letters, digits or _');
+const DisplayName = z.string().trim().min(1).max(24);
+export const Username =z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,20}$/, 'Usernames are 3–20 letters, digits or _');
 const Password = z.string().min(10, 'Use at least 10 characters').max(128, 'Use at most 128 characters');
 
 /** Throws 400 `weak_password` for common passwords or the username itself. */
@@ -112,7 +114,7 @@ export const auth = new Hono<AppEnv>()
         inviteCode: z.string().max(40),
         username: Username,
         password: Password,
-        displayName: z.string().trim().min(1).max(24),
+        displayName: DisplayName,
       }),
     );
     // Validate everything before touching the invite, so a typo doesn't burn the code.
@@ -177,7 +179,12 @@ export const auth = new Hono<AppEnv>()
   })
 
   .patch('/me/settings', requireUser, async (c) => {
-    const b = await body(c, z.object({ remindTurn: z.boolean().optional() }));
-    if (b.remindTurn !== undefined) db.update(users).set({ remindTurn: b.remindTurn }).where(eq(users.id, c.var.user.id)).run();
+    const b = await body(c, z.object({ remindTurn: z.boolean().optional(), displayName: DisplayName.optional() }));
+    const uid = c.var.user.id;
+    if (b.remindTurn !== undefined) db.update(users).set({ remindTurn: b.remindTurn }).where(eq(users.id, uid)).run();
+    if (b.displayName !== undefined && b.displayName !== c.var.user.displayName) {
+      db.update(users).set({ displayName: b.displayName }).where(eq(users.id, uid)).run();
+      renamed(uid, b.displayName); // open games and groups show the new name now
+    }
     return c.json({ ok: true });
   });

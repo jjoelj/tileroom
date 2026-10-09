@@ -155,3 +155,14 @@ test('unexpected errors return a bare 500 with no details', async () => {
   log.mockRestore();
   expect(r).toMatchObject({ status: 500, json: { error: 'server_error' } });
 });
+
+test('display names can be changed: 1 to 24 characters, shown everywhere', async () => {
+  const u = await newUser();
+  const set = (displayName: string) => call('/me/settings', { method: 'PATCH', cookie: u.cookie, body: { displayName } });
+  expect((await set('   ')).status).toBe(400);
+  expect((await set('x'.repeat(25))).status).toBe(400);
+  expect((await set('  Joel J ')).status).toBe(200);
+  expect((await call('/me', { cookie: u.cookie })).json.displayName).toBe('Joel J');
+  const g = await call('/games', { method: 'POST', cookie: u.cookie, body: { bagSize: 100, randomOrder: false } });
+  expect(g.json.players[0].displayName).toBe('Joel J');
+});

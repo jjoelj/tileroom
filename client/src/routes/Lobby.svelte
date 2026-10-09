@@ -6,6 +6,7 @@
   import { names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
+  import { prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
@@ -94,6 +95,23 @@
     );
   }
 
+  async function rename() {
+    const me = session.me;
+    if (!me) return;
+    menu = false;
+    const displayName = await prompt({
+      title: 'Change your name',
+      body: 'This is what other players see in games and groups.',
+      action: 'Save',
+      input: { label: 'Display name', value: me.displayName, maxlength: 24 },
+    });
+    if (!displayName || displayName === me.displayName) return;
+    await api('/me/settings', { method: 'PATCH', body: { displayName } }).then(
+      () => (me.displayName = displayName),
+      () => {},
+    );
+  }
+
   async function signOut() {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
     session.me = null;
@@ -140,6 +158,7 @@
             >
           {/each}
         </div>
+        <button class="secondary" role="menuitem" onclick={rename}>Change name</button>
         <button class="secondary" role="menuitem" onclick={testPush}>{tested || 'Send test notification'}</button>
         <button class="secondary" role="menuitem" onclick={signOut}>Sign out</button>
       </div>

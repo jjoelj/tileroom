@@ -2,7 +2,9 @@
 // Realtime (SPEC §7): notify-only. Clients say what's on screen; after a change, every socket watching that
 // game gets its own user's view (player or spectator), and players on the games list get a nudge to refetch.
 // All writes stay REST.
+import { and, eq, ne } from 'drizzle-orm';
 import { requestUser } from './auth';
+import { gamePlayers, games, groupMembers } from './db/schema';
 import { db } from './runtime/db';
 import type { Socket, Sockets } from './runtime/serve';
 import { canSpectate, isMember, lastMove, type LoadedGame, loadGame } from './store';
@@ -87,6 +89,22 @@ export function groupChanged(groupId: string, formerMembers?: string[]) {
     if (!member(c.userId)) continue; // leavers, and anyone guessing ids, hear nothing
     ws.send(JSON.stringify(c.sub === 'lobby' ? { t: 'lobby' } : { t: 'group' }));
   }
+}
+
+/** A user changed their display name: their open games and groups re-render with it. */
+export function renamed(userId: string, displayName: string) {
+  for (const c of live.values()) if (c.userId === userId) c.displayName = displayName; // watcher lists
+  const gameIds = db
+    .select({ id: gamePlayers.gameId })
+    .from(gamePlayers)
+    .innerJoin(games, eq(games.id, gamePlayers.gameId))
+    .where(and(eq(gamePlayers.userId, userId), ne(games.status, 'finished')))
+    .all();
+  for (const { id } of gameIds) changed(id);
+  const groupIds = db.select({ id: groupMembers.groupId }).from(groupMembers).where(eq(groupMembers.userId, userId)).all();
+  for (const { id } of groupIds) groupChanged(id);
+  // and anyone watching a game I'm watching sees the new name in its watcher list
+  for (const c of live.values()) if (c.userId === userId && isGame(c.sub)) changed(c.sub, { lobby: false });
 }
 
 /** Whether the user has this game open on screen right now (they don't need a push about it). */
