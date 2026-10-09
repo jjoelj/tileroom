@@ -586,7 +586,7 @@
             </button>
           {:else}
             <button class="tool" disabled={!myTurn || busy || view.bagCount === 0} onclick={() => (swapOpen = true)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" /></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4" /></svg>
               <span>Swap</span>
             </button>
           {/if}
@@ -686,9 +686,9 @@
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
   .rk .pt, .ghost .pt { position: absolute; right: 5px; bottom: 3px; font-family: var(--ui); font-size: 10px; font-weight: 700; opacity: 0.8; }
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
-  .tool { width: 64px; height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 700; font-size: 11px; }
+  .tool { flex: 1; height: 56px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-weight: 700; font-size: 12px; }
   .tool:disabled { opacity: 0.4; }
-  .playbtn { height: 52px; flex-grow: 1; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .playbtn { height: 56px; min-width: 124px; flex-shrink: 0; padding: 0 16px; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .playbtn:disabled { opacity: 0.35; }
   .ready { width: 8px; height: 8px; border-radius: 4px; background: var(--valid); }
   .lobby { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
