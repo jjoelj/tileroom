@@ -776,7 +776,7 @@
 {/if}
 
 <style>
-  .game { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+  .game { max-width: 480px; margin: 0 auto; min-height: calc(100dvh - var(--foot)); display: flex; flex-direction: column; }
   header { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 8px; position: relative; }
   .title { flex-grow: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
   .title h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

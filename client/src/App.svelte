@@ -56,6 +56,10 @@
   const groupCode = $derived(route.path.match(/^\/groups\/join\/([\w-]+)$/)?.[1]);
   const groupId = $derived(groupCode ? undefined : route.path.match(/^\/groups\/([\w-]+)$/)?.[1]);
   const joinCode = $derived(joinCodeIn(route.path));
+  // AGPL: every page links the source of exactly what's running. VITE_VERSION is the tag (prod) or commit (staging); see deploy.sh.
+  const REPO = 'https://github.com/jjoelj/tileroom';
+  const VERSION: string = import.meta.env.VITE_VERSION || 'dev';
+
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
     !installed
@@ -106,5 +110,14 @@
 </div>
 {/key}
 
+<footer>
+  <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener">{VERSION} · Source code</a>
+</footer>
+
 <Dialog />
 <Toast />
+
+<style>
+  footer { height: var(--foot); display: flex; align-items: center; justify-content: center; }
+  footer a { min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; }
+</style>

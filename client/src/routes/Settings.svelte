@@ -5,10 +5,6 @@
   import { go, session } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
 
-  // AGPL: link the source of exactly what's running. VITE_VERSION is the tag (prod) or commit (staging); see deploy.sh.
-  const REPO = 'https://github.com/jjoelj/tileroom';
-  const VERSION: string = import.meta.env.VITE_VERSION || 'dev';
-
   let theme = $state<Theme>(getTheme());
   let tested = $state('');
 
@@ -79,8 +75,6 @@
 
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
     <button class="secondary" onclick={signOut}>Sign out</button>
-
-    <a class="hint version" href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener">{VERSION} · Source code</a>
   </div>
 </main>
 
@@ -90,5 +84,4 @@
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }
   .themes button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }
   .themes button.on { background: var(--surface); }
-  .version { align-self: center; min-height: 44px; display: flex; align-items: center; color: var(--muted); }
 </style>
