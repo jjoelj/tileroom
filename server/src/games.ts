@@ -9,6 +9,7 @@ import { newJoinCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { notify } from './push';
+import { changed, watching } from './realtime';
 import { db } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { dictionary, isExpired, lastMove, loadGame, type LoadedGame, stateOf, voidGame } from './store';
@@ -31,6 +32,13 @@ function myGame(id: string, userId: string) {
 }
 
 const viewFor = (id: string, seat: number) => toView(loadGame(db, id)!, seat, lastMove(db, id));
+
+/** A push about a game, to everyone listed who doesn't have that game open right now (they see it live). */
+const notifyGame = (userIds: string[], game: { id: string; name: string }, body: string) =>
+  notify(
+    userIds.filter((u) => !watching(u, game.id)),
+    { title: game.name, body, url: `/games/${game.id}`, tag: `game-${game.id}` },
+  );
 
 const Name = z.string().trim().min(1).max(40);
 const SeatCount = z.int().min(2).max(6);
@@ -136,6 +144,7 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.insert(gamePlayers).values({ gameId: g.game.id, seat: fresh.seats.length, userId: uid }).run();
       return fresh.seats.length;
     });
+    changed(g.game.id);
     return c.json(viewFor(g.game.id, seat));
   })
 
@@ -151,6 +160,7 @@ export const gameRoutes = new Hono<AppEnv>()
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     if (b.seatCount !== undefined && b.seatCount < g.seats.length) throw new ApiError(400, 'too_few_seats', 'Seats are already taken');
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
+    changed(g.game.id);
     return c.json(viewFor(g.game.id, seat));
   })
 
@@ -191,8 +201,9 @@ export const gameRoutes = new Hono<AppEnv>()
     order.forEach((s, seat) => {
       if (s.userId === game.hostId && seat !== state.currentSeat) return;
       const body = seat === state.currentSeat ? `${game.name} has started. It's your turn.` : `${game.name} has started.`;
-      void notify([s.userId], { title: game.name, body, url: `/games/${game.id}`, tag: `game-${game.id}` });
+      void notifyGame([s.userId], game, body);
     });
+    changed(game.id);
     const mySeat = order.findIndex((s) => s.userId === c.var.user.id);
     return c.json(viewFor(game.id, mySeat));
   })
@@ -258,14 +269,14 @@ export const gameRoutes = new Hono<AppEnv>()
     const { g, seat, state, record } = result;
     const name = g.game.name;
     const mover = g.seats[seat]!.displayName;
-    const push = { title: name, url: `/games/${id}`, tag: `game-${id}` };
+    changed(id);
     if (state.status === 'finished') {
       const others = g.seats.filter((s) => s.seat !== seat).map((s) => s.userId);
-      void notify(others, { ...push, body: `${name} is over. See who won.` });
+      void notifyGame(others, g.game, `${name} is over. See who won.`);
     } else {
       const did =
         record.type === 'play' ? `${mover} played ${record.words![0]!.word} (${record.score})` : record.type === 'swap' ? `${mover} swapped tiles` : `${mover} passed`;
-      void notify([g.seats[state.currentSeat]!.userId], { ...push, body: `Your turn in ${name} — ${did}` });
+      void notifyGame([g.seats[state.currentSeat]!.userId], g.game, `Your turn in ${name} — ${did}`);
     }
     return c.json(viewFor(id, seat));
   })
@@ -284,12 +295,7 @@ export const gameRoutes = new Hono<AppEnv>()
     const now = Date.now();
     if (me.lastNudgeAt !== null && now - me.lastNudgeAt < DAY) throw new ApiError(429, 'nudge_limited', 'You can nudge once a day');
     db.update(gamePlayers).set({ lastNudgeAt: now }).where(and(eq(gamePlayers.gameId, g.game.id), eq(gamePlayers.seat, seat))).run();
-    void notify([g.seats[g.game.currentSeat]!.userId], {
-      title: g.game.name,
-      body: `${me.displayName} nudged you: it's your turn in ${g.game.name}`,
-      url: `/games/${g.game.id}`,
-      tag: `game-${g.game.id}`,
-    });
+    void notifyGame([g.seats[g.game.currentSeat]!.userId], g.game, `${me.displayName} nudged you: it's your turn in ${g.game.name}`);
     return c.json({ ok: true });
   });
 

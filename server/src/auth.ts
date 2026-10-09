@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { parse } from 'hono/utils/cookie';
 import { z } from 'zod';
 import { newToken, normalizeCode, randomId, sha256 } from './codes';
 import { invites, sessions, users } from './db/schema';
@@ -46,20 +47,31 @@ export function createSession(tx: Tx, c: Context, userId: string) {
 
 /** Loads the session if there is one. Sliding expiry, refreshed at most once a day. */
 export const loadSession: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const token = getCookie(c, COOKIE);
-  if (token) {
-    const row = db.select().from(sessions).innerJoin(users, eq(users.id, sessions.userId)).where(eq(sessions.id, sha256(token))).get();
-    const now = Date.now();
-    if (row && row.sessions.expiresAt > now) {
-      if (row.sessions.expiresAt - now < SESSION_MS - 86_400_000) {
-        db.update(sessions).set({ expiresAt: now + SESSION_MS }).where(eq(sessions.id, row.sessions.id)).run();
-      }
-      c.set('session', row.sessions);
-      c.set('user', row.users);
-    }
+  const row = sessionFor(getCookie(c, COOKIE));
+  if (row) {
+    c.set('session', row.sessions);
+    c.set('user', row.users);
   }
   await next();
 };
+
+/** The live session and user for a session token, if any. */
+function sessionFor(token: string | undefined) {
+  if (!token) return undefined;
+  const row = db.select().from(sessions).innerJoin(users, eq(users.id, sessions.userId)).where(eq(sessions.id, sha256(token))).get();
+  const now = Date.now();
+  if (!row || row.sessions.expiresAt <= now) return undefined;
+  if (row.sessions.expiresAt - now < SESSION_MS - 86_400_000) {
+    db.update(sessions).set({ expiresAt: now + SESSION_MS }).where(eq(sessions.id, row.sessions.id)).run();
+  }
+  return row;
+}
+
+/** The signed-in user behind a raw request (the WebSocket upgrade), if it comes from our own origin. */
+export function requestUser(req: Request) {
+  if (!PUBLIC_ORIGINS.includes(req.headers.get('origin') ?? '')) return undefined; // no cross-site sockets
+  return sessionFor(parse(req.headers.get('cookie') ?? '', COOKIE)[COOKIE])?.users;
+}
 
 export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!c.var.user) throw new ApiError(401, 'signed_out');

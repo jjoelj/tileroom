@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
   import { plural } from '../../../shared/plural';
   import { type Preview, previewPlay } from '../../../shared/rules';
@@ -11,6 +11,8 @@
   import Count from '../lib/Count.svelte';
   import { grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
+  import { live, watch } from '../lib/live.svelte';
+  import { clearGameNotifications } from '../lib/push';
   import { go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
@@ -79,14 +81,27 @@
     if (updates.n) void load();
   });
 
+  // Live updates arrive over the socket; on return to the app, refetch (the socket may have died in the background).
+  $effect(() => {
+    const v = live.view;
+    if (v?.id === id) untrack(() => apply(v));
+  });
+  // Whenever this game is on screen, its notifications have been seen.
+  $effect(() => {
+    if (view) void clearGameNotifications(id);
+  });
+
   onMount(() => {
     void load();
-    // ponytail: polling until the WebSocket lands in milestone 4
-    const timer = setInterval(() => !myTurn && document.visibilityState === 'visible' && load(), 10_000);
-    const onVisible = () => document.visibilityState === 'visible' && load();
+    const unwatch = watch(id);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void load();
+      void clearGameNotifications(id);
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      clearInterval(timer);
+      unwatch();
       document.removeEventListener('visibilitychange', onVisible);
     };
   });

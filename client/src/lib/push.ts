@@ -10,7 +10,13 @@ export function registerServiceWorker() {
   navigator.serviceWorker.register(url, { type: import.meta.env.DEV ? 'module' : 'classic', scope: '/' }).catch(() => {});
 }
 
-const toBytes = (b64url: string) => {
+/** Closes this device's notifications for a game: once it's on screen, they've been seen. */
+export async function clearGameNotifications(gameId: string) {
+  const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+  for (const n of (await reg?.getNotifications({ tag: `game-${gameId}` })) ?? []) n.close();
+}
+
+const toBytes =(b64url: string) => {
   const b64 = (b64url + '='.repeat((4 - (b64url.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 };

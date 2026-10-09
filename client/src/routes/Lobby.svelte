@@ -5,6 +5,7 @@
   import { grow, ms, show } from '../lib/motion';
   import { plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
+  import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
 
@@ -34,14 +35,17 @@
     if (updates.n) void load();
   });
 
+  $effect(() => {
+    if (live.lobby) void load();
+  });
+
   onMount(() => {
     void load();
-    // ponytail: polling until the WebSocket lands in milestone 4
-    const timer = setInterval(load, 15_000);
+    const unwatch = watch('lobby');
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      clearInterval(timer);
+      unwatch();
       document.removeEventListener('visibilitychange', onVisible);
     };
   });
