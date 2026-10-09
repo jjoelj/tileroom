@@ -90,18 +90,28 @@
     return [x - r.left, y - r.top] as const;
   };
 
+  // Programmatic zooms ease; pinch and pan follow the fingers directly.
+  let easing = $state(false);
+  let easeTimer = 0;
+  function eased(fn: () => void) {
+    easing = true;
+    fn();
+    clearTimeout(easeTimer);
+    easeTimer = window.setTimeout(() => (easing = false), 260);
+  }
+
   /** Zoom button / double tap: about 40px cells, or back to fit. */
   export function toggleZoom(x?: number, y?: number) {
     const w = size();
     const [px, py] = x === undefined || y === undefined ? [w / 2, w / 2] : local(x, y);
-    zoomAt(s > 1.01 ? 1 : Math.max(1.6, (40 * SIZE) / w), px, py);
+    eased(() => zoomAt(s > 1.01 ? 1 : Math.max(1.6, (40 * SIZE) / w), px, py));
   }
 
   /** After placing a tile on the fully zoomed-out board, zoom in a little around it. */
   export function zoomToward(r: number, c: number) {
     if (s > 1.01) return;
     const step = size() / SIZE;
-    zoomAt(1.4, (c + 0.5) * step, (r + 0.5) * step);
+    eased(() => zoomAt(1.4, (c + 0.5) * step, (r + 0.5) * step));
   }
 
   /** Screen position of a cell's center (for animating a tile into it). */
@@ -217,7 +227,7 @@
   onclickcapture={swallowClick}
   role="presentation"
 >
-  <div class="board" bind:this={grid} role="grid" aria-label="Game board" style="transform: translate({tx}px, {ty}px) scale({s})">
+  <div class="board" class:easing bind:this={grid} role="grid" aria-label="Game board" style="transform: translate({tx}px, {ty}px) scale({s})">
     {#each cells as cell (cell.i)}
       <button
         class="cell {cell.state}"
@@ -263,6 +273,7 @@
     touch-action: none; /* we handle pan and pinch */
     border-radius: 4px;
   }
+  .board.easing { transition: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1); }
   .board { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: repeat(15, var(--cs)); gap: 1px; transform-origin: 0 0; }
   .cell { position: relative; width: var(--cs); height: var(--cs); padding: 0; border: none; border-radius: 3px; background: var(--cell); display: flex; align-items: center; justify-content: center; color: var(--ink); }
   .lab { font-size: calc(var(--cs) * 0.31); font-weight: 800; letter-spacing: 0.02em; }

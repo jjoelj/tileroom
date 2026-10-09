@@ -132,6 +132,7 @@
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const origin = (e.target as Element).closest('.rk, .cell')?.getBoundingClientRect();
     const home = origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : { x: e.clientX, y: e.clientY };
+    const rackBox = rackEl?.getBoundingClientRect(); // read once; the rack doesn't move during a drag
     const x0 = e.clientX;
     const y0 = e.clientY;
     let x = x0;
@@ -141,6 +142,8 @@
     const paint = () => {
       frame = 0;
       if (ghost) ghost.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+      // Over the rack, the tile's empty slot follows the pointer and the others slide aside (flip).
+      if (rackBox && overRack(y, rackBox)) moveSlot(tile.slot, slotIndex(x, rackBox));
     };
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -180,6 +183,15 @@
     return new Promise<void>((resolve) => setTimeout(resolve, 170));
   }
 
+  const overRack = (y: number, r: DOMRect) => y >= r.top - 24 && y <= r.bottom + 24;
+  const slotIndex = (x: number, r: DOMRect) => Math.max(0, Math.min(order.length - 1, Math.floor(((x - r.left) / r.width) * order.length)));
+  function moveSlot(slot: number, to: number) {
+    if (order.indexOf(slot) === to) return;
+    const rest = order.filter((s) => s !== slot);
+    rest.splice(to, 0, slot);
+    order = rest;
+  }
+
   /** Applies a drop; returns where the ghost should glide to, or null to send it home. */
   async function drop(from: DragFrom, x: number, y: number): Promise<{ x: number; y: number } | null> {
     const cell = boardRef?.cellAt(x, y); // exactly where it's released
@@ -195,14 +207,11 @@
       return target;
     }
     const r = rackEl?.getBoundingClientRect();
-    if (r && y >= r.top - 24 && y <= r.bottom + 24) {
-      // Back to the rack: a placed tile returns; a rack tile moves to the slot it was dropped on.
+    if (r && overRack(y, r)) {
+      // Back to the rack, into the gap it was hovering over: a placed tile returns, a rack tile stays put.
       const slot = from.kind === 'board' ? pending[placed]!.slot : from.slot;
       if (placed >= 0) pending.splice(placed, 1);
-      const to = Math.max(0, Math.min(order.length - 1, Math.floor(((x - r.left) / r.width) * order.length)));
-      const rest = order.filter((s) => s !== slot);
-      rest.splice(to, 0, slot);
-      order = rest;
+      moveSlot(slot, slotIndex(x, r));
       navigator.vibrate?.(8);
       await tick(); // the other tiles slide (flip); the ghost glides into the gap
       const gap = rackEl?.querySelector(`[data-slot="${slot}"]`)?.getBoundingClientRect();
