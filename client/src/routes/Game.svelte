@@ -585,9 +585,11 @@
     {:else}
       <section class="strip" aria-label="Scores, in turn order">
         {#each view.players as p (p.seat)}
+          {@const here = p.here && p.seat !== view.mySeat}
           <div class="pc" class:on={view.status === 'active' && p.seat === view.currentSeat}>
             <div class="pn" style="color: var(--p{p.colorIndex % 6})">
-              <span class="dot"></span>{p.seat === view.mySeat ? 'You' : p.displayName}
+              <span class="dot" class:here title={here ? 'In the game now' : undefined}></span>{p.seat === view.mySeat ? 'You' : p.displayName}
+              {#if here}<span class="visually-hidden">, in the game now</span>{/if}
               {#if view.winnerSeats?.includes(p.seat)}<svg in:pop role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
             </div>
             <div class="sc"><Count value={p.score} /></div>
@@ -787,6 +789,10 @@
   .pc.on { outline: 2px solid var(--p0); outline-offset: -2px; }
   .pn { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .dot { width: 8px; height: 8px; border-radius: 4px; background: currentColor; }
+  /* presence: the player's dot pulses (in their own color) while they have this game open */
+  .dot.here { animation: live 1.8s ease-out infinite; }
+  @keyframes live { from { box-shadow: 0 0 0 0 currentColor; } to { box-shadow: 0 0 0 7px transparent; } }
+  @media (prefers-reduced-motion: reduce) { .dot.here { animation: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px currentColor; } }
   .sc { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; }
   .status { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
   .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--float); color: #fff; backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 4; }

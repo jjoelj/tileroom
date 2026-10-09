@@ -78,3 +78,26 @@ test('group screens: a new code nudges members watching; refocusing nudges too; 
   expect(ss.got).toEqual([]);
   for (const s of [sb, ss]) s.close();
 });
+
+test('presence: players see who else has the game open right now, live', async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false } })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: a.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: b.cookie });
+  await call(`/games/${id}/start`, { method: 'POST', cookie: a.cookie });
+  const [sa, sb] = [connect(a), connect(b)];
+  type P = { userId: string; here: boolean };
+  const bHere = () => (sa.got.at(-1)!.view!.players as P[]).find((p) => p.userId === b.id)!.here;
+
+  sa.sub(id);
+  expect(bHere()).toBe(false);
+  sb.sub(id); // b opens it
+  expect(bHere()).toBe(true);
+  sb.sub(''); // b switches away (or the app goes to the background)
+  expect(bHere()).toBe(false);
+  sb.sub(id);
+  sb.close(); // b's connection drops
+  expect(bHere()).toBe(false);
+  expect((await call(`/games/${id}`, { cookie: a.cookie })).json.players.find((p: P) => p.userId === b.id).here).toBe(false); // REST views agree
+  sa.close();
+});

@@ -58,11 +58,15 @@ function watchersOf(g: LoadedGame): Watcher[] {
   return [...seen.values()];
 }
 
+/** Seated players with this game open and in front right now (a hidden or unfocused app subscribes to nothing). */
+const hereIn = (g: LoadedGame) =>
+  new Set([...live.values()].filter((c) => c.sub === g.game.id && g.seats.some((s) => s.userId === c.userId)).map((c) => c.userId));
+
 /** The view a user gets of a game: player view if seated, spectator view if allowed, else nothing. */
 export function viewOf(g: LoadedGame, userId: string) {
   const seat = g.seats.find((s) => s.userId === userId)?.seat;
   if (seat === undefined && !canSpectate(db, g, userId)) return null;
-  return toView(g, seat ?? null, lastMove(db, g.game.id), watchersOf(g));
+  return toView(g, seat ?? null, lastMove(db, g.game.id), watchersOf(g), hereIn(g));
 }
 
 /** Call after any committed change to a game (or to who's watching it). */
@@ -71,11 +75,12 @@ export function changed(gameId: string, { lobby = true } = {}) {
   if (!g) return;
   const last = lastMove(db, gameId);
   const watching = watchersOf(g);
+  const here = hereIn(g);
   for (const [ws, c] of live) {
     const seat = g.seats.find((s) => s.userId === c.userId)?.seat;
     if (c.sub === gameId) {
-      if (seat !== undefined) ws.send(JSON.stringify({ t: 'game', view: toView(g, seat, last, watching) }));
-      else if (canSpectate(db, g, c.userId)) ws.send(JSON.stringify({ t: 'game', view: toView(g, null, last, watching) }));
+      if (seat !== undefined) ws.send(JSON.stringify({ t: 'game', view: toView(g, seat, last, watching, here) }));
+      else if (canSpectate(db, g, c.userId)) ws.send(JSON.stringify({ t: 'game', view: toView(g, null, last, watching, here) }));
     } else if (lobby && seat !== undefined && c.sub === 'lobby') ws.send(JSON.stringify({ t: 'lobby' }));
   }
   if (lobby && g.group) groupChanged(g.group.id); // the group screen lists its games

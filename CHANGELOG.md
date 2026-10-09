@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- In a game, a player's dot pulses while they have the game open, so you can see who's there right now.
+
 ## v0.1.2 (2026-10-09)
 
 - While you're using the app, news from your other games and groups (your turn, a new group game, votes) shows as a banner at the top. Tap it to go there.

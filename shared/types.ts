@@ -73,7 +73,8 @@ export type GameView = {
   turnStartedAt: number | null;
   bagCount: number;
   board: (BoardTile | null)[][];
-  players: { seat: number; userId: string; displayName: string; colorIndex: number; score: number; rackCount: number }[];
+  /** `here`: that player has this game open and in front right now (presence, from the socket). */
+  players: { seat: number; userId: string; displayName: string; colorIndex: number; score: number; rackCount: number; here: boolean }[];
   role: 'player' | 'spectator';
   mySeat: number | null;
   myRack: string[] | null;

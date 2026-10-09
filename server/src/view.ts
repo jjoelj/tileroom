@@ -36,7 +36,13 @@ export type Watcher = { userId: string; displayName: string };
  * What one viewer may see: a seat number for a player (public state + their own rack), or `null` for a spectator
  * (public state, plus every rack only if this game's frozen `spectator_racks` allows it; SPEC §4.11).
  */
-export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: number | null, last: MoveRow | undefined, watching: Watcher[] = []): GameView {
+export function toView(
+  { game, seats, group, house }: LoadedGame,
+  viewerSeat: number | null,
+  last: MoveRow | undefined,
+  watching: Watcher[] = [],
+  here: ReadonlySet<string> = new Set(),
+): GameView {
   const me = viewerSeat === null ? undefined : seats.find((s) => s.seat === viewerSeat);
   const finished = game.status === 'finished';
   const spectator = viewerSeat === null;
@@ -61,6 +67,7 @@ export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: nu
       colorIndex: s.colorIndex ?? s.seat,
       score: s.score,
       rackCount: s.rack.length,
+      here: here.has(s.userId),
     })),
     role: spectator ? 'spectator' : 'player',
     mySeat: me ? me.seat : null,
