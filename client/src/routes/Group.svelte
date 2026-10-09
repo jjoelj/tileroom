@@ -5,6 +5,7 @@
   import { names, plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
+  import { live, watch } from '../lib/live.svelte';
   import { show } from '../lib/motion';
   import { go, session, updates } from '../lib/state.svelte';
 
@@ -58,11 +59,19 @@
     if (updates.n) void load(); // a push about this group arrived
   });
 
+  $effect(() => {
+    if (live.group) void load(); // someone joined, voted, renamed, started a game…
+  });
+
   onMount(() => {
     void load();
+    const unwatch = watch(`group:${id}`);
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    return () => {
+      unwatch();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   });
 
   /** Runs a write that returns the fresh group; shows the server's message on failure. */
@@ -183,7 +192,7 @@
       : g.status === 'finished'
         ? 'Finished'
         : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn`;
-  const live = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
+  const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
   const outcome = (p: Proposal) => (p.status === 'passed' ? 'passed' : p.status === 'expired' ? 'ran out of time' : 'was voted down');
   const daysLeft = (p: Proposal) => Math.max(1, Math.ceil((p.closesAt - Date.now()) / DAY));
 </script>
@@ -210,7 +219,7 @@
 
     <h2 class="label section">Games</h2>
     <button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>
-    {#each live as g (g.id)}
+    {#each current as g (g.id)}
       <div class="card item">
         <span class="grow">
           <span class="strong">{gameTitle(g)}</span>

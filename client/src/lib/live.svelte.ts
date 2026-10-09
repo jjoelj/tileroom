@@ -3,8 +3,8 @@
 // game, or a nudge to refetch the games list. Reconnects with backoff; screens also refetch on return to the app.
 import type { GameView } from '../../../shared/types';
 
-/** The latest pushed view of the watched game, and a counter bumped when the games list changed. */
-export const live = $state<{ view: GameView | null; lobby: number }>({ view: null, lobby: 0 });
+/** The latest pushed view of the watched game, and counters bumped when the games list or the open group changed. */
+export const live = $state<{ view: GameView | null; lobby: number; group: number }>({ view: null, lobby: 0, group: 0 });
 
 let ws: WebSocket | null = null;
 let sub = '';
@@ -24,8 +24,9 @@ function connect() {
     tell();
   };
   ws.onmessage = (e) => {
-    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'lobby' };
+    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'lobby' } | { t: 'group' };
     if (m.t === 'game') live.view = m.view;
+    else if (m.t === 'group') live.group++;
     else live.lobby++;
   };
   ws.onclose = () => {
@@ -34,7 +35,7 @@ function connect() {
   };
 }
 
-/** What's on screen: a game id or "lobby". Opens the socket on first use. Returns the cleanup for unmount. */
+/** What's on screen: a game id, "group:<id>" or "lobby". Opens the socket on first use. Returns the cleanup for unmount. */
 export function watch(what: string) {
   sub = what;
   live.view = null;

@@ -9,7 +9,7 @@ import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId 
 import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { notify } from './push';
-import { changed } from './realtime';
+import { changed, groupChanged } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { baseWords } from './store';
@@ -136,6 +136,7 @@ export function deleteEmptyOrphans() {
 export function expireProposals(now = Date.now()) {
   const due = db.select().from(proposals).where(and(eq(proposals.status, 'open'), lt(proposals.closesAt, now))).all();
   for (const p of due) db.update(proposals).set({ status: 'expired', resolvedAt: now }).where(eq(proposals.id, p.id)).run();
+  for (const groupId of new Set(due.map((p) => p.groupId))) groupChanged(groupId);
   announce(due.map((p) => ({ id: p.id, groupId: p.groupId, word: p.word, action: p.action, status: 'expired' as const })));
 }
 
@@ -256,6 +257,7 @@ export const groupRoutes = new Hono<AppEnv>()
       return reevaluate(tx, g.id);
     });
     announce(outcomes);
+    groupChanged(g.id);
     return c.json(groupDetail(g.id, uid));
   })
 
@@ -267,6 +269,7 @@ export const groupRoutes = new Hono<AppEnv>()
     let joinCode = newGroupCode();
     while (db.select({ id: groups.id }).from(groups).where(eq(groups.joinCode, joinCode)).get()) joinCode = newGroupCode();
     db.update(groups).set({ joinCode }).where(eq(groups.id, group.id)).run();
+    groupChanged(group.id);
     return c.json(groupDetail(group.id, c.var.user.id));
   })
 
@@ -282,6 +285,7 @@ export const groupRoutes = new Hono<AppEnv>()
       return ids;
     });
     for (const id of running) changed(id); // fresh views: tray visibility, the group's name
+    groupChanged(group.id);
     return c.json(groupDetail(group.id, c.var.user.id));
   })
 
@@ -296,6 +300,7 @@ export const groupRoutes = new Hono<AppEnv>()
       if (next === 'member' && roleOf(tx, group.id, target) === 'admin' && admins <= 1) throw new ApiError(409, 'last_admin', 'A group needs at least one admin');
       tx.update(groupMembers).set({ role: next }).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, target))).run();
     });
+    groupChanged(group.id);
     return c.json(groupDetail(group.id, c.var.user.id));
   })
 
@@ -317,17 +322,20 @@ export const groupRoutes = new Hono<AppEnv>()
       return reevaluate(tx, group.id);
     });
     announce(outcomes);
+    groupChanged(group.id); // the members who stay
     return c.json({ ok: true });
   })
 
   .delete('/groups/:id', (c) => {
     const { group, role } = myGroup(db, c.req.param('id'), c.var.user.id);
     requireAdmin(role);
+    const members = memberIds(db, group.id);
     db.transaction((tx) => {
       // a group game shows the group's name, so groups with games stay
       if (hasGames(tx, group.id)) throw new ApiError(409, 'group_has_games', 'Only a group with no games can be deleted');
       deleteGroup(tx, group.id);
     });
+    groupChanged(group.id, members); // open group screens find it gone; games lists drop it
     return c.json({ ok: true });
   })
 
@@ -371,6 +379,7 @@ export const groupRoutes = new Hono<AppEnv>()
       const others = memberIds(db, group.id).filter((m) => m !== uid);
       void notify(others, { title: group.name, body: `${c.var.user.displayName} proposed ${VERB[action]} ${word}. Vote now.`, url: `/groups/${group.id}`, tag: `group-${group.id}` });
     }
+    groupChanged(group.id);
     return c.json(groupDetail(group.id, uid), 201);
   })
 
@@ -389,6 +398,7 @@ export const groupRoutes = new Hono<AppEnv>()
       return resolve(tx, p.id);
     });
     if (outcome) announce([outcome]);
+    groupChanged(p.groupId);
     return c.json(groupDetail(p.groupId, uid));
   });
 

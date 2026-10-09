@@ -5,13 +5,14 @@
 import { requestUser } from './auth';
 import { db } from './runtime/db';
 import type { Socket, Sockets } from './runtime/serve';
-import { canSpectate, lastMove, type LoadedGame, loadGame } from './store';
+import { canSpectate, isMember, lastMove, type LoadedGame, loadGame } from './store';
 import { toView, type Watcher } from './view';
 
 type Conn = { userId: string; displayName: string; sub: string };
 const live = new Map<Socket, Conn>();
 
-const isGame = (sub: string) => sub !== '' && sub !== 'lobby';
+const GROUP = 'group:';
+const isGame = (sub: string) => sub !== '' && sub !== 'lobby' && !sub.startsWith(GROUP);
 
 export const sockets: Sockets<Conn> = {
   path: '/ws',
@@ -23,7 +24,7 @@ export const sockets: Sockets<Conn> = {
     live.set(ws, c);
   },
   message(ws, c, text) {
-    // {"sub": "<gameId>" | "lobby" | ""}; "" while the app is hidden, so it isn't counted as watching
+    // {"sub": "<gameId>" | "group:<groupId>" | "lobby" | ""}; "" while the app is hidden, so it isn't counted as watching
     let sub: unknown;
     try {
       sub = JSON.parse(text).sub;
@@ -71,6 +72,20 @@ export function changed(gameId: string, { lobby = true } = {}) {
       if (seat !== undefined) ws.send(JSON.stringify({ t: 'game', view: toView(g, seat, last, watching) }));
       else if (canSpectate(db, g, c.userId)) ws.send(JSON.stringify({ t: 'game', view: toView(g, null, last, watching) }));
     } else if (lobby && seat !== undefined && c.sub === 'lobby') ws.send(JSON.stringify({ t: 'lobby' }));
+  }
+  if (lobby && g.group) groupChanged(g.group.id); // the group screen lists its games
+}
+
+/**
+ * Call after any committed change to a group (members, votes, words, settings, its games). Members with the group
+ * open get a nudge to refetch it; members on the games list too, since it shows their groups and pending votes.
+ */
+export function groupChanged(groupId: string, formerMembers?: string[]) {
+  const member = (userId: string) => (formerMembers ? formerMembers.includes(userId) : isMember(db, groupId, userId));
+  for (const [ws, c] of live) {
+    if (c.sub !== `${GROUP}${groupId}` && c.sub !== 'lobby') continue;
+    if (!member(c.userId)) continue; // leavers, and anyone guessing ids, hear nothing
+    ws.send(JSON.stringify(c.sub === 'lobby' ? { t: 'lobby' } : { t: 'group' }));
   }
 }
 

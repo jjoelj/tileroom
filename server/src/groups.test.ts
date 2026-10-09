@@ -67,6 +67,26 @@ describe('membership', () => {
   });
 });
 
+test('members with the group open hear about changes live; outsiders hear nothing', async () => {
+  const { id, code, members } = await groupOf(1);
+  const listen = (u: TestUser, sub: string) => {
+    const got: unknown[] = [];
+    const ws = { send: (s: string) => void got.push(JSON.parse(s)), close() {} };
+    const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin: ORIGIN, cookie: u.cookie } }))!;
+    sockets.open(ws, w);
+    sockets.message(ws, w, JSON.stringify({ sub }));
+    return { got, close: () => sockets.close(ws, w) };
+  };
+  const outsider = await newUser();
+  const a = listen(members[0]!, `group:${id}`);
+  const spy = listen(outsider, `group:${id}`);
+  await call(`/groups/join/${code}`, { method: 'POST', cookie: (await newUser()).cookie });
+  expect(a.got).toEqual([{ t: 'group' }]);
+  expect(spy.got).toEqual([]);
+  a.close();
+  spy.close();
+});
+
 describe('the end of a group', () => {
   const exists = (id: string) => !!db.select().from(groups).where(eq(groups.id, id)).get();
   const leaveAll = async (id: string, members: TestUser[]) => {
