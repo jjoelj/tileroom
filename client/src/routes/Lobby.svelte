@@ -129,6 +129,8 @@
   };
 </script>
 
+<svelte:window onkeydown={(e) => e.key === 'Escape' && (menu = false)} />
+
 <main class="screen" style="padding: 0 16px 32px">
   <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; position: relative">
     <div style="display: flex; flex-direction: column; gap: 4px">
@@ -139,6 +141,8 @@
       {session.me?.displayName[0]?.toUpperCase()}
     </button>
     {#if menu}
+      <!-- a tap anywhere else closes the menu -->
+      <div class="away" role="presentation" onclick={() => (menu = false)}></div>
       <div class="card popover" role="menu" transition:grow>
         <span style="font-weight: 800">{session.me?.displayName}</span>
         <span class="hint">@{session.me?.username}</span>
@@ -254,6 +258,7 @@
   .mini-brand span { width: 26px; height: 26px; border-radius: 5px; font-size: 15px; }
   .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: var(--on-color); font-weight: 800; font-size: 16px; }
   .popover { transform-origin: top right; position: absolute; right: 0; top: 80px; z-index: 5; width: 220px; padding: 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px var(--shadow); }
+  .away { position: fixed; inset: 0; z-index: 4; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin: 4px 0; }
   .themes button { flex: 1; height: 36px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 13px; }
   .themes button.on { background: var(--surface); }

@@ -465,6 +465,8 @@
   const standings = $derived(view ? [...view.players].sort((a, b) => b.score - a.score) : []);
 </script>
 
+<svelte:window onkeydown={(e) => e.key === 'Escape' && (menuOpen = watchersOpen = false)} />
+
 {#if missing}
   <main class="screen">
     <p class="lead" style="margin-top: 64px">This game isn't available. It may have been cancelled after 7 days without a move.</p>
@@ -493,6 +495,10 @@
         </button>
       {:else}
         <span style="width: 44px"></span>
+      {/if}
+      {#if menuOpen || watchersOpen}
+        <!-- a tap anywhere else closes the open popover -->
+        <div class="away" role="presentation" onclick={() => (menuOpen = watchersOpen = false)}></div>
       {/if}
       {#if menuOpen}
         <div class="card popover" role="menu" transition:grow>
@@ -782,6 +788,7 @@
   .seat { display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 52px; }
   .seat + .seat { border-top: 1px solid var(--line-soft); }
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .away { position: fixed; inset: 0; z-index: 9; }
   .popover[role='dialog'] { display: flex; flex-direction: column; gap: 6px; }
   .watchers { min-width: 44px; height: 44px; padding: 0 8px; border: none; border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 14px; color: var(--muted); }
   .watching-panel { padding: 8px 16px 20px; display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
