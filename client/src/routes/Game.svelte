@@ -225,7 +225,11 @@
     const cy = rect.top + rect.height / 2;
     ghost.style.transition = `transform ${ms}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ${ms}ms`;
     ghost.style.opacity = '1';
-    ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%) scale(${rect.width / GHOST.w}, ${rect.height / GHOST.h})`;
+    // On the board the ghost turns square with the board tile's proportions (.ghost.landing), so it scales evenly
+    // and matches the placed tile exactly; --k keeps its ring 2px on screen after scaling.
+    const h = onBoard ? GHOST.w : GHOST.h;
+    ghost.style.setProperty('--k', String(GHOST.w / rect.width));
+    ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%) scale(${rect.width / GHOST.w}, ${rect.height / h})`;
     return new Promise<void>((resolve) => setTimeout(resolve, ms + 5));
   }
 
@@ -680,7 +684,10 @@
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
   .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
   .ghost .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
-  .ghost.landing { box-shadow: inset 0 0 0 4px var(--link), 0 2px 4px rgba(0, 0, 0, 0.25); }
+  /* Landing on the board: Board.svelte's tile proportions at a 44px cell (font 0.6, points 0.26, radius 0.16). */
+  .ghost.landing { height: 44px; border-radius: 7.04px; box-shadow: inset 0 0 0 calc(2px * var(--k, 1)) var(--link), 0 calc(1px * var(--k, 1)) calc(2px * var(--k, 1)) rgba(0, 0, 0, 0.25); }
+  .ghost.landing .ch { font-size: 26.4px; }
+  .ghost.landing .pt { right: 3.52px; bottom: 1.76px; font-size: 11.44px; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
   .rk.empty { display: block; background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
