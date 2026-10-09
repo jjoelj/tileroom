@@ -8,6 +8,9 @@ export const session = $state<{ me: Me | null | undefined }>({ me: undefined });
 
 export const route = $state({ path: location.pathname });
 
+/** Bumped when a push arrives or a notification is tapped: open screens refetch right away. */
+export const updates = $state({ n: 0 });
+
 const readPermission = () => ('Notification' in window ? Notification.permission : 'unsupported');
 
 /**

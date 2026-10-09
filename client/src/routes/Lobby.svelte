@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
-  import { go, session } from '../lib/state.svelte';
+  import { go, session, updates } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
 
   type Summary = {
@@ -27,6 +27,10 @@
     api<Games>('/games')
       .then((g) => (games = g))
       .catch(() => {});
+
+  $effect(() => {
+    if (updates.n) void load();
+  });
 
   onMount(() => {
     void load();

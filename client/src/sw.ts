@@ -17,7 +17,15 @@ self.addEventListener('push', (e) => {
   const p: Payload = e.data?.json() ?? { title: 'Tileroom', body: '' };
   // renotify: a newer notification for the same game replaces the old one but still alerts (sound, pop-up).
   const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: '/icons/icon-192.png' };
-  e.waitUntil(self.registration.showNotification(p.title, options));
+  e.waitUntil(
+    Promise.all([
+      self.registration.showNotification(p.title, options),
+      // An open window refetches now instead of waiting for its next poll.
+      self.clients.matchAll({ type: 'window' }).then((wins) => {
+        for (const w of wins) w.postMessage({ type: 'refresh' });
+      }),
+    ]),
+  );
 });
 
 self.addEventListener('notificationclick', (e) => {

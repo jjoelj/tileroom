@@ -9,7 +9,7 @@
   import { api, ApiError } from '../lib/api';
   import Board, { type PendingTile } from '../lib/Board.svelte';
   import { invalidWords } from '../lib/dict';
-  import { go, session } from '../lib/state.svelte';
+  import { go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
 
@@ -70,6 +70,10 @@
       if (e instanceof ApiError && e.status === 404) missing = true;
     }
   }
+
+  $effect(() => {
+    if (updates.n) void load();
+  });
 
   onMount(() => {
     void load();

@@ -4,7 +4,7 @@
   import { api } from './lib/api';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
-  import { device, go, joinCodeIn, type Me, route, session } from './lib/state.svelte';
+  import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Install from './routes/Install.svelte';
   import Join from './routes/Join.svelte';
@@ -25,6 +25,7 @@
       .catch(() => (session.me = null));
     navigator.serviceWorker?.addEventListener('message', (e) => {
       if (e.data?.type === 'navigate') go(e.data.url);
+      if (e.data?.type === 'navigate' || e.data?.type === 'refresh') updates.n++;
     });
     setTimeout(preloadWords, 500); // after first paint
   });
