@@ -2,6 +2,7 @@
 <script lang="ts">
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { go } from '../lib/state.svelte';
 
@@ -17,17 +18,15 @@
   let bagSize = $state<100 | 150>(100);
   let randomOrder = $state(true);
   let expandedWords = $state(false);
-  let error = $state('');
   let busy = $state(false);
 
   async function create() {
     busy = true;
-    error = '';
     try {
       const view = await api<{ id: string }>('/games', { method: 'POST', body: { bagSize, randomOrder, expandedWords, ...(groupId && { groupId }) } });
       go(`/games/${view.id}`);
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
       busy = false;
     }
   }
@@ -78,7 +77,6 @@
   </div>
 
   <div style="padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px">
-    {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" onclick={create} disabled={busy}>Create game</button>
     <div class="hint" style="text-align: center">
       {groupId

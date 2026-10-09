@@ -1,24 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { go, home, type Me, session } from '../lib/state.svelte';
 
   let username = $state('');
   let password = $state('');
-  let error = $state('');
   let busy = $state(false);
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     busy = true;
-    error = '';
     try {
       await api('/auth/login', { method: 'POST', body: { username, password } });
       session.me = await api<Me>('/me');
       go(home());
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
     } finally {
       busy = false;
     }
@@ -41,7 +40,6 @@
       <label for="pw" class="label">Password</label>
       <input id="pw" class="field" type="password" bind:value={password} autocomplete="current-password" required />
     </div>
-    {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" type="submit" disabled={busy} style="margin-top: 4px">Sign in</button>
   </form>
 

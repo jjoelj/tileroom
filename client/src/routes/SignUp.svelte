@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { go, home, type Me, session } from '../lib/state.svelte';
 
@@ -11,7 +12,6 @@
   let displayName = $state('');
   let password = $state('');
   let confirm = $state('');
-  let error = $state('');
   let busy = $state(false);
   let invite = $state<Check | null>(null);
 
@@ -35,13 +35,12 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     busy = true;
-    error = '';
     try {
       await api('/auth/signup', { method: 'POST', body: { inviteCode, username, displayName, password } });
       session.me = await api<Me>('/me');
       go(home());
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
     } finally {
       busy = false;
     }
@@ -104,7 +103,6 @@
       </div>
     </fieldset>
 
-    {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" type="submit" disabled={!ready || busy} style="margin-top: auto">Create account</button>
   </form>
 </main>

@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api } from './lib/api';
   import Dialog from './lib/Dialog.svelte';
+  import Toast from './lib/Toast.svelte';
   import { show } from './lib/motion';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
@@ -101,3 +102,4 @@
 {/key}
 
 <Dialog />
+<Toast />

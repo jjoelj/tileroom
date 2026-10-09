@@ -4,6 +4,7 @@
   import { names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { forgetJoin, go } from '../lib/state.svelte';
 
@@ -20,7 +21,6 @@
   };
 
   let game = $state<Preview | null>(null);
-  let error = $state('');
   let busy = $state(false);
 
   onMount(async () => {
@@ -28,7 +28,7 @@
       game = await api<Preview>(`/join/${encodeURIComponent(code)}`);
       if (game.joined) open(game.id);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     }
   });
 
@@ -39,12 +39,11 @@
 
   async function join() {
     busy = true;
-    error = '';
     try {
       const view = await api<{ id: string }>(`/join/${encodeURIComponent(code)}`, { method: 'POST' });
       open(view.id);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
       busy = false;
     }
   }
@@ -81,7 +80,6 @@
         <p class="error" in:show>This game is for {game.group?.name} members. Join the group first with its group code.</p>
       {/if}
     {/if}
-    {#if error}<p class="error" role="alert" transition:show>{error}</p>{/if}
 
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
       {#if game && game.status === 'lobby' && !full && game.canJoin}

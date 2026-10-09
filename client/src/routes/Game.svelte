@@ -12,6 +12,7 @@
   import { grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
   import { confirm } from '../lib/ask.svelte';
+  import { say, sayError } from '../lib/say.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { clearGameNotifications } from '../lib/push';
   import { go, session, updates } from '../lib/state.svelte';
@@ -388,9 +389,9 @@
     menuOpen = false;
     try {
       await api(`/games/${id}/nudge`, { method: 'POST' });
-      message = `Nudged ${nameOf(view!.currentSeat)}.`;
+      say(`Nudged ${nameOf(view!.currentSeat)}.`);
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     }
   }
 
@@ -400,7 +401,7 @@
     try {
       apply(await api<GameView>(`/join/${encodeURIComponent(view!.joinCode!)}`, { method: 'POST' }));
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     } finally {
       busy = false;
     }
@@ -411,7 +412,7 @@
     try {
       apply(await api<GameView>(`/games/${id}/start`, { method: 'POST' }));
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     } finally {
       busy = false;
     }
@@ -425,8 +426,8 @@
     if (canShare) navigator.share({ text }).catch(() => {});
     else
       navigator.clipboard?.writeText(text).then(
-        () => (message = 'Copied. Paste it to the other players.'),
-        () => (message = `Copy this: ${text}`),
+        () => say('Copied. Paste it to the other players.'),
+        () => say(`Copy this: ${text}`),
       );
   }
 
@@ -546,7 +547,6 @@
         {:else}
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
         {/if}
-        {#if message}<p class="hint" role="status" transition:show>{message}</p>{/if}
       </section>
     {:else}
       <section class="strip" aria-label="Scores, in turn order">

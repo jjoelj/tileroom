@@ -6,6 +6,7 @@
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
+  import { say, sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { go, session, updates } from '../lib/state.svelte';
 
@@ -37,7 +38,6 @@
 
   let group = $state<Detail | null>(null);
   let missing = $state(false);
-  let message = $state('');
   let busy = $state(false);
   let word = $state('');
   let checked = $state<Check | null>(null);
@@ -77,13 +77,12 @@
   /** Runs a write that returns the fresh group; shows the server's message on failure. */
   async function act(path: string, method: string, body?: unknown, done?: string) {
     busy = true;
-    message = '';
     try {
       group = await api<Detail>(path, { method, body });
-      if (done) message = done;
+      if (done) say(done);
       return true;
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
       return false;
     } finally {
       busy = false;
@@ -94,12 +93,11 @@
 
   async function check(e: SubmitEvent) {
     e.preventDefault();
-    message = '';
     try {
       checked = await api<Check>(`/groups/${id}/check/${encodeURIComponent(word.trim())}`);
     } catch (err) {
       checked = null;
-      message = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
     }
   }
 
@@ -129,7 +127,7 @@
       const view = await api<{ id: string }>(`/join/${encodeURIComponent(code)}`, { method: 'POST' });
       go(`/games/${view.id}`);
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
       busy = false;
     }
   }
@@ -141,8 +139,8 @@
     if (canShare) navigator.share({ text }).catch(() => {});
     else
       navigator.clipboard?.writeText(text).then(
-        () => (message = 'Copied. Paste it to the people you want in the group.'),
-        () => (message = `Copy this: ${text}`),
+        () => say('Copied. Paste it to the people you want in the group.'),
+        () => say(`Copy this: ${text}`),
       );
   }
 
@@ -163,7 +161,7 @@
       await api(path, { method });
       go('/');
     } catch (e) {
-      message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     }
   }
 
@@ -215,7 +213,6 @@
       {#if admin}<button class="textbtn" style="margin-left: auto" disabled={busy} onclick={rename}>Rename</button>{/if}
     </header>
 
-    {#if message}<p class="hint" role="status" transition:show style="margin: 4px 0 0">{message}</p>{/if}
 
     <h2 class="label section">Games</h2>
     <button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>

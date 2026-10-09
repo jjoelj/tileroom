@@ -6,6 +6,7 @@
   import { names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
@@ -26,21 +27,18 @@
   let groups = $state<GroupSummary[]>([]);
   let creating = $state(false);
   let groupName = $state('');
-  let groupError = $state('');
 
   async function createGroup(e: SubmitEvent) {
     e.preventDefault();
-    groupError = '';
     try {
       const g = await api<{ id: string }>('/groups', { method: 'POST', body: { name: groupName } });
       go(`/groups/${g.id}`);
     } catch (err) {
-      groupError = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
     }
   }
   let joining = $state(false);
   let code = $state('');
-  let joinError = $state('');
   let menu = $state(false);
 
   const load = () =>
@@ -74,14 +72,13 @@
 
   async function join(e: SubmitEvent) {
     e.preventDefault();
-    joinError = '';
     // Group codes have 8 characters, game codes 6: one box takes both.
     if (code.replace(/[^0-9a-z]/gi, '').length === 8) return go(`/groups/join/${encodeURIComponent(code.trim())}`);
     try {
       const view = await api<{ id: string }>(`/join/${encodeURIComponent(code)}`, { method: 'POST' });
       go(`/games/${view.id}`);
     } catch (err) {
-      joinError = err instanceof ApiError ? err.message : 'Check your connection and try again.';
+      sayError(err);
     }
   }
 
@@ -180,7 +177,6 @@
         <input id="jc" class="field" bind:value={code} placeholder="K7Q-4XM" autocomplete="off" autocapitalize="characters" spellcheck="false" style="letter-spacing: 0.1em; font-weight: 800" />
         <button class="primary" style="width: 96px" disabled={!code.trim()}>Join</button>
       </div>
-      {#if joinError}<span class="error" role="alert" transition:show>{joinError}</span>{/if}
     </form>
   {/if}
 
@@ -232,7 +228,6 @@
           <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
           <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
         </div>
-        {#if groupError}<span class="error" role="alert" transition:show>{groupError}</span>{/if}
       </form>
     {:else}
       <button class="textbtn" style="align-self: flex-start" onclick={() => (creating = true)}>+ New group</button>

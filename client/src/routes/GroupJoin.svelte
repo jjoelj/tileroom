@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { names } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
   import { forgetJoin, go } from '../lib/state.svelte';
 
@@ -11,7 +12,6 @@
 
   type Preview = { id: string; name: string; members: string[]; joined: boolean };
   let group = $state<Preview | null>(null);
-  let error = $state('');
   let busy = $state(false);
 
   onMount(async () => {
@@ -19,7 +19,7 @@
       group = await api<Preview>(`/groups/join/${encodeURIComponent(code)}`);
       if (group.joined) open(group.id);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
     }
   });
 
@@ -35,12 +35,11 @@
 
   async function join() {
     busy = true;
-    error = '';
     try {
       const g = await api<{ id: string }>(`/groups/join/${encodeURIComponent(code)}`, { method: 'POST' });
       open(g.id);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
+      sayError(e);
       busy = false;
     }
   }
@@ -59,7 +58,6 @@
       <h1 in:show={{ y: 6 }} class="h1" style="font-size: 32px">{group.name}</h1>
       <p class="lead" in:show={{ y: 6, delay: 40 }}>With {names(group.members)}. Members play with the group's house words, vote on new ones together, and can watch each other's games.</p>
     {/if}
-    {#if error}<p class="error" role="alert" transition:show>{error}</p>{/if}
 
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
       {#if group}<button class="primary" in:show disabled={busy} onclick={join}>Join {group.name}</button>{/if}
