@@ -21,7 +21,10 @@
   let swapOpen = $state(false);
   let swapPick = $state<number[]>([]);
   let menuOpen = $state(false);
-  let zoom = $state(false);
+  let zoomed = $state(false);
+  let boardRef = $state<Board>();
+  let rackEl = $state<HTMLDivElement>();
+  let ghost = $state<HTMLDivElement>();
   let busy = $state(false);
   let message = $state('');
   let invalid = $state<string[] | null>(null);
@@ -103,13 +106,99 @@
         : '',
   );
 
-  // ---- placing tiles (tap to place; drag and drop comes next) ----
+  // ---- placing tiles: drag and drop (primary) or tap a tile, then a square (SPEC §9.2) ----
+  type DragFrom = { kind: 'rack'; slot: number } | { kind: 'board'; r: number; c: number };
+  let drag = $state<{ from: DragFrom; slot: number; letter: string; blank: boolean } | null>(null);
+  let hover = $state<{ r: number; c: number } | null>(null);
+  let justDragged = false; // the click that follows a drag isn't a tap
+  const LIFT = 48; // the ghost floats above the finger so it doesn't hide the target square
+
+  const isFree = (r: number, c: number, except?: DragFrom) =>
+    !!view &&
+    !view.board[r]![c] &&
+    !pending.some((p) => p.r === r && p.c === c && !(except?.kind === 'board' && except.r === r && except.c === c));
+
+  function pointerDrag(e: PointerEvent, from: DragFrom) {
+    if (e.button !== 0 || view?.status !== 'active') return;
+    const tile =
+      from.kind === 'rack'
+        ? { slot: from.slot, letter: rack[from.slot]!, blank: rack[from.slot] === '?' }
+        : pending.find((p) => p.r === from.r && p.c === from.c);
+    if (!tile) return;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let x = x0;
+    let y = y0;
+    let frame = 0;
+    // At most one layout read per frame; the ghost moves with transform only.
+    const paint = () => {
+      frame = 0;
+      if (ghost) ghost.style.transform = `translate3d(${x}px, ${y - LIFT}px, 0) translate(-50%, -50%) scale(1.5)`;
+      const cell = boardRef?.cellAt(x, y - LIFT);
+      const next = cell && isFree(cell.r, cell.c, from) ? cell : null;
+      if (next?.r !== hover?.r || next?.c !== hover?.c) hover = next;
+    };
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      x = ev.clientX;
+      y = ev.clientY;
+      if (!drag) {
+        if (Math.hypot(x - x0, y - y0) < 4) return; // a plain tap stays a tap
+        drag = { from, slot: tile.slot, letter: tile.letter, blank: tile.blank };
+        selected = null;
+      }
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+    const end = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return;
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', end);
+      removeEventListener('pointercancel', end);
+      cancelAnimationFrame(frame);
+      if (!drag) return;
+      justDragged = true;
+      setTimeout(() => (justDragged = false));
+      if (ev.type === 'pointerup') drop(from, ev.clientX, ev.clientY);
+      drag = null;
+      hover = null;
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', end);
+    addEventListener('pointercancel', end);
+  }
+
+  function drop(from: DragFrom, x: number, y: number) {
+    const cell = boardRef?.cellAt(x, y - LIFT);
+    const placed = from.kind === 'board' ? pending.findIndex((p) => p.r === from.r && p.c === from.c) : -1;
+    if (cell && isFree(cell.r, cell.c, from)) {
+      if (from.kind === 'board') Object.assign(pending[placed]!, cell);
+      else if (rack[from.slot] === '?') blankAt = { ...cell, slot: from.slot };
+      else pending.push({ ...cell, letter: rack[from.slot]!, blank: false, slot: from.slot });
+      navigator.vibrate?.(8);
+      return;
+    }
+    const r = rackEl?.getBoundingClientRect();
+    if (r && y >= r.top - 24 && y <= r.bottom + 24) {
+      // Back to the rack: a placed tile returns; a rack tile moves to the slot it was dropped on.
+      const slot = from.kind === 'board' ? pending[placed]!.slot : from.slot;
+      if (placed >= 0) pending.splice(placed, 1);
+      const to = Math.max(0, Math.min(order.length - 1, Math.floor(((x - r.left) / r.width) * order.length)));
+      const rest = order.filter((s) => s !== slot);
+      rest.splice(to, 0, slot);
+      order = rest;
+      navigator.vibrate?.(8);
+    }
+    // Anywhere else: the tile stays where it came from.
+  }
+
   function tapSlot(slot: number) {
-    if (pending.some((p) => p.slot === slot)) return;
+    if (justDragged || pending.some((p) => p.slot === slot)) return;
     selected = selected === slot ? null : slot;
   }
 
   function tapCell(r: number, c: number) {
+    if (justDragged) return;
     const placed = pending.findIndex((p) => p.r === r && p.c === c);
     if (placed >= 0) {
       pending.splice(placed, 1);
@@ -304,20 +393,23 @@
 
       <div style="position: relative">
         <Board
+          bind:this={boardRef}
+          bind:zoomed
           board={view.board}
-          {pending}
+          pending={drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending}
           lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
           {outlines}
           {bubble}
-          {zoom}
+          {hover}
           onCell={tapCell}
+          onPendingDown={(e, r, c) => pointerDrag(e, { kind: 'board', r, c })}
         />
-        <button class="zoombtn" aria-label={zoom ? 'Zoom out' : 'Zoom in'} aria-pressed={zoom} onclick={() => (zoom = !zoom)}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" />{#if !zoom}<path d="M11 8v6" />{/if}</svg>
+        <button class="zoombtn" aria-label={zoomed ? 'Zoom out' : 'Zoom in'} aria-pressed={zoomed} onclick={() => boardRef?.toggleZoom()}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" />{#if !zoomed}<path d="M11 8v6" />{/if}</svg>
         </button>
       </div>
 
-      <p class="problem" role="status">{message || problem || (view.status === 'active' ? 'Tap a tile, then a square · tap a placed tile to take it back' : '')}</p>
+      <p class="problem" role="status">{message || problem || (view.status === 'active' ? 'Drag tiles onto the board · drag back to the rack to undo' : '')}</p>
 
       {#if view.status === 'finished'}
         <section class="final">
@@ -334,13 +426,13 @@
           <button class="primary" onclick={() => go('/')}>Back to games</button>
         </section>
       {:else}
-        <div class="rack" aria-label="Your tiles">
+        <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
           {#each order as slot (slot)}
-            {@const used = pending.some((p) => p.slot === slot)}
+            {@const used = pending.some((p) => p.slot === slot) || (drag?.from.kind === 'rack' && drag.slot === slot)}
             {#if used}
               <span class="rk empty" aria-hidden="true"></span>
             {:else}
-              <button class="rk" class:sel={selected === slot} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(VALUES[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
+              <button class="rk tile-face" class:sel={selected === slot} onpointerdown={(e) => pointerDrag(e, { kind: 'rack', slot })} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(VALUES[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
                 <span class="ch">{rack[slot] === '?' ? '' : rack[slot]}</span>
                 {#if rack[slot] !== '?'}<span class="pt">{VALUES[rack[slot]!]}</span>{/if}
               </button>
@@ -364,6 +456,13 @@
       {/if}
     {/if}
   </main>
+
+  {#if drag}
+    <div class="ghost tile-face" bind:this={ghost} aria-hidden="true">
+      <span class="ch">{drag.blank && drag.from.kind === 'rack' ? '' : drag.letter}</span>
+      {#if !drag.blank}<span class="pt">{VALUES[drag.letter]}</span>{/if}
+    </div>
+  {/if}
 
   {#if blankAt}
     <div class="sheet-bg" role="presentation" onclick={() => (blankAt = null)}></div>
@@ -419,11 +518,13 @@
   .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--float); color: #fff; backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 4; }
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
   .rack { display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
-  .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; background: var(--tile); color: var(--tile-fg); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.16); display: flex; align-items: center; justify-content: center; transition: transform 0.12s; }
+  .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
+  .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
+  .ghost .ch { font-size: 24px; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
   .rk.empty { background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
-  .rk .ch { font-size: 24px; font-weight: 800; }
-  .rk .pt { position: absolute; right: 5px; bottom: 3px; font-size: 10px; font-weight: 700; }
+  .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
+  .rk .pt, .ghost .pt { position: absolute; right: 5px; bottom: 3px; font-family: var(--ui); font-size: 10px; font-weight: 700; opacity: 0.8; }
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
   .tool { width: 48px; height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
   .tool.wide { width: auto; padding: 0 14px; }
