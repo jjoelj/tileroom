@@ -25,7 +25,8 @@ self.addEventListener('push', (e) => {
       // Someone looking at Tileroom right now sees the update; don't also notify them.
       // iOS may revoke subscriptions that get pushes without a notification, so it always notifies; the server
       // already skips the push while the user has the game open (realtime.ts `watching`).
-      const watching = wins.some((w) => w.focused && w.visibilityState === 'visible');
+      // Only game updates are skipped: the test notification is sent from inside the app and must always show.
+      const watching = !!p.tag?.startsWith('game-') && wins.some((w) => w.focused && w.visibilityState === 'visible');
       if (watching && !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
       await self.registration.showNotification(p.title, options);
     })(),
