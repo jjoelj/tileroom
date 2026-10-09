@@ -15,7 +15,6 @@
     lastTurn,
     outlines,
     bubble,
-    hover,
     zoomed = $bindable(false),
     onCell,
     onPendingDown,
@@ -27,8 +26,6 @@
     /** Words to outline in lime (only when the whole move is valid). */
     outlines: FormedWord[];
     bubble: { r: number; c: number; score: number; valid: boolean } | null;
-    /** Drop target under a dragged tile. */
-    hover: { r: number; c: number } | null;
     zoomed?: boolean;
     onCell: (r: number, c: number) => void;
     /** Pointer down on a placed-this-turn tile: the parent may start dragging it. */
@@ -98,6 +95,13 @@
     const w = size();
     const [px, py] = x === undefined || y === undefined ? [w / 2, w / 2] : local(x, y);
     zoomAt(s > 1.01 ? 1 : Math.max(1.6, (40 * SIZE) / w), px, py);
+  }
+
+  /** After placing a tile on the fully zoomed-out board, zoom in a little around it. */
+  export function zoomToward(r: number, c: number) {
+    if (s > 1.01) return;
+    const step = size() / SIZE;
+    zoomAt(1.4, (c + 0.5) * step, (r + 0.5) * step);
   }
 
   /** The board cell under a screen point, if it's visible. */
@@ -184,7 +188,7 @@
       if (e.ctrlKey) {
         e.preventDefault();
         const [px, py] = local(e.clientX, e.clientY);
-        zoomAt(s * Math.exp(-e.deltaY * 0.01), px, py);
+        zoomAt(s * Math.exp(-e.deltaY * 0.0025), px, py); // ~1.3x per mouse-wheel notch
       } else if (s > 1.01) {
         e.preventDefault();
         tx -= e.deltaX;
@@ -211,7 +215,6 @@
     {#each cells as cell (cell.i)}
       <button
         class="cell {cell.state}"
-        class:hover={hover?.r === cell.r && hover?.c === cell.c}
         aria-label={cell.label}
         data-pending={cell.pending ? '' : undefined}
         data-r={cell.r}
@@ -262,11 +265,10 @@
   .p-D { background: var(--dw-bg); color: var(--dw-fg); }
   .p-T { background: var(--tw-bg); color: var(--tw-fg); }
   .p-star .lab { font-size: calc(var(--cs) * 0.5); }
-  .tile-face { border-radius: calc(var(--cs) * 0.16); }
-  .last { background: linear-gradient(180deg, var(--tile-top), var(--tile-last) 55%); }
+  .cell.tile-face { background: linear-gradient(180deg, var(--tile-top), var(--tile) 55%); color: var(--tile-fg); border-radius: calc(var(--cs) * 0.16); }
+  .cell.last { background: linear-gradient(180deg, var(--tile-top), var(--tile-last) 55%); }
   .last::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--p4-bg); }
-  .pending { background: var(--tile-pending); box-shadow: inset 0 0 0 2px var(--link), 0 1px 2px rgba(0, 0, 0, 0.25); z-index: 1; cursor: grab; }
-  .hover { outline: 3px solid var(--link); outline-offset: -3px; z-index: 1; }
+  .cell.pending { background: var(--tile-pending); box-shadow: inset 0 0 0 2px var(--link), 0 1px 2px rgba(0, 0, 0, 0.25); z-index: 1; cursor: grab; }
   .ch { font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }

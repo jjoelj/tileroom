@@ -109,9 +109,7 @@
   // ---- placing tiles: drag and drop (primary) or tap a tile, then a square (SPEC §9.2) ----
   type DragFrom = { kind: 'rack'; slot: number } | { kind: 'board'; r: number; c: number };
   let drag = $state<{ from: DragFrom; slot: number; letter: string; blank: boolean } | null>(null);
-  let hover = $state<{ r: number; c: number } | null>(null);
   let justDragged = false; // the click that follows a drag isn't a tap
-  const LIFT = 48; // the ghost floats above the finger so it doesn't hide the target square
 
   const isFree = (r: number, c: number, except?: DragFrom) =>
     !!view &&
@@ -131,13 +129,10 @@
     let x = x0;
     let y = y0;
     let frame = 0;
-    // At most one layout read per frame; the ghost moves with transform only.
+    // The ghost sits under the pointer, see-through, and moves with transform only (no layout reads).
     const paint = () => {
       frame = 0;
-      if (ghost) ghost.style.transform = `translate3d(${x}px, ${y - LIFT}px, 0) translate(-50%, -50%) scale(1.5)`;
-      const cell = boardRef?.cellAt(x, y - LIFT);
-      const next = cell && isFree(cell.r, cell.c, from) ? cell : null;
-      if (next?.r !== hover?.r || next?.c !== hover?.c) hover = next;
+      if (ghost) ghost.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
     };
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -161,7 +156,6 @@
       setTimeout(() => (justDragged = false));
       if (ev.type === 'pointerup') drop(from, ev.clientX, ev.clientY);
       drag = null;
-      hover = null;
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', end);
@@ -169,12 +163,13 @@
   }
 
   function drop(from: DragFrom, x: number, y: number) {
-    const cell = boardRef?.cellAt(x, y - LIFT);
+    const cell = boardRef?.cellAt(x, y); // exactly where it's released
     const placed = from.kind === 'board' ? pending.findIndex((p) => p.r === from.r && p.c === from.c) : -1;
     if (cell && isFree(cell.r, cell.c, from)) {
       if (from.kind === 'board') Object.assign(pending[placed]!, cell);
       else if (rack[from.slot] === '?') blankAt = { ...cell, slot: from.slot };
       else pending.push({ ...cell, letter: rack[from.slot]!, blank: false, slot: from.slot });
+      if (from.kind === 'rack') boardRef?.zoomToward(cell.r, cell.c);
       navigator.vibrate?.(8);
       return;
     }
@@ -208,6 +203,7 @@
     const letter = rack[selected]!;
     if (letter === '?') blankAt = { r, c, slot: selected };
     else pending.push({ r, c, letter, blank: false, slot: selected });
+    boardRef?.zoomToward(r, c);
     selected = null;
   }
 
@@ -400,7 +396,6 @@
           lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
           {outlines}
           {bubble}
-          {hover}
           onCell={tapCell}
           onPendingDown={(e, r, c) => pointerDrag(e, { kind: 'board', r, c })}
         />
@@ -519,7 +514,7 @@
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
   .rack { display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
-  .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
+  .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
   .ghost .ch { font-size: 24px; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
   .rk.empty { background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
