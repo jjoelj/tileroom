@@ -66,6 +66,30 @@
     });
   });
 
+  // One outline around all valid words together: each covered cell draws a border only on its sides that face
+  // an uncovered cell, just outside the tile, and bridges the 1px grid gap toward covered neighbours.
+  const ring = $derived.by(() => {
+    const on = new Set<number>();
+    for (const w of outlines) for (let k = 0; k < w.length; k++) on.add(w.dir === 'across' ? w.r * SIZE + w.c + k : (w.r + k) * SIZE + w.c);
+    const has = (r: number, c: number) => r >= 0 && c >= 0 && r < SIZE && c < SIZE && on.has(r * SIZE + c);
+    return [...on].map((i) => {
+      const r = Math.floor(i / SIZE);
+      const c = i % SIZE;
+      const [t, rt, b, l] = [!has(r - 1, c), !has(r, c + 1), !has(r + 1, c), !has(r, c - 1)];
+      const px = (side: boolean) => (side ? '2px' : '0');
+      const round = (x: boolean, y: boolean) => (x && y ? '6px' : '0');
+      return {
+        i,
+        r,
+        c,
+        style:
+          `width: calc(var(--cs) + ${rt ? 0 : 1}px); height: calc(var(--cs) + ${b ? 0 : 1}px); ` +
+          `border-width: ${px(t)} ${px(rt)} ${px(b)} ${px(l)}; margin: ${t ? -2 : 0}px 0 0 ${l ? -2 : 0}px; ` +
+          `border-radius: ${round(t, l)} ${round(t, rt)} ${round(b, rt)} ${round(b, l)};`,
+      };
+    });
+  });
+
   const pos = (r: number, c: number) => `left: calc(${c} * (var(--cs) + 1px)); top: calc(${r} * (var(--cs) + 1px));`;
   // On the anchor tile's bottom-right corner, but kept inside the board on the last row/column.
   const bubblePos = (r: number, c: number) =>
@@ -255,13 +279,8 @@
       </button>
     {/each}
 
-    {#each outlines as w (`${w.dir}${w.r},${w.c}`)}
-      <div
-        class="outline"
-        aria-hidden="true"
-        transition:show={{ duration: 140 }}
-        style="{pos(w.r, w.c)} width: calc({w.dir === 'across' ? w.length : 1} * (var(--cs) + 1px) - 1px); height: calc({w.dir === 'down' ? w.length : 1} * (var(--cs) + 1px) - 1px);"
-      ></div>
+    {#each ring as e (e.i)}
+      <div class="outline" aria-hidden="true" transition:show={{ duration: 140 }} style="{pos(e.r, e.c)} {e.style}"></div>
     {/each}
 
     {#if bubble}
@@ -304,7 +323,7 @@
   .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
-  .outline { transition: left 150ms, top 150ms, width 150ms, height 150ms; position: absolute; box-sizing: content-box; margin: -2px; border: 2px solid var(--valid); border-radius: 6px; /* the border sits just outside the tiles */ z-index: 2; pointer-events: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
-  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
+  .outline { position: absolute; box-sizing: content-box; border: 0 solid var(--valid); z-index: 2; pointer-events: none; }
+  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
   .bubble.valid { background: var(--valid); }
 </style>

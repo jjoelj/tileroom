@@ -92,33 +92,28 @@
   });
 
   // ---- live preview (SPEC §9.2) ----
-  // Geometry, score and word lookups are computed together, two frames after a change (so placing a tile only
-  // costs the swap), and replace the previous result in one step: the bubble and message never blank or flicker.
-  type Result = { preview: Preview; invalid: string[] };
-  let result = $state<Result | null>(null);
+  // Geometry and score are plain arithmetic: computed at once. Only the word lookup (worker) is async; until it
+  // answers for the current words, the move isn't shown as valid and the last message stays (no flicker).
+  const preview = $derived.by((): Preview | null =>
+    view && onBoard.length ? previewPlay(view.board, $state.snapshot(onBoard) as PendingTile[], () => true) : null,
+  );
+  const words = $derived(preview?.ok ? preview.words.map((w) => w.word).join(' ') : '');
+  let lookup = $state<{ words: string; invalid: string[] } | null>(null);
   $effect(() => {
-    const tiles = $state.snapshot(onBoard) as PendingTile[];
-    const v = view;
-    if (!v || !tiles.length) {
-      result = null;
+    const w = words;
+    const expanded = !!view?.expandedWords;
+    if (!w) {
+      lookup = null;
       return;
     }
     let live = true;
-    let id = requestAnimationFrame(() => {
-      id = requestAnimationFrame(async () => {
-        const p = previewPlay(v.board, tiles, () => true);
-        const bad = p.ok ? await invalidWords(p.words.map((w) => w.word), v.expandedWords) : [];
-        if (live) result = { preview: p, invalid: bad };
-      });
-    });
+    void invalidWords(w.split(' '), expanded).then((bad) => live && (lookup = { words: w, invalid: bad }));
     return () => {
       live = false;
-      cancelAnimationFrame(id);
     };
   });
-  const preview = $derived(result?.preview ?? null);
-  const invalid = $derived(result?.invalid ?? null);
-  const allValid = $derived(!!preview?.ok && invalid !== null && invalid.length === 0);
+  const invalid = $derived(words ? (lookup?.invalid ?? null) : null);
+  const allValid = $derived(!!words && lookup?.words === words && lookup.invalid.length === 0);
   // Lime outlines only when the whole move is valid; one bad word means none at all.
   const outlines = $derived(allValid && preview?.ok ? preview.words : []);
   const bubble = $derived(preview?.ok ? { ...preview.anchor, score: preview.score, valid: allValid } : null);
