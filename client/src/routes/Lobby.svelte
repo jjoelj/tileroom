@@ -114,7 +114,7 @@
       New group
     </button>
   </div>
-  <button class="big outline" style="width: 100%; margin-top: 8px" aria-expanded={joining} onclick={() => ((joining = !joining), (creating = false))}>Join game or group</button>
+  <button class="join" aria-expanded={joining} onclick={() => ((joining = !joining), (creating = false))}>Join game or group</button>
 
   {#if creating}
     <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
@@ -202,7 +202,7 @@
   .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: var(--on-color); font-weight: 800; font-size: 16px; }
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .dark { border: none; background: var(--primary); color: var(--on-primary); }
-  .outline { border: 1.5px solid var(--ink); background: transparent; }
+  .join { display: block; margin: 10px auto 0; height: 44px; padding: 0 18px; border-radius: 22px; border: 1.5px solid var(--line); background: transparent; font-weight: 700; font-size: 14px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
   .game.mine { padding: 16px; gap: 10px; outline: 2px solid var(--p0); }
