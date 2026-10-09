@@ -272,7 +272,7 @@
   onpointermove={move}
   onpointerup={up}
   onpointercancel={up}
-  onlostpointercapture={up}
+  onlostpointercapture={(e) => e.target === viewport && up(e)}
   onclickcapture={swallowClick}
   role="presentation"
 >
