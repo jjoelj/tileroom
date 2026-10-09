@@ -566,7 +566,7 @@
           <button class="tool wide" disabled={!myTurn || busy || view.bagCount === 0} onclick={() => (swapOpen = true)}>Swap</button>
           <button class="playbtn" disabled={!myTurn || !allValid || busy} onclick={play}>
             {#if allValid}<span class="ready" transition:pop></span>{/if}
-            Play{#if preview?.ok}&nbsp;·&nbsp;<Count value={preview.score} />{/if}
+            Play{#if preview?.ok}&nbsp;·&nbsp;{preview.score}{/if}
           </button>
         </div>
       {/if}

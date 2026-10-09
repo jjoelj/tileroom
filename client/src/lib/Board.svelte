@@ -8,7 +8,6 @@
   import { premiumAt, SIZE } from '../../../shared/board';
   import { VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
-  import Count from './Count.svelte';
   import { pop, show } from './motion';
 
   let {
@@ -66,29 +65,19 @@
     });
   });
 
-  // One outline around all valid words together: each covered cell draws a border only on its sides that face
-  // an uncovered cell, just outside the tile, and bridges the 1px grid gap toward covered neighbours.
-  const ring = $derived.by(() => {
-    const on = new Set<number>();
-    for (const w of outlines) for (let k = 0; k < w.length; k++) on.add(w.dir === 'across' ? w.r * SIZE + w.c + k : (w.r + k) * SIZE + w.c);
-    const has = (r: number, c: number) => r >= 0 && c >= 0 && r < SIZE && c < SIZE && on.has(r * SIZE + c);
-    return [...on].map((i) => {
-      const r = Math.floor(i / SIZE);
-      const c = i % SIZE;
-      const [t, rt, b, l] = [!has(r - 1, c), !has(r, c + 1), !has(r + 1, c), !has(r, c - 1)];
-      const px = (side: boolean) => (side ? '2px' : '0');
-      const round = (x: boolean, y: boolean) => (x && y ? '6px' : '0');
-      return {
-        i,
-        r,
-        c,
-        style:
-          `width: calc(var(--cs) + ${rt ? 0 : 1}px); height: calc(var(--cs) + ${b ? 0 : 1}px); ` +
-          `border-width: ${px(t)} ${px(rt)} ${px(b)} ${px(l)}; margin: ${t ? -2 : 0}px 0 0 ${l ? -2 : 0}px; ` +
-          `border-radius: ${round(t, l)} ${round(t, rt)} ${round(b, rt)} ${round(b, l)};`,
-      };
-    });
-  });
+  // One outline around all valid words together, drawn as a single SVG mask: every word's box grown by 2px,
+  // minus every word's box. Crossings merge cleanly and nothing is drawn over the tiles.
+  let W = $state(0); // untransformed board width
+  const pitch = $derived((W - (SIZE - 1)) / SIZE + 1); // cell + 1px gap
+  const boxes = $derived(
+    outlines.map((w) => ({
+      x: w.c * pitch,
+      y: w.r * pitch,
+      w: (w.dir === 'across' ? w.length : 1) * pitch - 1,
+      h: (w.dir === 'down' ? w.length : 1) * pitch - 1,
+    })),
+  );
+  const RING = 2;
 
   const pos = (r: number, c: number) => `left: calc(${c} * (var(--cs) + 1px)); top: calc(${r} * (var(--cs) + 1px));`;
   // On the anchor tile's bottom-right corner, but kept inside the board on the last row/column.
@@ -259,7 +248,7 @@
   onclickcapture={swallowClick}
   role="presentation"
 >
-  <div class="board" class:easing bind:this={grid} role="grid" aria-label="Game board" style="transform: translate({tx}px, {ty}px) scale({s})">
+  <div class="board" class:easing bind:this={grid} bind:clientWidth={W} role="grid" aria-label="Game board" style="transform: translate({tx}px, {ty}px) scale({s})">
     {#each cells as cell (cell.i)}
       <button
         class="cell {cell.square}"
@@ -279,14 +268,24 @@
       </button>
     {/each}
 
-    {#each ring as e (e.i)}
-      <div class="outline" aria-hidden="true" transition:show={{ duration: 140 }} style="{pos(e.r, e.c)} {e.style}"></div>
-    {/each}
+    {#if boxes.length}
+      {@const rx = (pitch - 1) * 0.16}
+      <svg class="outline" width={W} height={W} aria-hidden="true" transition:show={{ duration: 140 }}>
+        <mask id="word-ring" maskUnits="userSpaceOnUse" x={-RING} y={-RING} width={W + 2 * RING} height={W + 2 * RING}>
+          {#each boxes as b, i (i)}<rect x={b.x - RING} y={b.y - RING} width={b.w + 2 * RING} height={b.h + 2 * RING} rx={rx + RING} fill="#fff" />{/each}
+          {#each boxes as b, i (i)}<rect x={b.x} y={b.y} width={b.w} height={b.h} rx={rx} fill="#000" />{/each}
+        </mask>
+        <rect x={-RING} y={-RING} width={W + 2 * RING} height={W + 2 * RING} mask="url(#word-ring)" />
+      </svg>
+    {/if}
 
     {#if bubble}
-      <div class="bubble" class:valid={bubble.valid} aria-label="Score if played: {bubble.score}" style={bubblePos(bubble.r, bubble.c)} transition:pop>
-        <Count value={bubble.score} />
-      </div>
+      <!-- keyed by spot: when the anchor tile changes, the bubble pops in at the new spot instead of sliding -->
+      {#key `${bubble.r},${bubble.c}`}
+        <div class="bubble" class:valid={bubble.valid} aria-label="Score if played: {bubble.score}" style={bubblePos(bubble.r, bubble.c)} in:pop>
+          {bubble.score}
+        </div>
+      {/key}
     {/if}
   </div>
 </div>
@@ -323,7 +322,7 @@
   .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
-  .outline { position: absolute; box-sizing: content-box; border: 0 solid var(--valid); z-index: 2; pointer-events: none; }
-  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
+  .outline { position: absolute; left: 0; top: 0; overflow: visible; z-index: 2; pointer-events: none; fill: var(--valid); }
+  .bubble { transition: background-color 200ms; position: absolute; translate: -60% -60%; will-change: scale; /* stays on its own layer: no subpixel snap when the pop ends */ min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
   .bubble.valid { background: var(--valid); }
 </style>
