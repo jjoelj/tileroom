@@ -25,7 +25,7 @@
       // Edge (and Chrome's quiet mode) hide the prompt behind an address-bar icon and leave the request pending,
       // or answer "no decision". Either way, say where to look.
       const hidden = 'Your browser hid the request. Look for a bell icon at the right end of the address bar and choose Allow.';
-      const slow = setTimeout(() => (hint = hidden), 1500);
+      const slow = setTimeout(() => (hint = hidden), 5000);
       device.permission = await Notification.requestPermission().finally(() => clearTimeout(slow));
       hint = device.permission === 'default' ? `${hidden} Then tap again.` : '';
       if (device.permission !== 'granted') return;
