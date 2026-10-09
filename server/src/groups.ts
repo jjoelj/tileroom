@@ -339,7 +339,7 @@ export const groupRoutes = new Hono<AppEnv>()
     return c.json({ ok: true });
   })
 
-  .get('/groups/:id/check/:word', (c) => {
+  .get('/groups/:id/words/:word', (c) => {
     const { group } = myGroup(db, c.req.param('id'), c.var.user.id);
     const word = c.req.param('word').toUpperCase();
     if (!WORD_RE.test(word)) throw new ApiError(400, 'invalid_word', 'Words are 2–15 letters, A to Z');

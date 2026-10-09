@@ -181,7 +181,7 @@ describe('house words (unanimous)', () => {
     expect((await propose(id, a, 'QXZN', 'remove')).json.error).toBe('invalid_proposal');
     expect((await propose(id, a, 'CAT', 'ban')).json.words.ban).toEqual(['CAT']);
     expect((await propose(id, a, 'CAT', 'add')).json.message).toBe('CAT is banned in this group. Propose unbanning it instead.');
-    expect((await call(`/groups/${id}/check/cat`, { cookie: a.cookie })).json).toEqual({ word: 'CAT', inBase: true, approved: 'ban', openProposal: null });
+    expect((await call(`/groups/${id}/words/cat`, { cookie: a.cookie })).json).toEqual({ word: 'CAT', inBase: true, approved: 'ban', openProposal: null });
     expect((await propose(id, a, 'CAT', 'unban')).json.words.ban).toEqual([]);
     await propose(id, a, 'QXZN', 'add');
     expect((await propose(id, a, 'QXZN', 'ban')).json.message).toBe('QXZN is a house word. Propose removing it instead.');

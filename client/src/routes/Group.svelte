@@ -34,13 +34,13 @@
     history: Proposal[];
     games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; players: { userId: string; displayName: string; seat: number }[]; mine: boolean; joinCode: string | null }[];
   };
-  type Check = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
+  /** Where a word stands in this group (the lookup behind the propose button). */
+  type Standing = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
 
   let group = $state<Detail | null>(null);
   let missing = $state(false);
   let busy = $state(false);
   let word = $state('');
-  let checked = $state<Check | null>(null);
 
   const me = $derived(session.me?.id);
   const admin = $derived(group?.myRole === 'admin');
@@ -91,35 +91,54 @@
 
   const vote = (p: Proposal, v: 'yes' | 'no') => act(`/proposals/${p.id}/vote`, 'POST', { vote: v });
 
-  async function check(e: SubmitEvent) {
+  // ---- proposing: type a word and the one proposal that fits it appears (each word has one way in, one way out) ----
+  const ING: Record<Action, string> = { add: 'adding', ban: 'banning', remove: 'removing', unban: 'unbanning' };
+  const WHY: Record<Action, string> = {
+    add: "It isn't in the word list. If everyone agrees, it counts in this group's games.",
+    ban: "It's a valid word. If everyone agrees, it won't count in this group's games.",
+    remove: "It's one of this group's added words. If everyone agrees, it stops counting.",
+    unban: "It's banned in this group. If everyone agrees, it counts again.",
+  };
+  const actionFor = (s: Standing): Action | null =>
+    s.openProposal ? null : s.approved === 'add' ? 'remove' : s.approved === 'ban' ? 'unban' : s.inBase ? 'ban' : 'add';
+
+  const typed = $derived(word.trim().toUpperCase());
+  const wellFormed = $derived(/^[A-Z]{2,15}$/.test(typed));
+  let standing = $state<Standing | null>(null);
+  // Look the word up quietly as it's typed (after a short pause), so the right button is ready.
+  $effect(() => {
+    const w = typed;
+    if (!wellFormed) return void (standing = null);
+    if (standing?.word === w) return;
+    let current = true;
+    const t = setTimeout(() => {
+      api<Standing>(`/groups/${id}/words/${w}`)
+        .then((s) => current && (standing = s))
+        .catch(() => {});
+    }, 250);
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
+  });
+  const ready = $derived(standing?.word === typed ? standing : null);
+
+  async function propose(w: string, action: Action) {
+    const ok = await act(`/groups/${id}/proposals`, 'POST', { word: w, action }, `Proposed. Everyone in ${group?.name} gets a vote.`);
+    if (ok && w === typed) word = '';
+  }
+
+  function submit(e: SubmitEvent) {
     e.preventDefault();
-    try {
-      checked = await api<Check>(`/groups/${id}/check/${encodeURIComponent(word.trim())}`);
-    } catch (err) {
-      checked = null;
-      sayError(err);
-    }
+    const action = ready && actionFor(ready);
+    if (ready && action) void propose(ready.word, action);
   }
 
-  async function propose(action: Action) {
-    if (!checked) return;
-    if (await act(`/groups/${id}/proposals`, 'POST', { word: checked.word, action }, `Proposed. Everyone in ${group?.name} gets a vote.`)) {
-      word = '';
-      checked = null;
-    }
+  /** Tapping one of the group's words: propose taking it back out. */
+  async function proposeUndo(w: string, action: 'remove' | 'unban') {
+    const ok = await confirm({ title: `Propose ${ING[action]} ${w}?`, body: WHY[action], action: `Propose ${ING[action]}` });
+    if (ok) await propose(w, action);
   }
-
-  /** What can be proposed for a checked word: each word has exactly one way in and one way out. */
-  const option = (c: Check): { text: string; action: Action | null } =>
-    c.openProposal
-      ? { text: `${c.word} is already being voted on`, action: null }
-      : c.approved === 'add'
-        ? { text: `${c.word} is one of this group's added words`, action: 'remove' }
-        : c.approved === 'ban'
-          ? { text: `${c.word} is banned in this group`, action: 'unban' }
-          : c.inBase
-            ? { text: `${c.word} is a valid word`, action: 'ban' }
-            : { text: `${c.word} isn't in the word list`, action: 'add' };
 
   async function joinGame(code: string) {
     busy = true;
@@ -260,24 +279,32 @@
     {/if}
 
     <h2 class="label section">House words</h2>
-    <form class="checkbox" onsubmit={check}>
-      <input class="field" bind:value={word} placeholder="Check a word" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="15" aria-label="Word to check" />
-      <button class="primary" style="width: 96px" disabled={!word.trim()}>Check</button>
-    </form>
-    {#if checked}
-      {@const o = option(checked)}
-      <div class="card item" transition:show>
-        <span class="grow">{o.text}</span>
-        {#if o.action}<button class="pill" disabled={busy} onclick={() => propose(o.action!)}>Propose {VERB[o.action].toLowerCase()}</button>{/if}
+    <form class="propose" onsubmit={submit}>
+      <input class="field" bind:value={word} placeholder="Type a word to add or ban" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="15" aria-label="Word to propose" />
+      <!-- fixed height: the button and its note fill in without moving anything below -->
+      <div class="next" aria-live="polite">
+        {#if ready}
+          {@const a = actionFor(ready)}
+          {#if a}
+            <button class="primary" disabled={busy}>Propose {ING[a]} {ready.word}</button>
+            <span class="hint">{WHY[a]}</span>
+          {:else}
+            <button class="primary" disabled>Propose {ready.word}</button>
+            <span class="hint">{ready.word} is already up for a vote below.</span>
+          {/if}
+        {:else}
+          <button class="primary" disabled>{wellFormed ? `Propose ${typed}` : 'Propose a word'}</button>
+          <span class="hint">{typed && !wellFormed ? 'Words are 2 to 15 letters, A to Z.' : 'Everyone in the group votes. It needs a yes from all of you.'}</span>
+        {/if}
       </div>
-    {/if}
+    </form>
     {#if group.words.add.length}
-      <span class="sub">Added</span>
-      <span class="wordlist">{group.words.add.join(' · ')}</span>
+      <span class="sub">Added <span class="hint">· tap to propose removing</span></span>
+      <div class="chips">{#each group.words.add as w (w)}<button class="chip" onclick={() => proposeUndo(w, 'remove')}>{w}</button>{/each}</div>
     {/if}
     {#if group.words.ban.length}
-      <span class="sub">Banned</span>
-      <span class="wordlist">{group.words.ban.join(' · ')}</span>
+      <span class="sub">Banned <span class="hint">· tap to propose unbanning</span></span>
+      <div class="chips">{#each group.words.ban as w (w)}<button class="chip" onclick={() => proposeUndo(w, 'unban')}>{w}</button>{/each}</div>
     {/if}
     {#if !group.words.add.length && !group.words.ban.length}
       <span class="hint">No house words yet. Games here use the standard list until a proposal passes.</span>
@@ -344,9 +371,11 @@
   .vote.yes { color: var(--ok); }
   .vote.no { color: var(--bad); }
   .pair { display: flex; gap: 8px; }
-  .checkbox { display: flex; gap: 8px; }
-  .checkbox .field { text-transform: uppercase; letter-spacing: 0.05em; }
-  .wordlist { font-weight: 700; line-height: 1.6; overflow-wrap: anywhere; }
+  .propose { display: flex; flex-direction: column; gap: 8px; }
+  .propose .field { text-transform: uppercase; letter-spacing: 0.05em; }
+  .next { min-height: 92px; display: flex; flex-direction: column; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
   .list { padding: 4px 0; }
   .member { display: flex; align-items: center; gap: 12px; padding: 8px 14px; min-height: 52px; }
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
