@@ -335,7 +335,11 @@
     <label class="card item toggle" class:readonly={!admin}>
       <span class="grow">
         <span class="strong">Spectators can see trays</span>
-        <span class="hint">{group.spectatorsSeeRacks ? 'Applies to games started from now on. Turning it off applies at once.' : 'Members watching a game see only the board'}</span>
+        <span class="hint">
+          {group.spectatorsSeeRacks
+            ? 'Members watching see every tray in games started while this is on. Turning it off hides them at once, in every game.'
+            : 'Members watching see only the board. Turning this on applies to new games only, so players in running games are never exposed.'}
+        </span>
       </span>
       <input
         type="checkbox"
