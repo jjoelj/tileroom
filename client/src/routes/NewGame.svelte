@@ -48,20 +48,18 @@
   <div style="padding: 4px 16px 0; display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
     {#if groupId && words}
       <!-- what this game will be played with: copied from the group when the game starts -->
-      <div class="card words" in:show={{ y: 6 }}>
-        <span class="strong">House words</span>
+      <div class="card" in:show={{ y: 6 }}>
+        <div class="line">
+          <div class="stack" style="gap: 1px">
+            <span class="strong">House words</span>
+            <span class="hint">{words.add.length || words.ban.length ? 'Locked in when the game starts' : 'None yet, so the standard list applies'}</span>
+          </div>
+        </div>
         {#if words.add.length}
-          <span class="hint">Added</span>
-          <div class="chips">{#each words.add as w (w)}<span class="chip">{w}</span>{/each}</div>
+          <div class="line words"><span class="what">Added</span><span class="list">{words.add.join(', ')}</span></div>
         {/if}
         {#if words.ban.length}
-          <span class="hint">Banned</span>
-          <div class="chips">{#each words.ban as w (w)}<span class="chip">{w}</span>{/each}</div>
-        {/if}
-        {#if !words.add.length && !words.ban.length}
-          <span class="hint">None yet: this game uses the standard word list.</span>
-        {:else}
-          <span class="hint">Locked in when the game starts. Later votes won't change it.</span>
+          <div class="line words"><span class="what">Banned</span><span class="list">{words.ban.join(', ')}</span></div>
         {/if}
       </div>
     {/if}
@@ -113,9 +111,9 @@
 <style>
   .tag { height: 30px; padding: 0 10px; margin-right: 8px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; display: flex; align-items: center; }
   .card { overflow: hidden; }
-  .words { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow: auto; }
-  .chip { padding: 4px 10px; border-radius: 999px; background: var(--well); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
+  .words { padding: 12px 14px; min-height: 0; align-items: flex-start; }
+  .words .what { font-size: 15px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .words .list { font-size: 15px; font-weight: 700; text-align: right; line-height: 1.4; overflow-wrap: anywhere; max-height: 84px; overflow: auto; }
   .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 8px 0 14px; min-height: 60px; }
   .line + .line { border-top: 1px solid var(--line-soft); }
   .strong { font-weight: 800; font-size: 16px; }
