@@ -56,3 +56,25 @@ test('watchers of a game get their own view; players on the lobby get a nudge; n
   for (const s of [sa, sb, ss]) s.close();
   expect(watching(b.id, id)).toBe(false);
 });
+
+test('group screens: a new code nudges members watching; refocusing nudges too; outsiders hear nothing', async () => {
+  const [a, b, stranger] = [await newUser(), await newUser(), await newUser()];
+  const g = (await call('/groups', { method: 'POST', cookie: a.cookie, body: { name: 'Friends' } })).json;
+  await call(`/groups/join/${g.joinCode}`, { method: 'POST', cookie: b.cookie });
+  const [sb, ss] = [connect(b), connect(stranger)];
+  sb.sub(`group:${g.id}`);
+  ss.sub(`group:${g.id}`);
+  expect(sb.got).toEqual([{ t: 'group' }]); // on subscribe: refetch what changed while away
+  sb.got.length = 0;
+
+  await call(`/groups/${g.id}/code`, { method: 'POST', cookie: a.cookie });
+  expect(sb.got).toEqual([{ t: 'group' }]);
+
+  sb.sub(''); // window loses focus: misses the next change...
+  await call(`/groups/${g.id}/code`, { method: 'POST', cookie: a.cookie });
+  expect(sb.got).toHaveLength(1);
+  sb.sub(`group:${g.id}`); // ...and catches up on refocus
+  expect(sb.got).toHaveLength(2);
+  expect(ss.got).toEqual([]);
+  for (const s of [sb, ss]) s.close();
+});

@@ -38,6 +38,9 @@ export const sockets: Sockets<Conn> = {
     c.sub = sub;
     // someone arrived or left: the watcher lists on both games change
     for (const id of [before, sub]) if (isGame(id)) changed(id, { lobby: false });
+    // back on screen (e.g. refocused): refetch whatever changed while it was unsubscribed, like games get a fresh view
+    if (sub === 'lobby') ws.send(JSON.stringify({ t: 'lobby' }));
+    else if (sub.startsWith(GROUP) && isMember(db, sub.slice(GROUP.length), c.userId)) ws.send(JSON.stringify({ t: 'group' }));
   },
   close(ws, c) {
     live.delete(ws);
