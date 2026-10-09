@@ -32,7 +32,6 @@
   let menuOpen = $state(false);
   let watchersOpen = $state(false);
   let wordsOpen = $state(false);
-  let zoomed = $state(false);
   let boardRef = $state<Board>();
   let rackEl = $state<HTMLDivElement>();
   let ghost = $state<HTMLDivElement>();
@@ -609,7 +608,6 @@
       <div style="position: relative">
         <Board
           bind:this={boardRef}
-          bind:zoomed
           board={view.board}
           pending={onBoard}
           quiet={hush}
@@ -619,9 +617,6 @@
           onCell={tapCell}
           onPendingDown={(e, r, c) => pointerDrag(e, { kind: 'board', r, c })}
         />
-        <button class="zoombtn" aria-label={zoomed ? 'Zoom out' : 'Zoom in'} aria-pressed={zoomed} onclick={() => boardRef?.toggleZoom()}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5M8 11h6" />{#if !zoomed}<path d="M11 8v6" />{/if}</svg>
-        </button>
       </div>
 
       <p class="problem" role="status">
@@ -795,7 +790,6 @@
   @media (prefers-reduced-motion: reduce) { .dot.here { animation: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px currentColor; } }
   .sc { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; }
   .status { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
-  .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--float); color: #fff; backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 4; }
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
   .rack { position: relative; display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }

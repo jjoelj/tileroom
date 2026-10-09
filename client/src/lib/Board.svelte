@@ -142,7 +142,7 @@
     easeTimer = window.setTimeout(() => (easing = false), 260);
   }
 
-  /** Zoom button / double tap: about 40px cells, or back to fit. */
+  /** Double tap (or double click): about 40px cells, or back to fit. */
   export function toggleZoom(x?: number, y?: number) {
     const w = size();
     const [px, py] = x === undefined || y === undefined ? [w / 2, w / 2] : local(x, y);

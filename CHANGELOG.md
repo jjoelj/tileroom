@@ -5,6 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
+- The zoom button is gone, so it no longer covers the bottom-right square. Double-tap or pinch the board to zoom (Ctrl+scroll on a computer).
 - Updates install themselves. When you open the app, or come back after a while, it checks for a new version behind a short splash screen before showing anything.
 
 ## v0.1.3 (2026-10-09)
