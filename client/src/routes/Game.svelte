@@ -688,7 +688,7 @@
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
   .tool { flex: 1; height: 56px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-weight: 700; font-size: 12px; }
   .tool:disabled { opacity: 0.4; }
-  .playbtn { height: 56px; min-width: 124px; flex-shrink: 0; padding: 0 16px; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .playbtn { flex: 1; height: 56px; padding: 0 12px; white-space: nowrap; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .playbtn:disabled { opacity: 0.35; }
   .ready { width: 8px; height: 8px; border-radius: 4px; background: var(--valid); }
   .lobby { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
