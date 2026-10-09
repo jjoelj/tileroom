@@ -471,7 +471,9 @@
       </button>
       <div class="title">
         <h1>{title}</h1>
-        <span>{view.group ? view.group.name : 'Open game'}{view.expandedWords ? ' · expanded word list' : ''}</span>
+        {#if view.group || view.expandedWords}
+          <span>{[view.group?.name, view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
+        {/if}
       </div>
       <!-- Players always know they're watched (SPEC §4.11): an eye and a count, hidden at 0. -->
       {#if view.watching.length}

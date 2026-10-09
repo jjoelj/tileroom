@@ -42,7 +42,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
     <h1 class="h1" style="font-size: 22px; flex-grow: 1">New game</h1>
-    <span class="tag">{groupId ? groupName || 'Group game' : 'Open game'}</span>
+    {#if groupId}<span class="tag">{groupName || 'Group game'}</span>{/if}
   </header>
 
   <div style="padding: 4px 16px 0; display: flex; flex-direction: column; gap: 18px; flex-grow: 1">

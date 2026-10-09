@@ -169,7 +169,7 @@
   <div style="display: flex; gap: 8px">
     <button class="big dark" onclick={() => go('/new')}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
-      Open game
+      New game
     </button>
     <button class="big outline" aria-expanded={joining} onclick={() => (joining = !joining)}>Join with code</button>
   </div>
