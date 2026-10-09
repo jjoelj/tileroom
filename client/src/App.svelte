@@ -7,6 +7,7 @@
   import { show } from './lib/motion';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
+  import { say } from './lib/say.svelte';
   import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Group from './routes/Group.svelte';
@@ -20,14 +21,13 @@
   import Settings from './routes/Settings.svelte';
   import SignUp from './routes/SignUp.svelte';
 
-  // Gate 1 (SPEC §9.6): on phones and tablets only the installed app runs (iOS push needs it); desktop browsers
-  // push from a tab, so they skip it. iPadOS reports a Mac UA, hence the touch check. The bypass is dev-only.
+  // Gates (SPEC §9.6), in order: signed in → installed → notifications. Anyone can sign in or sign up in a browser;
+  // after that, phones and tablets need the installed app (iOS push needs it). Desktop browsers push from a tab, so
+  // they skip install. iPadOS reports a Mac UA, hence the touch check. The bypass is dev-only.
   const standalone =
     matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const mobile = /Android|iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const installed = standalone || !mobile || (import.meta.env.DEV && import.meta.env.VITE_SKIP_PWA_GATE === '1');
-  // Signing up doesn't need the app: make the account here, then install (the install screen says to sign in there).
-  const gated = $derived(!installed && !(route.path.startsWith('/signup') && !session.me));
 
   onMount(() => {
     api<Me>('/me')
@@ -54,6 +54,14 @@
     }
   });
 
+  // An account invite link opened while signed in: it's for someone new, so leave it unused and say so.
+  $effect(() => {
+    if (session.me && route.path.startsWith('/signup')) {
+      say(`You're already signed in as @${session.me.username}. That invite is for a new account, so pass it on.`);
+      go('/');
+    }
+  });
+
   const gameId = $derived(route.path.match(/^\/games\/([\w-]+)$/)?.[1]);
   const groupCode = $derived(route.path.match(/^\/groups\/join\/([\w-]+)$/)?.[1]);
   const groupId = $derived(groupCode ? undefined : route.path.match(/^\/groups\/([\w-]+)$/)?.[1]);
@@ -64,12 +72,12 @@
 
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
-    gated
-      ? 'install'
-      : session.me === undefined
-        ? 'loading'
-        : session.me === null
-          ? route.path.startsWith('/signup') ? 'signup' : 'signin'
+    session.me === undefined
+      ? 'loading'
+      : session.me === null
+        ? route.path.startsWith('/signup') ? 'signup' : 'signin'
+        : !installed
+          ? 'install'
           : !session.me.pushReady || device.permission !== 'granted'
             ? 'notify'
             : gameId
@@ -86,12 +94,12 @@
 
 {#key screen}
 <div in:show={{ duration: 180 }}>
-{#if gated}
-  <Install />
-{:else if session.me === undefined}
+{#if session.me === undefined}
   <div class="screen" aria-busy="true"></div>
 {:else if session.me === null}
   {#if route.path.startsWith('/signup')}<SignUp />{:else}<SignIn />{/if}
+{:else if !installed}
+  <Install />
 {:else if !session.me.pushReady || device.permission !== 'granted'}
   <Notify />
 {:else if gameId}
