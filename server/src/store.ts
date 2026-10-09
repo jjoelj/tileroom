@@ -4,7 +4,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { effectiveDictionary, parseWordList, type IsWord } from '../../shared/dictionary';
 import { turnExpired } from '../../shared/rules';
 import type { GameState } from '../../shared/types';
-import { gamePlayers, games, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, moves, users } from './db/schema';
 import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
@@ -56,7 +56,17 @@ const lists: Record<string, Set<string>> = {};
 const load = (name: 'words' | 'abbreviations') =>
   (lists[name] ??= parseWordList(readFileSync(new URL(`../../wordlists/${name}.txt`, import.meta.url), 'utf8')));
 
-/** The game's dictionary: base words, plus abbreviations if the game uses the expanded list. House words: milestone 5. */
-export function dictionary(game: Pick<GameRow, 'expandedWords'>): IsWord {
-  return effectiveDictionary(game.expandedWords ? [load('words'), load('abbreviations')] : [load('words')]);
+/** The base word list (no abbreviations): what group proposals are checked against. */
+export const baseWords = () => load('words');
+
+/** A game's frozen house words (empty for open games). */
+export function houseWordsOf(q: Q, gameId: string) {
+  const rows = q.select().from(gameWords).where(eq(gameWords.gameId, gameId)).all();
+  const pick = (kind: 'add' | 'ban') => rows.filter((r) => r.kind === kind).map((r) => r.word).sort();
+  return { add: pick('add'), ban: pick('ban') };
+}
+
+/** The game's dictionary: base words (plus abbreviations if expanded), plus its frozen house adds, minus its bans. */
+export function dictionary(game: Pick<GameRow, 'expandedWords'>, house: { add: string[]; ban: string[] } = { add: [], ban: [] }): IsWord {
+  return effectiveDictionary(game.expandedWords ? [load('words'), load('abbreviations')] : [load('words')], house);
 }

@@ -9,6 +9,7 @@ import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
+import { expireProposals } from './groups';
 import { notify } from './push';
 import { changed, watching } from './realtime';
 import { db } from './runtime/db';
@@ -295,6 +296,7 @@ export const gameRoutes = new Hono<AppEnv>()
 
 /** Every 10 minutes: void games past the 7-day turn timeout, send 1-day-left reminders (SPEC §4.8). */
 export async function runJobs(now = Date.now()) {
+  expireProposals(now);
   // ponytail: scans every active game; fine at friends scale, add an index on turn_started_at if it grows
   const active = db.select().from(games).where(eq(games.status, 'active')).orderBy(asc(games.turnStartedAt)).all();
   for (const game of active) {

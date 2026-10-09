@@ -21,3 +21,7 @@ export const newInviteCode = () => group(randomCode(12), 4);
 /** 6 chars as K7Q-4XM: short enough to type, guessing is rate-limited (SPEC §10). */
 export const newJoinCode = () => randomCode(6);
 export const formatJoinCode = (code: string) => group(code, 3);
+
+/** 8 chars as K7Q4-XMR2: a different length from game codes, so one "join with code" box can tell them apart. */
+export const newGroupCode = () => randomCode(8);
+export const formatGroupCode = (code: string) => group(code, 4);

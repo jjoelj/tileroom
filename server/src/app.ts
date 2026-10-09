@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { type AppEnv, auth, checkOrigin, loadSession, requireUser } from './auth';
 import { gameRoutes } from './games';
+import { groupRoutes } from './groups';
 import { ApiError } from './http';
 import { push, requirePush } from './push';
 
@@ -13,7 +14,11 @@ const api = new Hono<AppEnv>()
   .use('/games/*', requireUser, requirePush)
   .use('/games', requireUser, requirePush)
   .use('/join/*', requireUser, requirePush)
-  .route('/', gameRoutes);
+  .route('/', gameRoutes)
+  .use('/groups', requireUser)
+  .use('/groups/*', requireUser)
+  .use('/proposals/*', requireUser)
+  .route('/', groupRoutes);
 
 export const app = new Hono()
   .route('/api', api)
