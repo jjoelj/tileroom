@@ -3,7 +3,8 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { grow, ms, show } from '../lib/motion';
-  import { plural } from '../../../shared/plural';
+  import { names, plural } from '../../../shared/plural';
+  import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
@@ -11,9 +12,7 @@
 
   type Summary = {
     id: string;
-    name: string;
     status: 'lobby' | 'active' | 'finished';
-    seatCount: number;
     currentSeat: number;
     mySeat: number;
     players: { seat: number; displayName: string; score: number }[];
@@ -78,6 +77,8 @@
   }
 
   const others = (g: Summary) => g.players.filter((p) => p.seat !== g.mySeat);
+  // Games have no names: they're called by who else is in them.
+  const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
   const scoreLine = (g: Summary) =>
     g.players.map((p) => `${p.seat === g.mySeat ? 'You' : p.displayName} ${p.score}`).join(' · ');
   const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
@@ -144,7 +145,7 @@
       <h2 class="label section">Your turn</h2>
       {#each games.yourTurn as g (g.id)}
         <button class="card game mine" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="row"><span class="name">{g.name}</span><span class="pill">Play</span></span>
+          <span class="row"><span class="name">{title(g)}</span><span class="pill">Play</span></span>
           <span class="sub">{scoreLine(g)}</span>
         </button>
       {/each}
@@ -154,7 +155,7 @@
       <h2 class="label section">Waiting on others</h2>
       {#each games.waiting as g (g.id)}
         <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{g.name}</span>
+          <span class="name small">{title(g)}</span>
           <span class="sub">{turnOf(g)}'s turn · {scoreLine(g)}</span>
         </button>
       {/each}
@@ -164,8 +165,8 @@
       <h2 class="label section">Starting soon</h2>
       {#each games.lobby as g (g.id)}
         <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{g.name}</span>
-          <span class="sub">{g.players.length} of {plural(g.seatCount, 'seat', 'seats')} filled{others(g).length ? ` · with ${others(g).map((p) => p.displayName).join(', ')}` : ''}</span>
+          <span class="name small">{title(g)}</span>
+          <span class="sub">{plural(g.players.length, 'player', 'players')} joined · up to {MAX_PLAYERS}</span>
         </button>
       {/each}
     {/if}
@@ -174,8 +175,8 @@
       <h2 class="label section">Finished</h2>
       {#each games.finished as g (g.id)}
         <button class="game done" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{g.name}</span>
-          <span class="sub">{plural(g.players.length, 'player', 'players')} · {result(g)}</span>
+          <span class="name small">{title(g)}</span>
+          <span class="sub">{result(g)}</span>
         </button>
       {/each}
     {/if}

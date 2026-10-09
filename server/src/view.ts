@@ -35,11 +35,9 @@ export function toView({ game, seats }: LoadedGame, viewerSeat: number, last: Mo
   const finished = game.status === 'finished';
   return {
     id: game.id,
-    name: game.name,
     status: game.status,
     hostUserId: game.hostId,
     joinCode: game.status === 'lobby' ? formatJoinCode(game.joinCode) : null,
-    seatCount: game.seatCount,
     bagSize: game.bagSize,
     expandedWords: game.expandedWords,
     turnNumber: game.turnNumber,

@@ -18,7 +18,7 @@ function connect(u: TestUser, origin = ORIGIN) {
 
 test('watchers of a game get their own view; players on the lobby get a nudge; nobody else hears anything', async () => {
   const [a, b, stranger] = [await newUser(), await newUser(), await newUser()];
-  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { name: 'Live', seatCount: 2, bagSize: 100, randomOrder: false } })).json.id;
+  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false } })).json.id;
   const code = (await call(`/games/${id}`, { cookie: a.cookie })).json.joinCode;
   await call(`/join/${code}`, { method: 'POST', cookie: b.cookie });
   await call(`/games/${id}/start`, { method: 'POST', cookie: a.cookie });
@@ -41,7 +41,7 @@ test('watchers of a game get their own view; players on the lobby get a nudge; n
   expect(JSON.stringify(sa.got[0])).not.toContain('"rack"'); // no one else's rack (SPEC §6.1)
   expect(sb.got).toEqual([{ t: 'lobby' }]);
   expect(ss.got).toEqual([]);
-  expect(pushesTo(b).at(-1)).toContain('Your turn in Live');
+  expect(pushesTo(b).at(-1)).toContain('Your turn. ');
 
   // b opens the game: a's pass reaches b live, with no push
   const before = pushesTo(b).length;

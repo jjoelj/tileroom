@@ -2,8 +2,8 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
-  import { plural } from '../../../shared/plural';
-  import { type Preview, previewPlay } from '../../../shared/rules';
+  import { names, plural } from '../../../shared/plural';
+  import { MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
   import { api, ApiError } from '../lib/api';
@@ -37,6 +37,8 @@
   const storeKey = $derived(`tileroom:pending:${id}`);
   const rack = $derived(view?.myRack ?? []);
   const myTurn = $derived(view?.status === 'active' && view.currentSeat === view.mySeat);
+  // Games have no names: they're called by who else is in them.
+  const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
   let deal = $state(0); // bumped when the server deals a new rack, so its tiles animate in
@@ -403,7 +405,7 @@
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   function share() {
     if (!view?.joinCode) return;
-    const text = `Join my Tileroom game: code ${view.joinCode} — ${location.origin}/join/${view.joinCode}`;
+    const text = `Join my Tileroom game with code ${view.joinCode}: ${location.origin}/join/${view.joinCode}`;
     if (canShare) navigator.share({ text }).catch(() => {});
     else
       navigator.clipboard?.writeText(text).then(
@@ -454,7 +456,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <div class="title">
-        <h1>{view.name}</h1>
+        <h1>{title}</h1>
         <span>Open game{view.expandedWords ? ' · expanded word list' : ''}</span>
       </div>
       {#if view.status === 'active'}
@@ -481,24 +483,24 @@
         <div class="code">{view.joinCode}</div>
         <button class="secondary" onclick={share}>{canShare ? 'Share code' : 'Copy invite'}</button>
         <div class="card seats">
-          {#each Array.from({ length: view.seatCount }, (_, i) => view!.players[i]) as p, i (i)}
+          {#each view.players as p (p.userId)}
             <div class="seat">
-              <span class="av" style="background: {p ? `var(--p${p.colorIndex % 6}-bg)` : 'transparent'}" class:open={!p}>{p?.displayName[0]?.toUpperCase() ?? ''}</span>
-              <span style="flex-grow: 1; font-weight: 700; color: {p ? 'var(--ink)' : 'var(--muted)'}">{p ? (p.userId === session.me?.id ? 'You' : p.displayName) : 'Open seat'}</span>
-              {#if p?.userId === view.hostUserId}<span class="hint">Host</span>{/if}
+              <span class="av" style="background: var(--p{p.colorIndex % 6}-bg)">{p.displayName[0]?.toUpperCase() ?? ''}</span>
+              <span style="flex-grow: 1; font-weight: 700">{p.userId === session.me?.id ? 'You' : p.displayName}</span>
+              {#if p.userId === view.hostUserId}<span class="hint">Host</span>{/if}
             </div>
           {/each}
         </div>
         {#if view.hostUserId === session.me?.id}
           <button class="primary" disabled={busy || view.players.length < 2} onclick={start}>
-            {view.players.length < view.seatCount ? `Start with ${plural(view.players.length, 'player', 'players')}` : 'Start game'}
+            Start with {plural(view.players.length, 'player', 'players')}
           </button>
           <span class="hint" style="text-align: center">
             {view.players.length < 2
               ? 'Waiting for at least one more player'
-              : view.players.length < view.seatCount
-                ? `${plural(view.seatCount - view.players.length, 'seat is', 'seats are')} still open: start now and they close, or wait`
-                : "Everyone's here"}
+              : view.players.length < MAX_PLAYERS
+                ? `Start now, or wait for more (up to ${MAX_PLAYERS})`
+                : 'The game is full'}
           </span>
         {:else}
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
@@ -708,7 +710,6 @@
   .seat { display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 52px; }
   .seat + .seat { border-top: 1px solid var(--line-soft); }
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .av.open { border: 1.5px dashed var(--dash); }
   .final { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .final .row { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 10px 14px; }
   .final .row span:first-child { font-weight: 700; flex-grow: 1; }

@@ -1,13 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { names, plural } from '../../../shared/plural';
+  import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { show } from '../lib/motion';
   import { forgetJoin, go } from '../lib/state.svelte';
 
   let { code }: { code: string } = $props();
 
-  type Preview = { id: string; name: string; status: 'lobby' | 'active' | 'finished'; seatCount: number; hostName: string | null; players: string[]; joined: boolean };
+  type Preview = { id: string; status: 'lobby' | 'active' | 'finished'; hostName: string | null; players: string[]; joined: boolean };
 
   let game = $state<Preview | null>(null);
   let error = $state('');
@@ -44,7 +46,7 @@
     go('/');
   }
 
-  const full = $derived(!!game && game.players.length >= game.seatCount);
+  const full = $derived(!!game && game.players.length >= MAX_PLAYERS);
 </script>
 
 <main class="screen" style="padding: 0">
@@ -57,10 +59,10 @@
   <div style="padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 16px; flex-grow: 1">
     <span class="label">Join game · {code.toUpperCase()}</span>
     {#if game}
-      <h1 in:show={{ y: 6 }} class="h1" style="font-size: 32px">{game.name}</h1>
+      <h1 in:show={{ y: 6 }} class="h1" style="font-size: 32px">{names(game.players)}</h1>
       <p class="lead" in:show={{ y: 6, delay: 40 }}>
         {game.hostName ? `${game.hostName} invited you.` : ''}
-        {game.players.length} of {game.seatCount} seats filled: {game.players.join(', ')}.
+        {plural(game.players.length, 'player has', 'players have')} joined, up to {MAX_PLAYERS}.
       </p>
       {#if game.status !== 'lobby'}
         <p class="error" in:show>This game has already started.</p>

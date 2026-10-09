@@ -5,6 +5,8 @@ import { BAGS, BLANK, RACK_SIZE, VALUES, bagCount, draw, returnToBag } from './t
 import type { Board, FormedWord, GameState, Move, MoveRecord, Placement, RandomInt } from './types';
 
 export const SWEEP_BONUS = 40;
+/** A game seats 2 to 6; a lobby stays open up to the maximum until the host starts it. */
+export const MAX_PLAYERS = 6;
 
 /** A move the rules don't allow. The message is safe to show the mover (it only mentions their own rack). */
 export class RuleError extends Error {}
@@ -100,7 +102,7 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
 
 /** Each player draws a full rack. Seat order is decided by the caller. */
 export function newGame(seatCount: number, bagSize: 100 | 150, randomInt: RandomInt): GameState {
-  if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > 6) throw new RuleError('A game has 2 to 6 players');
+  if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > MAX_PLAYERS) throw new RuleError('A game has 2 to 6 players');
   const bag = { ...BAGS[bagSize] };
   return {
     status: 'active',

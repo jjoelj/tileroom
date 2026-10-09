@@ -53,10 +53,8 @@ export const invites = sqliteTable('invites', {
 
 export const games = sqliteTable('games', {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
   hostId: text('host_id').notNull().references(() => users.id),
   status: text('status', { enum: ['lobby', 'active', 'finished'] }).notNull().default('lobby'),
-  seatCount: integer('seat_count').notNull(),
   bagSize: integer('bag_size').$type<100 | 150>().notNull(),
   randomOrder: bool('random_order').notNull(),
   expandedWords: bool('expanded_words').notNull().default(false), // also accept SCOWL abbreviations (SPEC §4.9)

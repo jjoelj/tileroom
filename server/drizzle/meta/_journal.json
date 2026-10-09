@@ -15,6 +15,20 @@
       "when": 1791515048449,
       "tag": "0001_expanded_words",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791533073679,
+      "tag": "0002_drop_game_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791533184815,
+      "tag": "0003_drop_seat_count",
+      "breakpoints": true
     }
   ]
 }

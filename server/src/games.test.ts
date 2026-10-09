@@ -6,22 +6,22 @@ import { gamePlayers, games, moves, users } from './db/schema';
 import { runJobs } from './games';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
-import { call, newUser, pushesTo, type TestUser } from './test-utils';
+import { call, newUser, pushesTo, sent, type TestUser } from './test-utils';
 
 beforeEach(resetRateLimits);
 
 const DAY = 86_400_000;
 
-async function lobby(seatCount = 2, randomOrder = false) {
+async function lobby(randomOrder = false) {
   const host = await newUser();
-  const r = await call('/games', { method: 'POST', cookie: host.cookie, body: { name: 'Thursday Night', seatCount, bagSize: 100, randomOrder } });
+  const r = await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder } });
   expect(r.status).toBe(201);
   return { host, id: r.json.id as string, joinCode: r.json.joinCode as string };
 }
 
 /** A started game with `n` players in seat order (no random order). */
 async function started(n = 2) {
-  const { host, id, joinCode } = await lobby(n);
+  const { host, id, joinCode } = await lobby();
   const players = [host];
   for (let i = 1; i < n; i++) {
     const u = await newUser();
@@ -41,37 +41,41 @@ const CAT = { turnNumber: 0, type: 'play', tiles: [{ r: 7, c: 6, letter: 'C' }, 
 
 describe('lobby', () => {
   test('create, preview, join, start', async () => {
-    const { host, id, joinCode } = await lobby(3);
+    const { host, id, joinCode } = await lobby();
     expect(joinCode).toMatch(/^[0-9A-Z]{3}-[0-9A-Z]{3}$/);
     const guest = await newUser();
     const preview = await call(`/join/${joinCode.toLowerCase().replace('-', '')}`, { cookie: guest.cookie });
-    expect(preview.json).toMatchObject({ id, name: 'Thursday Night', seatCount: 3, players: ['User ' + host.username.match(/\d+/)![0]], joined: false });
+    expect(preview.json).toMatchObject({ id, players: ['User ' + host.username.match(/\d+/)![0]], joined: false });
+    expect(preview.json.name).toBeUndefined();
     expect((await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie })).json.error).toBe('not_enough_players');
     await call(`/join/${joinCode}`, { method: 'POST', cookie: guest.cookie });
     expect((await call(`/games/${id}/start`, { method: 'POST', cookie: guest.cookie })).json.error).toBe('not_host');
     const s = await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie });
-    expect(s.json).toMatchObject({ status: 'active', seatCount: 2, joinCode: null, turnNumber: 0, currentSeat: 0, bagCount: 86 });
-    expect(pushesTo(guest)).toContain('Thursday Night has started.');
+    expect(s.json).toMatchObject({ status: 'active', joinCode: null, turnNumber: 0, currentSeat: 0, bagCount: 86 });
+    expect(pushesTo(guest)).toContain('The game has started.');
+    expect(sent.find((s) => s.endpoint === guest.endpoint && s.payload.body === 'The game has started.')!.payload.title).toBe(
+      `User ${host.username.match(/\d+/)![0]}`, // a game is called by the other players' names
+    );
     expect((await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json.error).toBe('already_started');
   });
 
-  test('full games and bad codes', async () => {
-    const { joinCode } = await lobby(2);
-    await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie });
+  test('anyone can join up to 6; a 7th finds it full; bad codes are 404', async () => {
+    const { joinCode } = await lobby();
+    for (let i = 0; i < 5; i++) expect((await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).status).toBe(200);
     expect((await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json.error).toBe('game_full');
     expect((await call('/join/ZZZ-ZZZ', { cookie: (await newUser()).cookie })).status).toBe(404);
   });
 
-  test('host can rename and resize, not below seated players', async () => {
-    const { host, id, joinCode } = await lobby(4);
-    await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie });
-    expect((await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { seatCount: 1 } })).status).toBe(400);
-    const r = await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { seatCount: 2, name: 'Fri' } });
-    expect(r.json).toMatchObject({ name: 'Fri', seatCount: 2 });
+  test('the host can start with any number of players from 2; open seats close', async () => {
+    const { host, id, joinCode } = await lobby();
+    for (let i = 0; i < 2; i++) await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie });
+    const s = await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie });
+    expect(s.json.status).toBe('active');
+    expect(s.json.players).toHaveLength(3);
   });
 
   test('random order still seats everyone once', async () => {
-    const { host, id, joinCode } = await lobby(3, true);
+    const { host, id, joinCode } = await lobby(true);
     const a = await newUser();
     const b = await newUser();
     for (const u of [a, b]) await call(`/join/${joinCode}`, { method: 'POST', cookie: u.cookie });
@@ -119,7 +123,7 @@ describe('moves', () => {
     expect(r.json.myRack).toHaveLength(7);
     expect(r.json.players[0].score).toBe(5);
     expect(r.json.lastMove).toEqual({ seat: 0, turn: 0, type: 'play', tiles: CAT.tiles.map((t) => ({ ...t, blank: false })), words: [{ word: 'CAT', score: 5 }], score: 5 });
-    expect(pushesTo(players[1]!).at(-1)).toMatch(/^Your turn in Thursday Night — User \d+ played CAT \(5\)$/);
+    expect(pushesTo(players[1]!).at(-1)).toMatch(/^Your turn. User \d+ played CAT \(5\)$/);
   });
 
   test('stale turn number: 409 and nothing changes', async () => {
@@ -151,7 +155,7 @@ describe('moves', () => {
     expect(v.status).toBe('finished');
     expect(v.finalRacks).toHaveLength(2);
     expect(v.winnerSeats).toEqual([0, 1]);
-    expect(pushesTo(players[0]!).at(-1)).toBe('Thursday Night is over. See who won.');
+    expect(pushesTo(players[0]!).at(-1)).toBe('Game over. See who won.');
     expect((await move(id, players[0]!, { turnNumber: 4, type: 'pass' })).json.error).toBe('game_not_active');
   });
 });
@@ -167,7 +171,7 @@ describe('expanded word list', () => {
   });
 
   test('the host can turn it on in the lobby; abbreviations then count', async () => {
-    const { host, id, joinCode } = await lobby(2);
+    const { host, id, joinCode } = await lobby();
     const r = await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { expandedWords: true } });
     expect(r.json.expandedWords).toBe(true);
     const guest = await newUser();
@@ -186,7 +190,7 @@ describe('nudge', () => {
     const [p0, p1, p2] = players as [TestUser, TestUser, TestUser];
     expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p0.cookie })).json.error).toBe('your_turn');
     expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(200);
-    expect(pushesTo(p0).at(-1)).toMatch(/^User \d+ nudged you: it's your turn in Thursday Night$/);
+    expect(pushesTo(p0).at(-1)).toMatch(/^User \d+ nudged you: it's your turn$/);
     expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(429);
     expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p2.cookie })).status).toBe(200);
     expect((await view(id, p0)).json.turnNumber).toBe(0);
@@ -218,7 +222,7 @@ describe('7-day turn timeout', () => {
     age(quiet.id, TURN_TIMEOUT_MS - DAY + 1000);
     await runJobs();
     await runJobs();
-    const reminder = 'Your turn in Thursday Night: 1 day left before the game is cancelled.';
+    const reminder = 'Your turn: 1 day left before the game is cancelled.';
     expect(pushesTo(players[0]!).filter((b) => b === reminder)).toHaveLength(1);
     expect(pushesTo(quiet.players[0]!)).not.toContain(reminder);
   });

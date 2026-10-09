@@ -60,12 +60,10 @@ export type LogMove = PublicMove & { private?: MoveRecord['private'] };
 
 export type GameView = {
   id: string;
-  name: string;
   status: 'lobby' | 'active' | 'finished';
   hostUserId: string;
   /** Only while in the lobby, for sharing. */
   joinCode: string | null;
-  seatCount: number;
   bagSize: 100 | 150;
   /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
   expandedWords: boolean;

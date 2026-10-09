@@ -45,10 +45,8 @@ function loaded(s: GameState): LoadedGame {
   return {
     game: {
       id: 'g',
-      name: 'G',
       hostId: 'u0',
       status: s.status,
-      seatCount: s.players.length,
       bagSize: 100,
       randomOrder: false,
       expandedWords: false,

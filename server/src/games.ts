@@ -3,7 +3,8 @@ import { randomInt } from 'node:crypto';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { applyMove, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
+import { names } from '../../shared/plural';
+import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, moves, users } from './db/schema';
@@ -33,15 +34,16 @@ function myGame(id: string, userId: string) {
 
 const viewFor = (id: string, seat: number) => toView(loadGame(db, id)!, seat, lastMove(db, id));
 
-/** A push about a game, to everyone listed who doesn't have that game open right now (they see it live). */
-const notifyGame = (userIds: string[], game: { id: string; name: string }, body: string) =>
-  notify(
-    userIds.filter((u) => !watching(u, game.id)),
-    { title: game.name, body, url: `/games/${game.id}`, tag: `game-${game.id}` },
-  );
+/** What a game is called for one player: everyone else in it ("Sam & Ben"). Games have no names. */
+const titleFor = (g: LoadedGame, userId: string) => names(g.seats.filter((s) => s.userId !== userId).map((s) => s.displayName)) || 'Tileroom';
 
-const Name = z.string().trim().min(1).max(40);
-const SeatCount = z.int().min(2).max(6);
+/** A push about a game, to everyone listed who doesn't have that game open right now (they see it live). */
+const notifyGame = (g: LoadedGame, userIds: string[], body: string) => {
+  for (const u of userIds.filter((u) => !watching(u, g.game.id))) {
+    void notify([u], { title: titleFor(g, u), body, url: `/games/${g.game.id}`, tag: `game-${g.game.id}` });
+  }
+};
+
 const Turn = z.int().nonnegative();
 const MoveBody = z.discriminatedUnion('type', [
   z.object({
@@ -80,9 +82,7 @@ export const gameRoutes = new Hono<AppEnv>()
       const { game } = g;
       const summary = {
         id,
-        name: game.name,
         status: game.status,
-        seatCount: game.seatCount,
         currentSeat: game.currentSeat,
         turnStartedAt: game.turnStartedAt,
         finishedAt: game.finishedAt,
@@ -101,8 +101,6 @@ export const gameRoutes = new Hono<AppEnv>()
     const b = await body(
       c,
       z.object({
-        name: Name,
-        seatCount: SeatCount,
         bagSize: z.union([z.literal(100), z.literal(150)]),
         randomOrder: z.boolean(),
         expandedWords: z.boolean().default(false),
@@ -112,6 +110,7 @@ export const gameRoutes = new Hono<AppEnv>()
     db.transaction((tx) => {
       let joinCode = newJoinCode();
       while (tx.select({ id: games.id }).from(games).where(eq(games.joinCode, joinCode)).get()) joinCode = newJoinCode();
+      // Anyone can join up to MAX_PLAYERS; the host starts whenever 2+ have joined.
       tx.insert(games).values({ id, ...b, hostId: c.var.user.id, joinCode }).run();
       tx.insert(gamePlayers).values({ gameId: id, seat: 0, userId: c.var.user.id }).run();
     });
@@ -123,9 +122,7 @@ export const gameRoutes = new Hono<AppEnv>()
     const host = g.seats.find((s) => s.userId === g.game.hostId);
     return c.json({
       id: g.game.id,
-      name: g.game.name,
       status: g.game.status,
-      seatCount: g.game.seatCount,
       hostName: host?.displayName ?? null,
       players: g.seats.map((s) => s.displayName),
       joined: seatOf(g, c.var.user.id) !== undefined,
@@ -140,7 +137,7 @@ export const gameRoutes = new Hono<AppEnv>()
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', 'This game has already started');
     const seat = db.transaction((tx) => {
       const fresh = loadGame(tx, g.game.id)!;
-      if (fresh.seats.length >= fresh.game.seatCount) throw new ApiError(409, 'game_full', 'This game is full');
+      if (fresh.seats.length >= MAX_PLAYERS) throw new ApiError(409, 'game_full', 'This game is full');
       tx.insert(gamePlayers).values({ gameId: g.game.id, seat: fresh.seats.length, userId: uid }).run();
       return fresh.seats.length;
     });
@@ -155,10 +152,9 @@ export const gameRoutes = new Hono<AppEnv>()
 
   .patch('/games/:id', async (c) => {
     const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
-    const b = await body(c, z.object({ name: Name.optional(), seatCount: SeatCount.optional(), expandedWords: z.boolean().optional() }));
+    const b = await body(c, z.object({ expandedWords: z.boolean().optional() }));
     if (g.game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
-    if (b.seatCount !== undefined && b.seatCount < g.seats.length) throw new ApiError(400, 'too_few_seats', 'Seats are already taken');
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
     changed(g.game.id);
     return c.json(viewFor(g.game.id, seat));
@@ -187,7 +183,6 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.update(games)
         .set({
           status: 'active',
-          seatCount: order.length, // unfilled seats close at start
           startedAt: now,
           turnStartedAt: now,
           board: state.board,
@@ -200,8 +195,7 @@ export const gameRoutes = new Hono<AppEnv>()
     });
     order.forEach((s, seat) => {
       if (s.userId === game.hostId && seat !== state.currentSeat) return;
-      const body = seat === state.currentSeat ? `${game.name} has started. It's your turn.` : `${game.name} has started.`;
-      void notifyGame([s.userId], game, body);
+      notifyGame(g, [s.userId], seat === state.currentSeat ? "The game has started. It's your turn." : 'The game has started.');
     });
     changed(game.id);
     const mySeat = order.findIndex((s) => s.userId === c.var.user.id);
@@ -267,16 +261,14 @@ export const gameRoutes = new Hono<AppEnv>()
     if (!result) throw new ApiError(410, 'game_expired', 'This game was cancelled after 7 days without a move');
 
     const { g, seat, state, record } = result;
-    const name = g.game.name;
     const mover = g.seats[seat]!.displayName;
     changed(id);
     if (state.status === 'finished') {
-      const others = g.seats.filter((s) => s.seat !== seat).map((s) => s.userId);
-      void notifyGame(others, g.game, `${name} is over. See who won.`);
+      notifyGame(g, g.seats.filter((s) => s.seat !== seat).map((s) => s.userId), 'Game over. See who won.');
     } else {
       const did =
         record.type === 'play' ? `${mover} played ${record.words![0]!.word} (${record.score})` : record.type === 'swap' ? `${mover} swapped tiles` : `${mover} passed`;
-      void notifyGame([g.seats[state.currentSeat]!.userId], g.game, `Your turn in ${name} — ${did}`);
+      notifyGame(g, [g.seats[state.currentSeat]!.userId], `Your turn. ${did}`);
     }
     return c.json(viewFor(id, seat));
   })
@@ -297,7 +289,7 @@ export const gameRoutes = new Hono<AppEnv>()
     const thisTurn = me.lastNudgeAt !== null && me.lastNudgeAt >= (g.game.turnStartedAt ?? 0);
     if (thisTurn && now - me.lastNudgeAt! < DAY) throw new ApiError(429, 'nudge_limited', 'You can nudge once a day per turn');
     db.update(gamePlayers).set({ lastNudgeAt: now }).where(and(eq(gamePlayers.gameId, g.game.id), eq(gamePlayers.seat, seat))).run();
-    void notifyGame([g.seats[g.game.currentSeat]!.userId], g.game, `${me.displayName} nudged you: it's your turn in ${g.game.name}`);
+    notifyGame(g, [g.seats[g.game.currentSeat]!.userId], `${me.displayName} nudged you: it's your turn`);
     return c.json({ ok: true });
   });
 
@@ -320,8 +312,8 @@ export async function runJobs(now = Date.now()) {
       .get();
     if (current?.remindTurn) {
       await notify([current.id], {
-        title: game.name,
-        body: `Your turn in ${game.name}: 1 day left before the game is cancelled.`,
+        title: titleFor(loadGame(db, game.id)!, current.id),
+        body: 'Your turn: 1 day left before the game is cancelled.',
         url: `/games/${game.id}`,
         tag: `game-${game.id}`,
       });
