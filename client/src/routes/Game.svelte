@@ -574,13 +574,22 @@
         </div>
 
         <div class="actions">
-          <button class="tool" aria-label="Shuffle tiles" onclick={shuffle}>
+          <button class="tool" onclick={shuffle}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
+            <span>Shuffle</span>
           </button>
-          <button class="tool" aria-label="Return placed tiles" disabled={!pending.length} onclick={recall}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 010 12h-3" /></svg>
-          </button>
-          <button class="tool wide" disabled={!myTurn || busy || view.bagCount === 0} onclick={() => (swapOpen = true)}>Swap</button>
+          <!-- One spot: Recall while tiles are on the board, Swap once they're all back in the rack. -->
+          {#if pending.length}
+            <button class="tool" onclick={recall}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 010 12h-3" /></svg>
+              <span>Recall</span>
+            </button>
+          {:else}
+            <button class="tool" disabled={!myTurn || busy || view.bagCount === 0} onclick={() => (swapOpen = true)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" /></svg>
+              <span>Swap</span>
+            </button>
+          {/if}
           <button class="playbtn" disabled={!myTurn || !allValid || busy} onclick={play}>
             {#if allValid}<span class="ready" transition:pop></span>{/if}
             Play{#if preview?.ok}&nbsp;·&nbsp;{preview.score}{/if}
@@ -677,8 +686,7 @@
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
   .rk .pt, .ghost .pt { position: absolute; right: 5px; bottom: 3px; font-family: var(--ui); font-size: 10px; font-weight: 700; opacity: 0.8; }
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
-  .tool { width: 48px; height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
-  .tool.wide { width: auto; padding: 0 14px; }
+  .tool { width: 64px; height: 52px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 700; font-size: 11px; }
   .tool:disabled { opacity: 0.4; }
   .playbtn { height: 52px; flex-grow: 1; border-radius: 14px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .playbtn:disabled { opacity: 0.35; }
