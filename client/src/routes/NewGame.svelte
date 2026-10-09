@@ -9,9 +9,13 @@
   // /new?group=ID: a group game (its words, its members only); otherwise an open game.
   const groupId = new URLSearchParams(location.search).get('group');
   let groupName = $state('');
+  let words = $state<{ add: string[]; ban: string[] } | null>(null);
   if (groupId) {
-    api<{ name: string }>(`/groups/${encodeURIComponent(groupId)}`)
-      .then((g) => (groupName = g.name))
+    api<{ name: string; words: { add: string[]; ban: string[] } }>(`/groups/${encodeURIComponent(groupId)}`)
+      .then((g) => {
+        groupName = g.name;
+        words = g.words;
+      })
       .catch(() => {});
   }
 
@@ -42,6 +46,26 @@
   </header>
 
   <div style="padding: 4px 16px 0; display: flex; flex-direction: column; gap: 18px; flex-grow: 1">
+    {#if groupId && words}
+      <!-- what this game will be played with: copied from the group when the game starts -->
+      <div class="card words" in:show={{ y: 6 }}>
+        <span class="strong">House words</span>
+        {#if words.add.length}
+          <span class="hint">Added</span>
+          <div class="chips">{#each words.add as w (w)}<span class="chip">{w}</span>{/each}</div>
+        {/if}
+        {#if words.ban.length}
+          <span class="hint">Banned</span>
+          <div class="chips">{#each words.ban as w (w)}<span class="chip">{w}</span>{/each}</div>
+        {/if}
+        {#if !words.add.length && !words.ban.length}
+          <span class="hint">None yet: this game uses the standard word list.</span>
+        {:else}
+          <span class="hint">Locked in when the game starts. Later votes won't change it.</span>
+        {/if}
+      </div>
+    {/if}
+
     <div class="card">
       <div class="line">
         <div class="stack" style="gap: 1px">
@@ -89,6 +113,9 @@
 <style>
   .tag { height: 30px; padding: 0 10px; margin-right: 8px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; display: flex; align-items: center; }
   .card { overflow: hidden; }
+  .words { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow: auto; }
+  .chip { padding: 4px 10px; border-radius: 999px; background: var(--well); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
   .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 8px 0 14px; min-height: 60px; }
   .line + .line { border-top: 1px solid var(--line-soft); }
   .strong { font-weight: 800; font-size: 16px; }
