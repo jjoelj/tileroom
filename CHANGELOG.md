@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- The board has a little room around its edge, so the outline around words on the edge shows, and tiles dropped just past an edge square land on it.
+
 ## v0.4.0 (2026-10-09)
 
 - If a new version comes out while you're playing, an "Update ready · Reload" button appears at the bottom within moments of the release. Tap it when you're ready; nothing reloads on its own.

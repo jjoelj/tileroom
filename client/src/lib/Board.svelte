@@ -111,6 +111,8 @@
   let tx = $state(0);
   let ty = $state(0);
   const MAX = 2.6;
+  /** Margin inside the viewport around the board (CSS --pad): edge outlines show, edge squares are easier to hit. */
+  const PAD = 6;
 
   const size = () => grid.offsetWidth; // untransformed board width (== height)
   function clamp() {
@@ -129,7 +131,7 @@
   }
   const local = (x: number, y: number) => {
     const r = viewport.getBoundingClientRect();
-    return [x - r.left, y - r.top] as const;
+    return [x - r.left - PAD, y - r.top - PAD] as const; // board coordinates (the board sits PAD in)
   };
 
   // Programmatic zooms ease; pinch and pan follow the fingers directly.
@@ -161,14 +163,17 @@
     return (grid.children[r * SIZE + c] as HTMLElement).getBoundingClientRect();
   }
 
-  /** The board cell under a screen point, if it's visible. */
+  /** The board cell under a screen point, if it's visible. In the margin, the nearest edge square counts. */
   export function cellAt(x: number, y: number) {
     const v = viewport.getBoundingClientRect();
     if (x < v.left || x > v.right || y < v.top || y > v.bottom) return null;
     const g = grid.getBoundingClientRect();
+    const near = (k: number) => Math.min(SIZE - 1, Math.max(0, k));
     const r = Math.floor(((y - g.top) / g.height) * SIZE);
     const c = Math.floor(((x - g.left) / g.width) * SIZE);
-    return r >= 0 && r < SIZE && c >= 0 && c < SIZE ? { r, c } : null;
+    const slack = PAD + 2; // only just past the edge: a drop in the margin, not somewhere off the board
+    if (y < g.top - slack || y > g.bottom + slack || x < g.left - slack || x > g.right + slack) return null;
+    return { r: near(r), c: near(c) };
   }
 
   const pointers = new Map<number, { x: number; y: number }>();
@@ -319,9 +324,10 @@
 
 <style>
   .viewport {
-    --cs: min(calc((min(100vw, 480px) - 30px) / 15), 32px);
-    width: calc(15 * var(--cs) + 14px);
-    height: calc(15 * var(--cs) + 14px);
+    --pad: 6px; /* PAD in the script */
+    --cs: min(calc((min(100vw, 480px) - 30px - 2 * var(--pad)) / 15), 32px);
+    width: calc(15 * var(--cs) + 14px + 2 * var(--pad));
+    height: calc(15 * var(--cs) + 14px + 2 * var(--pad));
     margin: 0 auto;
     overflow: hidden;
     position: relative;
@@ -329,7 +335,7 @@
     border-radius: 4px;
   }
   .board.easing { transition: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .board { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: repeat(15, var(--cs)); gap: 1px; transform-origin: 0 0; }
+  .board { position: absolute; left: var(--pad); top: var(--pad); display: grid; grid-template-columns: repeat(15, var(--cs)); gap: 1px; transform-origin: 0 0; }
   .cell { position: relative; width: var(--cs); height: var(--cs); padding: 0; border: none; border-radius: 3px; background: var(--cell); display: flex; align-items: center; justify-content: center; color: var(--ink); }
   .lab { font-size: calc(var(--cs) * 0.31); font-weight: 800; letter-spacing: 0.02em; }
   .p-d { background: var(--dl-bg); color: var(--dl-fg); }
