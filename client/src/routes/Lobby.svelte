@@ -109,22 +109,8 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
       New game
     </button>
-    <button class="big dark" aria-expanded={creating} onclick={() => ((creating = !creating), (joining = false))}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
-      New group
-    </button>
   </div>
-  <button class="join" aria-expanded={joining} onclick={() => ((joining = !joining), (creating = false))}>Join game or group</button>
-
-  {#if creating}
-    <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
-      <label for="gn" class="label">Group name</label>
-      <div style="display: flex; gap: 8px">
-        <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
-        <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
-      </div>
-    </form>
-  {/if}
+  <button class="join" aria-expanded={joining} onclick={() => (joining = !joining)}>Join game or group</button>
 
   {#if joining}
     <form onsubmit={join} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
@@ -147,7 +133,19 @@
       {/each}
     {/if}
 
-    <h2 class="label section">Groups</h2>
+    <div class="row section">
+      <h2 class="label" style="margin: 0">Groups</h2>
+      <button class="newgroup" aria-expanded={creating} onclick={() => (creating = !creating)}>+ New group</button>
+    </div>
+    {#if creating}
+      <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px">
+        <label for="gn" class="label">Group name</label>
+        <div style="display: flex; gap: 8px">
+          <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
+          <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
+        </div>
+      </form>
+    {/if}
     {#each groups as gr (gr.id)}
       <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/groups/${gr.id}`)}>
         <span class="row">
@@ -202,6 +200,7 @@
   .avatar { width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--p0-bg); color: var(--on-color); font-weight: 800; font-size: 16px; }
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .dark { border: none; background: var(--primary); color: var(--on-primary); }
+  .newgroup { height: 44px; padding: 0 16px; border-radius: 22px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; }
   .join { display: block; margin: 10px auto 0; height: 44px; padding: 0 18px; border-radius: 22px; border: 1.5px solid var(--line); background: transparent; font-weight: 700; font-size: 14px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
