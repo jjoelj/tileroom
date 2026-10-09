@@ -33,6 +33,12 @@ async function check() {
   update.phase = null;
 }
 
+/** Asks for a new version now, without a splash; one that takes over gets the footer's reload offer. */
+export function checkQuietly() {
+  if (!('serviceWorker' in navigator) || import.meta.env.DEV || update.phase !== null) return;
+  void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+}
+
 /** Runs the check on launch and on each return from a while away. */
 export function checkForUpdates() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
@@ -41,9 +47,7 @@ export function checkForUpdates() {
     if (hadController && update.phase === null) stale = update.ready = true;
   });
   // In use for a while (mid-game): check now and then; a new version takes over and the footer offers a reload.
-  setInterval(() => {
-    if (document.visibilityState === 'visible' && update.phase === null) void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
-  }, POLL_MS);
+  setInterval(() => document.visibilityState === 'visible' && checkQuietly(), POLL_MS);
   void check();
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {

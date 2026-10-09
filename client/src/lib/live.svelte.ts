@@ -2,6 +2,7 @@
 // The realtime socket (SPEC §7): notify-only. Tells the server what's on screen; receives our view of the open
 // game, or a nudge to refetch the games list. Reconnects with backoff; screens also refetch on return to the app.
 import type { GameView } from '../../../shared/types';
+import { checkQuietly } from './update.svelte';
 
 /** The latest pushed view of the watched game, and counters bumped when the games list or the open group changed. */
 export const live = $state<{ view: GameView | null; lobby: number; group: number }>({ view: null, lobby: 0, group: 0 });
@@ -10,6 +11,7 @@ let ws: WebSocket | null = null;
 let sub = '';
 let tries = 0;
 let retry = 0;
+let dropped = false;
 
 // Only a visible, focused window counts as watching; otherwise the server sends pushes as usual.
 // (A desktop window behind another one is still "visible", so focus matters too.)
@@ -20,6 +22,9 @@ function connect() {
   clearTimeout(retry);
   ws = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/ws`);
   ws.onopen = () => {
+    // Back after a drop: usually the server restarting for a deploy, so look for a new version right away.
+    if (dropped) checkQuietly();
+    dropped = false;
     tries = 0;
     tell();
   };
@@ -31,6 +36,7 @@ function connect() {
   };
   ws.onclose = () => {
     ws = null;
+    dropped = true;
     retry = window.setTimeout(connect, Math.min(30_000, 1000 * 2 ** tries++));
   };
 }

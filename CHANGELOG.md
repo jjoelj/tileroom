@@ -5,8 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
-- Admins have an Admin page (Settings > Admin) with invites and every group: its members and how many games it has going and has played.
-- If a new version comes out while you're playing, an "Update ready · Reload" button appears at the bottom. Tap it when you're ready; nothing reloads on its own.
+- If a new version comes out while you're playing, an "Update ready · Reload" button appears at the bottom within moments of the release. Tap it when you're ready; nothing reloads on its own.
 - The zoom button is gone, so it no longer covers the bottom-right square. Double-tap or pinch the board to zoom (Ctrl+scroll on a computer).
 - Updates install themselves. When you open the app, or come back after a while, it checks for a new version behind a short splash screen before showing anything.
 
@@ -36,8 +35,7 @@ First release.
 - Crossword-style tile game for 2 to 6 players, with async turns, drag-and-drop tiles and live word checking.
 - Groups with their own house words, voted in unanimously, and games only members can join. Members can watch
   each other's group games.
-- Invite-only accounts. Admins make unlimited single-use invites, share them as a link or code, see who used each
-  one, and revoke unused ones.
+- Invite-only accounts: you join with a single-use invite link or code.
 - Push notifications for your turn, game starts and endings. Desktop works in a browser tab; phones use the
   installed app.
 - Settings: display name, theme, test notification, sign out.
