@@ -74,13 +74,14 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
       if (seen.has(key)) continue;
       seen.add(key);
       const start = { r, c };
-      let word = '', sum = 0, mult = 1;
+      let word = '', sum = 0, mult = 1, mine = 0;
       for (; letterAt(r, c); r += wr, c += wc) {
         const p = placed.get(r * SIZE + c);
         const b = board[r]![c];
         word += letterAt(r, c);
         let v = (p ? p.blank : b!.blank) ? 0 : VALUES[letterAt(r, c)!]!;
         if (p) {
+          mine++;
           const prem = premiumAt(r, c);
           if (prem === 'd') v *= 2;
           if (prem === 't') v *= 3;
@@ -90,12 +91,14 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
         sum += v;
       }
       if (word.length < 2) continue;
-      words.push({ word, score: sum * mult, ...start, dir, length: word.length });
+      words.push({ word, score: sum * mult, ...start, dir, length: word.length, placed: mine });
       const end = { r: r - wr, c: c - wc };
       if (end.r > anchor.r || (end.r === anchor.r && end.c > anchor.c)) anchor = end;
     }
   }
 
+  // Main word first ("Sam played SUN"): the one most of the new tiles went into, then the higher score, then the longer.
+  words.sort((a, b) => b.placed - a.placed || b.score - a.score || b.length - a.length);
   const score = words.reduce((a, w) => a + w.score, 0) + (tiles.length === RACK_SIZE ? SWEEP_BONUS : 0);
   return { ok: true, words, score, invalid: words.map((w) => w.word).filter((w) => !isWord(w)), anchor };
 }

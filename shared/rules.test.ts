@@ -68,6 +68,20 @@ describe('placement', () => {
 });
 
 describe('words and scoring', () => {
+  test('the main word (listed first) is the one most of the placed tiles went into', () => {
+    // SUN goes down from the end of CAT: S also makes CATS, found first, but only SUN holds all 3 new tiles.
+    const b = lay(emptyBoard(), 7, 6, 'CAT');
+    const p = previewPlay(b, tiles(7, 9, 'SUN', 'down'), any);
+    expect(p.ok && p.words.map((w) => w.word)).toEqual(['SUN', 'CATS']);
+  });
+
+  test('main word ties (one tile, two words) go to the higher score, then the longer word', () => {
+    // One S at (8,8): across it makes AS (2), found first; down it makes QS (11). QS leads.
+    const b = lay(lay(emptyBoard(), 8, 7, 'A'), 7, 8, 'Q');
+    const p = previewPlay(b, tiles(8, 8, 'S'), any);
+    expect(p.ok && p.words.map((w) => w.word)).toEqual(['QS', 'AS']);
+  });
+
   test('first move, center has no bonus', () => {
     const p = previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any);
     expect(p).toMatchObject({ ok: true, score: 5, words: [{ word: 'CAT', score: 5, r: 7, c: 6, dir: 'across', length: 3 }] });

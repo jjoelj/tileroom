@@ -97,7 +97,7 @@ describe('play', () => {
   test('names every invalid word', () => {
     const s = game(['AB', 'C']);
     s.board[6]![8] = { letter: 'Q', blank: false, seat: 0, turn: 0 };
-    expect(err(() => applyMove(s, 0, play('B', 7, 8), () => false, first))).toBe("AB, QB aren't in this game's word list");
+    expect(err(() => applyMove(s, 0, play('B', 7, 8), () => false, first))).toBe("QB, AB aren't in this game's word list") // main word first;
   });
 
   test("only on your turn, only while active, only if you're seated", () => {

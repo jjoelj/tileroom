@@ -31,7 +31,8 @@ export type GameState = {
 export type WordScore = { word: string; score: number };
 
 /** One word formed by a play: where it sits (for the outline overlay) and what it scores. */
-export type FormedWord = WordScore & { r: number; c: number; dir: 'across' | 'down'; length: number };
+/** `placed`: how many of this move's new tiles are in it (picks the main word). */
+export type FormedWord = WordScore & { r: number; c: number; dir: 'across' | 'down'; length: number; placed: number };
 
 /** What a move did. Everything except `private` is public. */
 export type MoveRecord = {

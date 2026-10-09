@@ -5,6 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
+- "Sam played SUN" names the word most of Sam's new tiles went into, not whichever word happened to be found first.
 - In a game, a player's dot pulses while they have the game open, so you can see who's there right now.
 
 ## v0.1.2 (2026-10-09)
