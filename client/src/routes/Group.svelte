@@ -136,6 +136,11 @@
       );
   }
 
+  function rename() {
+    const name = prompt('Group name', group?.name)?.trim();
+    if (name && name !== group?.name) void act(`/groups/${id}/settings`, 'PATCH', { name: name.slice(0, 30) });
+  }
+
   async function leave() {
     if (!group || !confirm(`Leave ${group.name}? Games you're playing carry on.`)) return;
     try {
@@ -174,6 +179,7 @@
         <h1 class="h1" style="font-size: 22px">{group.name}</h1>
         <span class="hint">{plural(group.members.length, 'member', 'members')} · {plural(group.words.add.length + group.words.ban.length, 'house word', 'house words')}</span>
       </div>
+      {#if admin}<button class="textbtn" style="margin-left: auto" disabled={busy} onclick={rename}>Rename</button>{/if}
     </header>
 
     {#if message}<p class="hint" role="status" transition:show style="margin: 4px 0 0">{message}</p>{/if}

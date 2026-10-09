@@ -119,6 +119,8 @@ export function expireProposals(now = Date.now()) {
   announce(due.map((p) => ({ id: p.id, groupId: p.groupId, word: p.word, action: p.action, status: 'expired' as const })));
 }
 
+const GroupName = z.string().trim().min(1).max(30);
+
 const Word = z
   .string()
   .trim()
@@ -202,7 +204,7 @@ export const groupRoutes = new Hono<AppEnv>()
   })
 
   .post('/groups', async (c) => {
-    const { name } = await body(c, z.object({ name: z.string().trim().min(1).max(30) }));
+    const { name } = await body(c, z.object({ name: GroupName }));
     const id = randomId();
     db.transaction((tx) => {
       let joinCode = newGroupCode();
@@ -251,16 +253,15 @@ export const groupRoutes = new Hono<AppEnv>()
   .patch('/groups/:id/settings', async (c) => {
     const { group, role } = myGroup(db, c.req.param('id'), c.var.user.id);
     requireAdmin(role);
-    const { spectatorsSeeRacks } = await body(c, z.object({ spectatorsSeeRacks: z.boolean() }));
+    const b = await body(c, z.object({ spectatorsSeeRacks: z.boolean().optional(), name: GroupName.optional() }));
     const running = db.transaction((tx) => {
-      tx.update(groups).set({ spectatorsSeeRacks }).where(eq(groups.id, group.id)).run();
-      if (spectatorsSeeRacks) return []; // turning on applies only to games that start afterwards (SPEC §4.11)
-      // turning off applies at once: trays can only ever become more private
+      tx.update(groups).set(b).where(eq(groups.id, group.id)).run();
       const ids = tx.select({ id: games.id }).from(games).where(and(eq(games.groupId, group.id), ne(games.status, 'finished'))).all().map((g) => g.id);
-      if (ids.length) tx.update(games).set({ spectatorRacks: false }).where(inArray(games.id, ids)).run();
+      // Turning trays off applies at once (trays only ever become more private); turning on only to later games (SPEC §4.11).
+      if (b.spectatorsSeeRacks === false && ids.length) tx.update(games).set({ spectatorRacks: false }).where(inArray(games.id, ids)).run();
       return ids;
     });
-    for (const id of running) changed(id); // fresh views for spectators
+    for (const id of running) changed(id); // fresh views: tray visibility, the group's name
     return c.json(groupDetail(group.id, c.var.user.id));
   })
 

@@ -58,6 +58,9 @@ describe('membership', () => {
     expect(fresh.json.joinCode).not.toBe(code);
     expect((await call(`/groups/join/${code}`, { cookie: c.cookie })).status).toBe(404); // the old code is cut off
     expect((await call(`/groups/${id}/members/${a.id}/role`, { method: 'PUT', cookie: a.cookie, body: { role: 'member' } })).json.error).toBe('last_admin');
+    expect((await call(`/groups/${id}/settings`, { method: 'PATCH', cookie: b.cookie, body: { name: 'Mine now' } })).status).toBe(403);
+    const renamed = await call(`/groups/${id}/settings`, { method: 'PATCH', cookie: a.cookie, body: { name: '  Book club ' } });
+    expect(renamed.json).toMatchObject({ name: 'Book club', spectatorsSeeRacks: false });
     // the last admin leaves: the longest-standing member takes over
     expect((await call(`/groups/${id}/members/me`, { method: 'DELETE', cookie: a.cookie })).status).toBe(200);
     expect((await detail(id, b)).json.members).toEqual([expect.objectContaining({ userId: b.id, role: 'admin' }), expect.objectContaining({ userId: c.id, role: 'member' })]);
