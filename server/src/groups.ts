@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Groups and house words (SPEC §4.10). Words change only through proposals that every current member votes yes on.
-import { and, asc, count, desc, eq, inArray, lt, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { WORD_RE } from '../../shared/dictionary';
@@ -20,6 +20,9 @@ const MAX_OPEN_PER_MEMBER = 5;
 const MAX_HOUSE_WORDS = 500;
 
 type Q = typeof db | Tx;
+
+// Oldest member first; rowid breaks ties between joins in the same millisecond.
+const joinOrder = [asc(groupMembers.joinedAt), sql`${groupMembers}.rowid`] as const;
 type Action = 'add' | 'ban' | 'remove' | 'unban';
 const VERB: Record<Action, string> = { add: 'adding', ban: 'banning', remove: 'removing', unban: 'unbanning' };
 
@@ -129,7 +132,7 @@ function groupDetail(groupId: string, userId: string) {
     .from(groupMembers)
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(eq(groupMembers.groupId, groupId))
-    .orderBy(asc(groupMembers.joinedAt))
+    .orderBy(...joinOrder)
     .all();
   const nameOf = (id: string) => db.select({ n: users.displayName }).from(users).where(eq(users.id, id)).get()?.n ?? '';
   const rows = db.select().from(proposals).where(eq(proposals.groupId, groupId)).orderBy(desc(proposals.createdAt)).all();
@@ -217,7 +220,7 @@ export const groupRoutes = new Hono<AppEnv>()
       .from(groupMembers)
       .innerJoin(users, eq(users.id, groupMembers.userId))
       .where(eq(groupMembers.groupId, g.id))
-      .orderBy(asc(groupMembers.joinedAt))
+      .orderBy(...joinOrder)
       .all();
     return c.json({ id: g.id, name: g.name, members: members.map((m) => m.name), joined: !!roleOf(db, g.id, c.var.user.id) });
   })
@@ -283,7 +286,7 @@ export const groupRoutes = new Hono<AppEnv>()
       // the group always keeps an admin: the longest-standing member takes over
       const hasAdmin = tx.select({ n: count() }).from(groupMembers).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.role, 'admin'))).get()!.n;
       if (!hasAdmin) {
-        const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, group.id)).orderBy(asc(groupMembers.joinedAt)).limit(1).get();
+        const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, group.id)).orderBy(...joinOrder).limit(1).get();
         if (next) tx.update(groupMembers).set({ role: 'admin' }).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, next.userId))).run();
       }
       return reevaluate(tx, group.id);
