@@ -4,7 +4,8 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import { effectiveDictionary, parseWordList, type IsWord } from '../../shared/dictionary';
 import { turnExpired } from '../../shared/rules';
 import type { GameState } from '../../shared/types';
-import { gamePlayers, games, gameWords, groupMembers, groups, moves, users } from './db/schema';
+import { newInviteCode, normalizeCode, sha256 } from './codes';
+import { gamePlayers, games, gameWords, groupMembers, groups, invites, moves, users } from './db/schema';
 import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
@@ -58,6 +59,14 @@ export const voidGame = (q: Q, id: string) => q.delete(games).where(eq(games.id,
 const lists: Record<string, Set<string>> = {};
 const load = (name: 'words' | 'abbreviations') =>
   (lists[name] ??= parseWordList(readFileSync(new URL(`../../wordlists/${name}.txt`, import.meta.url), 'utf8')));
+
+/** Makes a single-use invite and returns its code, the only time it exists in the clear (only the hash is stored). */
+export function createInvite(q: Q, createdBy: string | null, note?: string) {
+  const code = newInviteCode();
+  const normalized = normalizeCode(code);
+  q.insert(invites).values({ codeHash: sha256(normalized), codeHint: normalized.slice(-4), createdBy, note }).run();
+  return code;
+}
 
 export const isMember = (q: Q, groupId: string, userId: string) =>
   !!q.select({ u: groupMembers.userId }).from(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).get();

@@ -1,6 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { api } from '../lib/api';
+  import { sayError } from '../lib/say.svelte';
+  import { canShare, copy, shareText } from '../lib/share';
   import { prompt } from '../lib/ask.svelte';
   import { go, session } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
@@ -31,6 +34,28 @@
       () => {},
     );
   }
+
+  // Admins: unlimited invites, and who used each one.
+  type Invite = { hint: string; note: string | null; createdAt: number; createdBy: string | null; usedAt: number | null; revokedAt: number | null; usedBy: { username: string; displayName: string } | null };
+  let invites = $state<Invite[]>([]);
+  let note = $state('');
+  let fresh = $state(''); // the code just made: shown once, only its hash is stored
+  const loadInvites = () => api<{ invites: Invite[] }>('/admin/invites').then((r) => (invites = r.invites), () => {});
+  onMount(() => void (session.me?.isAdmin && loadInvites()));
+
+  async function makeInvite(e: SubmitEvent) {
+    e.preventDefault();
+    try {
+      fresh = (await api<{ code: string }>('/admin/invites', { method: 'POST', body: { note } })).code;
+      note = '';
+      void loadInvites();
+    } catch (err) {
+      sayError(err);
+    }
+  }
+  const day = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const shareMsg = $derived(`Join me on Tileroom: ${location.origin}
+Invite code: ${fresh}`);
 
   async function signOut() {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
@@ -75,12 +100,49 @@
 
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
     <button class="secondary" onclick={signOut}>Sign out</button>
+
+    {#if session.me?.isAdmin}
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <span class="label">Invites</span>
+        <form onsubmit={makeInvite} style="display: flex; gap: 8px">
+          <input class="field" bind:value={note} placeholder="Note, e.g. for Sam" maxlength="60" autocomplete="off" aria-label="Invite note" />
+          <button class="primary" style="width: auto; padding: 0 16px; flex-shrink: 0">Create invite</button>
+        </form>
+        {#if fresh}
+          <div class="card item">
+            <span class="grow">
+              <span class="code">{fresh}</span>
+              <span class="hint">Shown once. Works for one signup.</span>
+            </span>
+            {#if canShare}
+              <button class="secondary small" onclick={() => shareText(shareMsg)}>Share</button>
+            {:else}
+              <button class="secondary small" onclick={() => copy(fresh, 'Code')}>Copy</button>
+            {/if}
+          </div>
+        {/if}
+        {#each invites as inv (inv.hint + inv.createdAt)}
+          <div class="card item">
+            <span class="grow">
+              <span style="font-weight: 700">{inv.note || 'No note'} <span class="hint">…{inv.hint}</span></span>
+              <span class="hint">
+                {#if inv.usedBy}Used by {inv.usedBy.displayName} (@{inv.usedBy.username}) · {day(inv.usedAt!)}
+                {:else if inv.revokedAt}Revoked
+                {:else}Unused · made {day(inv.createdAt)}{inv.createdBy ? ` by ${inv.createdBy}` : ' on the server'}{/if}
+              </span>
+            </span>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 </main>
 
 <style>
   .item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-  .grow { flex-grow: 1; min-width: 0; }
+  .grow { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .code { font: 700 17px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.05em; }
+  .small { width: auto; height: 44px; padding: 0 14px; flex-shrink: 0; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }
   .themes button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }
   .themes button.on { background: var(--surface); }

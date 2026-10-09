@@ -3,11 +3,12 @@
 import { createInterface } from 'node:readline';
 import { eq } from 'drizzle-orm';
 import { checkPassword, Username } from './auth';
-import { newInviteCode, normalizeCode, randomId, sha256 } from './codes';
-import { invites, users } from './db/schema';
+import { randomId } from './codes';
+import { users } from './db/schema';
 import { ApiError } from './http';
 import { db, migrate } from './runtime/db';
 import { hashPassword } from './runtime/hash';
+import { createInvite } from './store';
 
 const piped = process.stdin.isTTY ? undefined : createInterface({ input: process.stdin })[Symbol.asyncIterator]();
 
@@ -55,18 +56,11 @@ async function createAdmin(name: string | undefined) {
   console.log(`Created admin ${username}`);
 }
 
-function createInvite(note: string | undefined) {
-  const code = newInviteCode();
-  const normalized = normalizeCode(code);
-  db.insert(invites).values({ codeHash: sha256(normalized), codeHint: normalized.slice(-4), note }).run();
-  console.log(code); // shown once; only the hash is stored
-}
-
 const [command, arg] = process.argv.slice(2);
 migrate();
 try {
   if (command === 'create-admin') await createAdmin(arg);
-  else if (command === 'create-invite') createInvite(arg);
+  else if (command === 'create-invite') console.log(createInvite(db, null, arg)); // shown once
   else throw new Error('Commands: create-admin <username>, create-invite [note]');
 } catch (e) {
   console.error(e instanceof ApiError ? e.message : (e as Error).message);
