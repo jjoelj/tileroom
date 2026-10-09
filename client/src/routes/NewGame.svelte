@@ -80,7 +80,7 @@
     <button class="primary" onclick={create} disabled={busy}>Create game</button>
     <div class="hint" style="text-align: center">
       {groupId
-        ? `Uses ${groupName || 'the group'}'s house words. Only members can join, up to ${MAX_PLAYERS}.`
+        ? `Uses ${groupName ? `${groupName}${groupName.endsWith('s') ? "'" : "'s"}` : "the group's"} house words. Only members can join, up to ${MAX_PLAYERS}.`
         : `You'll get a code to share. Up to ${MAX_PLAYERS} can join, and you start whenever you're ready.`}
     </div>
   </div>

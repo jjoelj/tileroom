@@ -23,10 +23,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') device.permission = readPermission();
 });
 
+/** Navigates; `path` may carry a query (/new?group=ID), which stays in the URL while routing uses the path alone. */
 export function go(path: string) {
-  if (path === route.path) return;
+  if (path === location.pathname + location.search) return;
   history.pushState(null, '', path);
-  route.path = path;
+  route.path = location.pathname;
   scrollTo(0, 0);
 }
 
