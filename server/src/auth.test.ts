@@ -5,7 +5,7 @@ import { app, PUBLIC } from './app';
 import { invites, users } from './db/schema';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
-import { call, makeInvite, newUser, PASSWORD, pushesTo } from './test-utils';
+import { call, makeInvite, newUser, PASSWORD, pushesTo, sent } from './test-utils';
 
 beforeEach(resetRateLimits);
 
@@ -127,9 +127,22 @@ describe('guards', () => {
     expect((await call('/games', { cookie: u.cookie })).status).toBe(200);
     expect((await call('/me', { cookie: u.cookie })).json.pushReady).toBe(true);
     expect(pushesTo(u)).toEqual([]);
-    await call('/push/test', { method: 'POST', cookie: u.cookie });
-    await call('/push/test', { method: 'POST', cookie: u.cookie });
-    expect(pushesTo(u)).toEqual(["You're all set. We'll tell you when it's your turn.", "You're all set. We'll tell you when it's your turn."]);
+  });
+
+  test("'You're all set' goes to the device just set up; the test notification goes to all of them", async () => {
+    const u = await newUser(); // phone: subscribed as u.endpoint
+    const laptop = await call('/auth/login', { method: 'POST', body: { username: u.username, password: PASSWORD } });
+    const laptopEndpoint = `https://push.test/${u.username}-laptop`;
+    await call('/push/subscribe', { method: 'POST', cookie: laptop.cookie, body: { endpoint: laptopEndpoint, keys: { p256dh: 'p', auth: 'a' } } });
+    const to = (endpoint: string) => sent.filter((s) => s.endpoint === endpoint).map((s) => s.payload.body);
+
+    await call('/push/welcome', { method: 'POST', cookie: laptop.cookie });
+    expect(to(laptopEndpoint)).toEqual(["You're all set. We'll tell you when it's your turn."]);
+    expect(to(u.endpoint)).toEqual([]);
+
+    await call('/push/test', { method: 'POST', cookie: laptop.cookie });
+    expect(to(u.endpoint)).toHaveLength(1);
+    expect(to(laptopEndpoint)).toHaveLength(2);
   });
 
   test('settings: turn reminders can be switched off', async () => {

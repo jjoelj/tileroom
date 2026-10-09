@@ -32,7 +32,7 @@
       hint = device.permission === 'default' ? `${hidden} Then tap again.` : '';
       if (device.permission !== 'granted') return;
       await subscribe();
-      await api('/push/test', { method: 'POST' }).catch(() => {});
+      await api('/push/welcome', { method: 'POST' }).catch(() => {});
       if (session.me) session.me.pushReady = true;
     } catch (e) {
       const why = e instanceof Error ? e.message : String(e);

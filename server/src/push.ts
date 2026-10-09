@@ -16,11 +16,15 @@ if (pushConfigured) webpush.setVapidDetails(VAPID_SUBJECT!, VAPID_PUBLIC_KEY!, V
 /** Public info only: it passes through Apple's and Google's push services (SPEC §6.1). */
 export type PushPayload = { title: string; body: string; url?: string; tag?: string };
 
-/** Sends to every device of each user. Deletes subscriptions the push service says are gone. */
+/** Sends to every device of each user. */
 export async function notify(userIds: string[], payload: PushPayload) {
-  if (!pushConfigured || !userIds.length) return;
+  await send(userIds.flatMap((id) => db.select().from(pushSubs).where(eq(pushSubs.userId, id)).all()), payload);
+}
+
+/** Deletes subscriptions the push service says are gone. */
+async function send(subs: (typeof pushSubs.$inferSelect)[], payload: PushPayload) {
+  if (!pushConfigured || !subs.length) return;
   const json = JSON.stringify(payload);
-  const subs = userIds.flatMap((id) => db.select().from(pushSubs).where(eq(pushSubs.userId, id)).all());
   await Promise.all(
     subs.map(async (s) => {
       try {
@@ -60,9 +64,16 @@ export const push = new Hono<AppEnv>()
     });
     return c.json({ ok: true });
   })
-  // "You're all set" after enabling, and the Settings test button (SPEC §8). Waits for the push service's answer.
+  // "You're all set", right after enabling: only to the device just set up (this session's subscription).
+  .post('/push/welcome', async (c) => {
+    rateLimit(`push-test:${c.var.user.id}`, 5);
+    const id = c.var.session.pushSubId;
+    if (id) await send(db.select().from(pushSubs).where(eq(pushSubs.id, id)).all(), { title: 'Tileroom', body: "You're all set. We'll tell you when it's your turn." });
+    return c.json({ ok: true });
+  })
+  // The Settings test button: every device, so each can be checked (SPEC §8). Waits for the push service's answer.
   .post('/push/test', async (c) => {
     rateLimit(`push-test:${c.var.user.id}`, 5);
-    await notify([c.var.user.id], { title: 'Tileroom', body: "You're all set. We'll tell you when it's your turn." });
+    await notify([c.var.user.id], { title: 'Tileroom', body: 'Test notification. If you see this, notifications work on this device.' });
     return c.json({ ok: true });
   });
