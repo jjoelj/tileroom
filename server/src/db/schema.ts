@@ -46,7 +46,6 @@ export const invites = sqliteTable('invites', {
   usedBy: text('used_by').unique().references(() => users.id),
   usedAt: ms('used_at'),
   expiresAt: ms('expires_at'),
-  note: text('note'),
   createdAt: ms('created_at').notNull().default(now()),
 });
 

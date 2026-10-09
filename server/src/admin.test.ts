@@ -13,23 +13,24 @@ test('admins make unlimited invites and see who used each; others get 403', asyn
   expect((await call('/admin/invites', { method: 'POST', cookie: member.cookie, body: {} })).status).toBe(403);
   expect((await call('/admin/invites', { cookie: member.cookie })).status).toBe(403);
 
-  const codes = [];
-  for (let i = 0; i < 12; i++) codes.push((await call('/admin/invites', { method: 'POST', cookie: admin.cookie, body: { note: `for ${i}` } })).json.code);
+  const codes: string[] = [];
+  for (let i = 0; i < 12; i++) codes.push((await call('/admin/invites', { method: 'POST', cookie: admin.cookie, })).json.code);
   expect(new Set(codes).size).toBe(12);
 
   const signup = await call('/auth/signup', { method: 'POST', body: { inviteCode: codes[0], username: `sam_${Date.now() % 1e6}`, password: PASSWORD, displayName: 'Sam' } });
   expect(signup.status).toBe(200);
 
   const list = (await call('/admin/invites', { cookie: admin.cookie })).json.invites;
-  const used = list.find((i: { note: string }) => i.note === 'for 0');
+  const hintOf = (code: string) => code.replace(/-/g, '').slice(-4);
+  const used = list.find((i: { hint: string }) => i.hint === hintOf(codes[0]));
   const adminName = (await call('/me', { cookie: admin.cookie })).json.displayName;
   expect(used).toMatchObject({ usedBy: { displayName: 'Sam' }, createdBy: adminName });
   expect(used.usedAt).toBeNumber();
-  expect(list.find((i: { note: string }) => i.note === 'for 1').usedBy).toBeNull();
+  expect(list.find((i: { hint: string }) => i.hint === hintOf(codes[1])).usedBy).toBeNull();
   expect(JSON.stringify(list)).not.toContain(codes[1]); // only hints, never codes
 
   // revoke: unused only; it's deleted, so it's gone from the list and can't sign up
-  const unused = list.find((i: { note: string }) => i.note === 'for 1');
+  const unused = list.find((i: { hint: string }) => i.hint === hintOf(codes[1]));
   expect((await call(`/admin/invites/${used.id}`, { method: 'DELETE', cookie: admin.cookie })).status).toBe(409);
   expect((await call(`/admin/invites/${unused.id}`, { method: 'DELETE', cookie: member.cookie })).status).toBe(403);
   expect((await call(`/admin/invites/${unused.id}`, { method: 'DELETE', cookie: admin.cookie })).status).toBe(200);
@@ -43,5 +44,5 @@ test('a new invite never reuses an existing code', () => {
   const taken = makeInvite();
   const fresh = 'ZZZZ-ZZZZ-ZZZ2';
   const codes = [taken, taken, fresh];
-  expect(createInvite(db, null, undefined, () => codes.shift()!)).toBe(fresh);
+  expect(createInvite(db, null, () => codes.shift()!)).toBe(fresh);
 });

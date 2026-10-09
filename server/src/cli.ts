@@ -62,9 +62,9 @@ const [command, arg] = process.argv.slice(2);
 migrate();
 try {
   if (command === 'create-admin') await createAdmin(arg);
-  else if (command === 'create-invite') console.log(createInvite(db, null, arg)); // shown once
+  else if (command === 'create-invite') console.log(createInvite(db, null)); // shown once
   else if (command === 'backup') console.log(backup(fileURLToPath(new URL('../data/backups/', import.meta.url))));
-  else throw new Error('Commands: create-admin <username>, create-invite [note], backup');
+  else throw new Error('Commands: create-admin <username>, create-invite, backup');
 } catch (e) {
   console.error(e instanceof ApiError ? e.message : (e as Error).message);
   process.exitCode = 1;

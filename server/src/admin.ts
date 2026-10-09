@@ -3,10 +3,9 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { Hono, type MiddlewareHandler } from 'hono';
-import { z } from 'zod';
 import type { AppEnv } from './auth';
 import { invites, users } from './db/schema';
-import { ApiError, body } from './http';
+import { ApiError } from './http';
 import { db } from './runtime/db';
 import { createInvite } from './store';
 
@@ -18,17 +17,13 @@ export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
 const creator = alias(users, 'creator');
 
 export const adminRoutes = new Hono<AppEnv>()
-  .post('/admin/invites', async (c) => {
-    const { note } = await body(c, z.object({ note: z.string().trim().max(60).optional() }));
-    return c.json({ code: createInvite(db, c.var.user.id, note || undefined) }, 201);
-  })
+  .post('/admin/invites', (c) => c.json({ code: createInvite(db, c.var.user.id) }, 201))
 
   .get('/admin/invites', (c) => {
     const rows = db
       .select({
         id: invites.codeHash, // admins only; the code itself is never stored
         hint: invites.codeHint,
-        note: invites.note,
         createdAt: invites.createdAt,
         createdBy: creator.displayName, // null: made with the CLI
         usedAt: invites.usedAt,

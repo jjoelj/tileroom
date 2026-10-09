@@ -43,6 +43,13 @@
       "when": 1791584788883,
       "tag": "0005_drop_invite_revoked",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791585265447,
+      "tag": "0006_drop_invite_note",
+      "breakpoints": true
     }
   ]
 }
