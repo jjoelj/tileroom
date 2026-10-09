@@ -52,7 +52,10 @@
         </div>
       </div>
       <label class="line toggle">
-        Random turn order
+        <span class="stack" style="gap: 1px">
+          <span>Random turn order</span>
+          <span class="hint">{randomOrder ? 'Who goes first is drawn at random when the game starts' : 'Players take turns in the order they joined, you first'}</span>
+        </span>
         <input type="checkbox" bind:checked={randomOrder} />
       </label>
       <label class="line toggle">
