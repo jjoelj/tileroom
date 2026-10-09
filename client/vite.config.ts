@@ -14,7 +14,11 @@ export default defineConfig(({ command }) => {
       port: 5173,
       allowedHosts: ['.ts.net'], // Tailscale Funnel, for testing install + push on a phone
       proxy: { '/api': 'http://127.0.0.1:3000' },
-      fs: { allow: ['..'] }, // the word lists live in /wordlists
+      fs: {
+        // Only what the client imports. Never the repo root: that exposed server/data/tileroom.db.
+        allow: ['.', '../shared', '../wordlists', '../node_modules'],
+        deny: ['.env', '.env.*', '*.{crt,pem}', '**/server/**', '**/*.db', '**/*.db-*'],
+      },
     },
     plugins: [
       svelte(),
