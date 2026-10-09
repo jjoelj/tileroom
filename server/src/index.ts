@@ -6,10 +6,12 @@ import { pushConfigured } from './push';
 import { sockets } from './realtime';
 import { migrate } from './runtime/db';
 import { serve } from './runtime/serve';
+import { serveClient } from './runtime/static';
 
 if (!pushConfigured) throw new Error('Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT (see .env.example)');
 
 migrate();
+serveClient(app);
 deleteEmptyOrphans(); // right away, not just on the first 10-minute run
 setInterval(() => void runJobs().catch((e) => console.error('jobs failed', e)), 10 * 60_000);
 
