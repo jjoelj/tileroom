@@ -15,7 +15,9 @@ type Payload = { title: string; body: string; url?: string; tag?: string };
 
 self.addEventListener('push', (e) => {
   const p: Payload = e.data?.json() ?? { title: 'Tileroom', body: '' };
-  e.waitUntil(self.registration.showNotification(p.title, { body: p.body, tag: p.tag, data: { url: p.url ?? '/' }, icon: '/icons/icon-192.png' }));
+  // renotify: a newer notification for the same game replaces the old one but still alerts (sound, pop-up).
+  const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: '/icons/icon-192.png' };
+  e.waitUntil(self.registration.showNotification(p.title, options));
 });
 
 self.addEventListener('notificationclick', (e) => {
