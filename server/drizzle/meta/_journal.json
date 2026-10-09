@@ -29,6 +29,13 @@
       "when": 1791533184815,
       "tag": "0003_drop_seat_count",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791533557538,
+      "tag": "0004_groups",
+      "breakpoints": true
     }
   ]
 }

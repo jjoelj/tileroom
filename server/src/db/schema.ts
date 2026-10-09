@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Tables for milestone 2. Groups, ratings, resets and earned invites come with their milestones (SPEC §5, §13).
+// SPEC §5. Ratings, resets and earned invites come with their milestones (SPEC §13).
 import { sql } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { Bag, Board, MoveRecord, Placement, WordScore } from '../../../shared/types';
@@ -51,6 +51,69 @@ export const invites = sqliteTable('invites', {
   createdAt: ms('created_at').notNull().default(now()),
 });
 
+// ---- groups and house words (SPEC §4.10) ----
+
+export const groups = sqliteTable('groups', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  joinCode: text('join_code').notNull().unique(),
+  spectatorsSeeRacks: bool('spectators_see_racks').notNull().default(false),
+  createdAt: ms('created_at').notNull().default(now()),
+});
+
+export const groupMembers = sqliteTable(
+  'group_members',
+  {
+    groupId: text('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'member'] }).notNull().default('member'),
+    joinedAt: ms('joined_at').notNull().default(now()),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+);
+
+export const proposals = sqliteTable(
+  'proposals',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    action: text('action', { enum: ['add', 'ban', 'remove', 'unban'] }).notNull(),
+    proposedBy: text('proposed_by').notNull().references(() => users.id),
+    status: text('status', { enum: ['open', 'passed', 'rejected', 'expired'] }).notNull().default('open'),
+    createdAt: ms('created_at').notNull().default(now()),
+    closesAt: ms('closes_at').notNull(),
+    resolvedAt: ms('resolved_at'),
+  },
+  // at most one open proposal per word in a group
+  (t) => [uniqueIndex('proposals_open_word').on(t.groupId, t.word).where(sql`status = 'open'`)],
+);
+
+export const proposalVotes = sqliteTable(
+  'proposal_votes',
+  {
+    proposalId: text('proposal_id').notNull().references(() => proposals.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    vote: text('vote', { enum: ['yes', 'no'] }).notNull(),
+    votedAt: ms('voted_at').notNull().default(now()),
+  },
+  (t) => [primaryKey({ columns: [t.proposalId, t.userId] })],
+);
+
+/** The group's approved word list. */
+export const groupWords = sqliteTable(
+  'group_words',
+  {
+    groupId: text('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    kind: text('kind', { enum: ['add', 'ban'] }).notNull(),
+    approvedAt: ms('approved_at').notNull().default(now()),
+    proposalId: text('proposal_id').references(() => proposals.id),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.word] })],
+);
+
 export const games = sqliteTable('games', {
   id: text('id').primaryKey(),
   hostId: text('host_id').notNull().references(() => users.id),
@@ -58,6 +121,8 @@ export const games = sqliteTable('games', {
   bagSize: integer('bag_size').$type<100 | 150>().notNull(),
   randomOrder: bool('random_order').notNull(),
   expandedWords: bool('expanded_words').notNull().default(false), // also accept SCOWL abbreviations (SPEC §4.9)
+  groupId: text('group_id').references(() => groups.id), // null = open game: base words only, no spectators
+  spectatorRacks: bool('spectator_racks').notNull().default(false), // copied from the group at start; only true → false
   joinCode: text('join_code').notNull().unique(),
   createdAt: ms('created_at').notNull().default(now()),
   startedAt: ms('started_at'),
@@ -85,6 +150,17 @@ export const gamePlayers = sqliteTable(
     lastNudgeAt: ms('last_nudge_at'),
   },
   (t) => [primaryKey({ columns: [t.gameId, t.seat] }), uniqueIndex('game_players_user').on(t.gameId, t.userId)],
+);
+
+/** A game's frozen copy of its group's approved words, taken at start (SPEC §4.10). */
+export const gameWords = sqliteTable(
+  'game_words',
+  {
+    gameId: text('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    kind: text('kind', { enum: ['add', 'ban'] }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.gameId, t.word] })],
 );
 
 export const moves = sqliteTable('moves', {
