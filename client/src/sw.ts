@@ -22,12 +22,15 @@ self.addEventListener('push', (e) => {
       const wins = await self.clients.matchAll({ type: 'window' });
       // Open windows refetch now instead of waiting for their next poll.
       for (const w of wins) w.postMessage({ type: 'refresh' });
-      // Someone looking at Tileroom right now sees the update; don't also notify them.
-      // iOS may revoke subscriptions that get pushes without a notification, so it always notifies; the server
-      // already skips the push while the user has the game open (realtime.ts `watching`).
-      // Only game updates are skipped: the test notification is sent from inside the app and must always show.
-      const watching = !!p.tag?.startsWith('game-') && wins.some((w) => w.focused && w.visibilityState === 'visible');
-      if (watching && !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+      // Tileroom in front: game and group news shows as an in-app banner (App.svelte) instead of a system
+      // notification. (The server already skips the push while that game is open: realtime.ts `watching`.)
+      // iOS may revoke subscriptions that get pushes without a notification, so it notifies as well.
+      // Untagged pushes (welcome, test) always notify: they're how you check notifications work.
+      const front = wins.filter((w) => w.focused && w.visibilityState === 'visible');
+      if (p.tag && front.length) {
+        for (const w of front) w.postMessage({ type: 'banner', title: p.title, body: p.body, url: p.url ?? '/' });
+        if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+      }
       await self.registration.showNotification(p.title, options);
     })(),
   );

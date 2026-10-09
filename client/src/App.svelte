@@ -39,6 +39,8 @@
     navigator.serviceWorker?.addEventListener('message', (e) => {
       if (e.data?.type === 'navigate') go(e.data.url);
       if (e.data?.type === 'navigate' || e.data?.type === 'refresh') updates.n++;
+      // News about somewhere else while the app is in front (sw.ts): a tappable banner, unless already there.
+      if (e.data?.type === 'banner' && e.data.url !== route.path) say(e.data.body, { title: e.data.title, url: e.data.url });
     });
     // Opened or resumed from a notification tap: ask the worker where it pointed (see sw.ts).
     const where = () => void navigator.serviceWorker?.ready.then((r) => r.active?.postMessage({ type: 'where' }));
