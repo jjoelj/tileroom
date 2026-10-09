@@ -61,7 +61,7 @@
       <label class="line toggle">
         <span class="stack" style="gap: 1px">
           <span>Use expanded word list</span>
-          <span class="hint">Also allows abbreviations like FAQ and DIY</span>
+          <span class="hint">{expandedWords ? 'Abbreviations like FAQ allowed' : 'Standard words only'}</span>
         </span>
         <input type="checkbox" bind:checked={expandedWords} />
       </label>
