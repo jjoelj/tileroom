@@ -109,8 +109,22 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
       New game
     </button>
-    <button class="big outline" aria-expanded={joining} onclick={() => (joining = !joining)}>Join with code</button>
+    <button class="big dark" aria-expanded={creating} onclick={() => ((creating = !creating), (joining = false))}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      New group
+    </button>
   </div>
+  <button class="big outline" style="width: 100%; margin-top: 8px" aria-expanded={joining} onclick={() => ((joining = !joining), (creating = false))}>Join game or group</button>
+
+  {#if creating}
+    <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+      <label for="gn" class="label">Group name</label>
+      <div style="display: flex; gap: 8px">
+        <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
+        <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
+      </div>
+    </form>
+  {/if}
 
   {#if joining}
     <form onsubmit={join} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
@@ -133,6 +147,19 @@
       {/each}
     {/if}
 
+    <h2 class="label section">Groups</h2>
+    {#each groups as gr (gr.id)}
+      <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/groups/${gr.id}`)}>
+        <span class="row">
+          <span class="name small">{gr.name}</span>
+          {#if gr.pendingVotes}<span class="pill">{plural(gr.pendingVotes, 'vote', 'votes')}</span>{/if}
+        </span>
+        <span class="sub">{plural(gr.memberCount, 'member', 'members')} · {plural(gr.wordCount, 'house word', 'house words')}</span>
+      </button>
+    {:else}
+      <p class="sub" style="margin: 0">Make a group for the people you play with: its own house words, and games only members can join.</p>
+    {/each}
+
     {#if games.waiting.length}
       <h2 class="label section">Waiting on others</h2>
       {#each games.waiting as g (g.id)}
@@ -153,28 +180,6 @@
       {/each}
     {/if}
 
-    <h2 class="label section">Groups</h2>
-    {#each groups as gr (gr.id)}
-      <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/groups/${gr.id}`)}>
-        <span class="row">
-          <span class="name small">{gr.name}</span>
-          {#if gr.pendingVotes}<span class="pill">{plural(gr.pendingVotes, 'vote', 'votes')}</span>{/if}
-        </span>
-        <span class="sub">{plural(gr.memberCount, 'member', 'members')} · {plural(gr.wordCount, 'house word', 'house words')}</span>
-      </button>
-    {/each}
-    {#if creating}
-      <form onsubmit={createGroup} transition:slide={{ duration: ms(180) }} style="display: flex; flex-direction: column; gap: 8px">
-        <label for="gn" class="label">Group name</label>
-        <div style="display: flex; gap: 8px">
-          <input id="gn" class="field" bind:value={groupName} placeholder="Friends" maxlength="30" autocomplete="off" />
-          <button class="primary" style="width: 96px" disabled={!groupName.trim()}>Create</button>
-        </div>
-      </form>
-    {:else}
-      <button class="textbtn" style="align-self: flex-start" onclick={() => (creating = true)}>+ New group</button>
-    {/if}
-
     {#if games.finished.length}
       <h2 class="label section">Finished</h2>
       {#each games.finished as g (g.id)}
@@ -186,7 +191,7 @@
     {/if}
 
     {#if !games.yourTurn.length && !games.waiting.length && !games.lobby.length && !games.finished.length}
-      <p class="lead" in:show style="margin-top: 32px; text-align: center">No games yet. Open one and share its code.</p>
+      <p class="lead" in:show style="margin-top: 32px; text-align: center">No games yet. Start one in a group, or start one without a group and share its code.</p>
     {/if}
   {/if}
 </main>

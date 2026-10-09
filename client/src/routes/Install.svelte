@@ -15,7 +15,7 @@
     {#if code}
       <span class="label">You're invited to a {invite?.kind}</span>
       <div style="font-family: var(--display); font-weight: 800; font-size: 44px; letter-spacing: 0.08em">{code}</div>
-      <p class="lead"><b>Install Tileroom, then enter this code</b> with "Join with code".</p>
+      <p class="lead"><b>Install Tileroom, then enter this code</b> with "Join game or group".</p>
     {/if}
     <h1 class="h1" style="font-size: 36px">Install Tileroom</h1>
     <p class="lead">Tileroom runs as an app on your home screen, so it can tell you when it's your turn.</p>
