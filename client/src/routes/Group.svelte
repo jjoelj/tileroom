@@ -373,6 +373,7 @@
   .pair { display: flex; gap: 8px; }
   .propose { display: flex; flex-direction: column; gap: 8px; }
   .propose .field { text-transform: uppercase; letter-spacing: 0.05em; }
+  .propose .field::placeholder { text-transform: none; letter-spacing: normal; } /* only typed words are capitals */
   .next { min-height: 92px; display: flex; flex-direction: column; gap: 6px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }

@@ -87,6 +87,20 @@ test('members with the group open hear about changes live; outsiders hear nothin
   spy.close();
 });
 
+test("no group push for members looking at the group's page", async () => {
+  const { id, members } = await groupOf(3);
+  const [a, b, c] = members as [TestUser, TestUser, TestUser];
+  const ws = { send() {}, close() {} };
+  const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin: ORIGIN, cookie: b.cookie } }))!;
+  sockets.open(ws, w);
+  sockets.message(ws, w, JSON.stringify({ sub: `group:${id}` }));
+  const [bBefore, cBefore] = [pushesTo(b).length, pushesTo(c).length];
+  await propose(id, a, 'QXZT', 'add');
+  expect(pushesTo(b)).toHaveLength(bBefore); // on the page: sees it live
+  expect(pushesTo(c)).toHaveLength(cBefore + 1);
+  sockets.close(ws, w);
+});
+
 describe('the end of a group', () => {
   const exists = (id: string) => !!db.select().from(groups).where(eq(groups.id, id)).get();
   const leaveAll = async (id: string, members: TestUser[]) => {

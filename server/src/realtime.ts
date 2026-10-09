@@ -107,5 +107,8 @@ export function renamed(userId: string, displayName: string) {
   for (const c of live.values()) if (c.userId === userId && isGame(c.sub)) changed(c.sub, { lobby: false });
 }
 
+/** Whether the user has this group's page open on screen right now (they see changes live; no push needed). */
+export const watchingGroup = (userId: string, groupId: string) => [...live.values()].some((c) => c.userId === userId && c.sub === `${GROUP}${groupId}`);
+
 /** Whether the user has this game open on screen right now (they don't need a push about it). */
 export const watching = (userId: string, gameId: string) => [...live.values()].some((c) => c.userId === userId && c.sub === gameId);

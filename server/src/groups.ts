@@ -9,7 +9,7 @@ import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId 
 import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { notify } from './push';
-import { changed, groupChanged } from './realtime';
+import { changed, groupChanged, watchingGroup } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { baseWords } from './store';
@@ -99,6 +99,13 @@ function reevaluate(tx: Tx, groupId: string) {
   return open.map((p) => resolve(tx, p.id)).filter((o): o is Outcome => !!o);
 }
 
+
+/** A push to these members, except anyone looking at the group's page right now (they see it live). */
+function notifyGroup(groupId: string, userIds: string[], body: string) {
+  const to = userIds.filter((u) => !watchingGroup(u, groupId));
+  void notify(to, { title: groupName(groupId), body, url: `/groups/${groupId}`, tag: `group-${groupId}` });
+}
+
 const groupName = (groupId: string) => db.select({ name: groups.name }).from(groups).where(eq(groups.id, groupId)).get()?.name ?? 'Tileroom';
 
 /** Tell every member how a proposal ended. */
@@ -108,7 +115,7 @@ function announce(outcomes: Outcome[]) {
       o.status === 'passed'
         ? { add: `${o.word} is now a house word`, ban: `${o.word} is now banned`, remove: `${o.word} is no longer a house word`, unban: `${o.word} is allowed again` }[o.action]
         : `${VERB[o.action][0]!.toUpperCase()}${VERB[o.action].slice(1)} ${o.word} ${o.status === 'expired' ? "didn't get every vote in 7 days" : 'was voted down'}`;
-    void notify(memberIds(db, o.groupId), { title: groupName(o.groupId), body, url: `/groups/${o.groupId}`, tag: `group-${o.groupId}` });
+    notifyGroup(o.groupId, memberIds(db, o.groupId), body);
   }
 }
 
@@ -377,7 +384,7 @@ export const groupRoutes = new Hono<AppEnv>()
     if (outcome) announce([outcome]);
     else {
       const others = memberIds(db, group.id).filter((m) => m !== uid);
-      void notify(others, { title: group.name, body: `${c.var.user.displayName} proposed ${VERB[action]} ${word}. Vote now.`, url: `/groups/${group.id}`, tag: `group-${group.id}` });
+      notifyGroup(group.id, others, `${c.var.user.displayName} proposed ${VERB[action]} ${word}. Vote now.`);
     }
     groupChanged(group.id);
     return c.json(groupDetail(group.id, uid), 201);
