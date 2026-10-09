@@ -76,6 +76,8 @@ function loaded(s: GameState): LoadedGame {
       joinedAt: 0,
       lastNudgeAt: null,
     })),
+    group: null,
+    house: { add: [], ban: [] },
   };
 }
 

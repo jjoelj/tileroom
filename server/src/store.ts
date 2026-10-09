@@ -4,13 +4,15 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { effectiveDictionary, parseWordList, type IsWord } from '../../shared/dictionary';
 import { turnExpired } from '../../shared/rules';
 import type { GameState } from '../../shared/types';
-import { gamePlayers, games, gameWords, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
 import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
 export type MoveRow = typeof moves.$inferSelect;
 export type Seat = typeof gamePlayers.$inferSelect & { displayName: string; colorIndex: number | null };
-export type LoadedGame = { game: GameRow; seats: Seat[] };
+export type HouseWords = { add: string[]; ban: string[] };
+/** A game with its players, its group (if any) and its frozen house words. */
+export type LoadedGame = { game: GameRow; seats: Seat[]; group: { id: string; name: string } | null; house: HouseWords };
 
 type Q = Db | Tx;
 
@@ -25,7 +27,8 @@ export function loadGame(q: Q, id: string): LoadedGame | undefined {
     .orderBy(asc(gamePlayers.seat))
     .all()
     .map((r) => ({ ...r.game_players, displayName: r.users.displayName, colorIndex: r.users.colorIndex }));
-  return { game, seats };
+  const group = game.groupId ? (q.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.id, game.groupId)).get() ?? null) : null;
+  return { game, seats, group, house: houseWordsOf(q, id) };
 }
 
 /** The rules-engine state of a started game. */
@@ -59,14 +62,14 @@ const load = (name: 'words' | 'abbreviations') =>
 /** The base word list (no abbreviations): what group proposals are checked against. */
 export const baseWords = () => load('words');
 
-/** A game's frozen house words (empty for open games). */
-export function houseWordsOf(q: Q, gameId: string) {
+/** A game's frozen house words (empty for open games and lobbies). */
+export function houseWordsOf(q: Q, gameId: string): HouseWords {
   const rows = q.select().from(gameWords).where(eq(gameWords.gameId, gameId)).all();
   const pick = (kind: 'add' | 'ban') => rows.filter((r) => r.kind === kind).map((r) => r.word).sort();
   return { add: pick('add'), ban: pick('ban') };
 }
 
 /** The game's dictionary: base words (plus abbreviations if expanded), plus its frozen house adds, minus its bans. */
-export function dictionary(game: Pick<GameRow, 'expandedWords'>, house: { add: string[]; ban: string[] } = { add: [], ban: [] }): IsWord {
+export function dictionary(game: Pick<GameRow, 'expandedWords'>, house: HouseWords = { add: [], ban: [] }): IsWord {
   return effectiveDictionary(game.expandedWords ? [load('words'), load('abbreviations')] : [load('words')], house);
 }

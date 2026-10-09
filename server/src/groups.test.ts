@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { groupWords } from './db/schema';
+import { and, eq } from 'drizzle-orm';
+import { gamePlayers, groupWords } from './db/schema';
 import { expireProposals } from './groups';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
@@ -142,5 +143,48 @@ describe('house words (unanimous)', () => {
     expect(d.json.proposals).toHaveLength(0);
     expect(d.json.history[0]).toMatchObject({ word: 'QXZP', status: 'expired' });
     expect(pushesTo(b).at(-1)).toBe("Adding QXZP didn't get every vote in 7 days");
+  });
+});
+
+describe('group games', () => {
+  const setRack = (gameId: string, seat: number, letters: string) =>
+    db.update(gamePlayers).set({ rack: [...letters] }).where(and(eq(gamePlayers.gameId, gameId), eq(gamePlayers.seat, seat))).run();
+  const across = (word: string, turnNumber = 0) => ({ turnNumber, type: 'play', tiles: [...word].map((letter, i) => ({ r: 7, c: 7 + i, letter })) });
+
+  test('members only: others are refused, even with the code', async () => {
+    const { id, members } = await groupOf(2);
+    const [a] = members as [TestUser];
+    const outsider = await newUser();
+    expect((await call('/games', { method: 'POST', cookie: outsider.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } })).status).toBe(404);
+    const g = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
+    expect(g.json.group).toEqual({ id, name: 'Friends' });
+    const preview = await call(`/join/${g.json.joinCode}`, { cookie: outsider.cookie });
+    expect(preview.json).toMatchObject({ group: { id, name: 'Friends' }, canJoin: false });
+    const join = await call(`/join/${g.json.joinCode}`, { method: 'POST', cookie: outsider.cookie });
+    expect(join.status).toBe(403);
+    expect(join.json).toEqual({ error: 'not_group_member', message: 'This game is for Friends. Join the group first.' });
+  });
+
+  test("the group's words are frozen at start: adds count, bans don't, later votes change nothing", async () => {
+    const { id, members } = await groupOf(2);
+    const [a, b] = members as [TestUser, TestUser];
+    const pass = async (word: string, action: string) => {
+      const pid = (await propose(id, a, word, action)).json.proposals[0].id;
+      await vote(pid, b, 'yes');
+    };
+    await pass('QXZJ', 'add');
+    await pass('CAT', 'ban');
+    const g = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
+    await call(`/join/${g.json.joinCode}`, { method: 'POST', cookie: b.cookie });
+    const started = await call(`/games/${g.json.id}/start`, { method: 'POST', cookie: a.cookie });
+    expect(started.json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
+    await pass('DOG', 'ban'); // after the start: not in this game
+
+    setRack(g.json.id, 0, 'CATQXZJ');
+    expect((await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: a.cookie, body: across('CAT') })).json.message).toBe(
+      "CAT isn't in this game's word list",
+    );
+    expect((await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: a.cookie, body: across('QXZJ') })).status).toBe(200);
+    expect((await call(`/games/${g.json.id}`, { cookie: b.cookie })).json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
   });
 });

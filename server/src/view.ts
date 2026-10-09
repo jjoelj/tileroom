@@ -30,7 +30,7 @@ export function toLogMove(m: MoveRow, viewerSeat: number): LogMove {
   return { ...pub, private: { ...(p.swapped && { swapped: [...p.swapped] }), drawn: [...p.drawn] } };
 }
 
-export function toView({ game, seats }: LoadedGame, viewerSeat: number, last: MoveRow | undefined): GameView {
+export function toView({ game, seats, group, house }: LoadedGame, viewerSeat: number, last: MoveRow | undefined): GameView {
   const me = seats.find((s) => s.seat === viewerSeat);
   const finished = game.status === 'finished';
   return {
@@ -61,7 +61,8 @@ export function toView({ game, seats }: LoadedGame, viewerSeat: number, last: Mo
     spectatorRacks: null,
     spectatorsSeeRacks: false,
     watching: [],
-    houseWords: { add: [], ban: [] },
+    group: group ? { id: group.id, name: group.name } : null,
+    houseWords: { add: [...house.add], ban: [...house.ban] },
     lastMove: last ? toPublicMove(last) : null,
     finalRoundAfter: game.finalRoundAfter,
     ...(finished && {

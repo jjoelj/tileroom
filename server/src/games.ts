@@ -7,9 +7,9 @@ import { names } from '../../shared/plural';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
-import { gamePlayers, games, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groupMembers, groups, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
-import { expireProposals } from './groups';
+import { approvedWords, expireProposals } from './groups';
 import { notify } from './push';
 import { changed, watching } from './realtime';
 import { db } from './runtime/db';
@@ -32,6 +32,9 @@ function myGame(id: string, userId: string) {
   }
   return { g, seat };
 }
+
+const isMember = (groupId: string, userId: string) =>
+  !!db.select({ u: groupMembers.userId }).from(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId))).get();
 
 const viewFor = (id: string, seat: number) => toView(loadGame(db, id)!, seat, lastMove(db, id));
 
@@ -88,6 +91,7 @@ export const gameRoutes = new Hono<AppEnv>()
         turnStartedAt: game.turnStartedAt,
         finishedAt: game.finishedAt,
         mySeat,
+        group: g.group,
         players: g.seats.map((s) => ({ seat: s.seat, displayName: s.displayName, score: s.score })),
       };
       if (game.status === 'lobby') out.lobby.push(summary);
@@ -105,8 +109,10 @@ export const gameRoutes = new Hono<AppEnv>()
         bagSize: z.union([z.literal(100), z.literal(150)]),
         randomOrder: z.boolean(),
         expandedWords: z.boolean().default(false),
+        groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),
     );
+    if (b.groupId && !isMember(b.groupId, c.var.user.id)) throw new ApiError(404, 'not_found');
     const id = randomId();
     db.transaction((tx) => {
       let joinCode = newJoinCode();
@@ -127,6 +133,9 @@ export const gameRoutes = new Hono<AppEnv>()
       hostName: host?.displayName ?? null,
       players: g.seats.map((s) => s.displayName),
       joined: seatOf(g, c.var.user.id) !== undefined,
+      group: g.group,
+      // a group game takes only that group's members (SPEC §4.10)
+      canJoin: !g.group || isMember(g.group.id, c.var.user.id),
     });
   })
 
@@ -136,6 +145,7 @@ export const gameRoutes = new Hono<AppEnv>()
     const existing = seatOf(g, uid);
     if (existing !== undefined) return c.json(viewFor(g.game.id, existing));
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', 'This game has already started');
+    if (g.group && !isMember(g.group.id, uid)) throw new ApiError(403, 'not_group_member', `This game is for ${g.group.name}. Join the group first.`);
     const seat = db.transaction((tx) => {
       const fresh = loadGame(tx, g.game.id)!;
       if (fresh.seats.length >= MAX_PLAYERS) throw new ApiError(409, 'game_full', 'This game is full');
@@ -193,6 +203,14 @@ export const gameRoutes = new Hono<AppEnv>()
         })
         .where(eq(games.id, game.id))
         .run();
+      if (game.groupId) {
+        // Freeze the group's words and tray setting: later votes and "on" switches don't touch this game (SPEC §4.10, §4.11).
+        const words = approvedWords(tx, game.groupId);
+        const rows = [...words.add.map((word) => ({ word, kind: 'add' as const })), ...words.ban.map((word) => ({ word, kind: 'ban' as const }))];
+        if (rows.length) tx.insert(gameWords).values(rows.map((r) => ({ gameId: game.id, ...r }))).run();
+        const group = tx.select({ racks: groups.spectatorsSeeRacks }).from(groups).where(eq(groups.id, game.groupId)).get();
+        tx.update(games).set({ spectatorRacks: !!group?.racks }).where(eq(games.id, game.id)).run();
+      }
     });
     order.forEach((s, seat) => {
       if (s.userId === game.hostId && seat !== state.currentSeat) return;
@@ -220,7 +238,7 @@ export const gameRoutes = new Hono<AppEnv>()
       if (g.game.currentSeat !== seat) throw new ApiError(409, 'not_your_turn', "It's not your turn");
       let applied: ReturnType<typeof applyMove>;
       try {
-        applied = applyMove(stateOf(g), seat, move, dictionary(g.game), randomInt);
+        applied = applyMove(stateOf(g), seat, move, dictionary(g.game, g.house), randomInt);
       } catch (e) {
         if (e instanceof RuleError) throw new ApiError(400, 'invalid_move', e.message);
         throw e;

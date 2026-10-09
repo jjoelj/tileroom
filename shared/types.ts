@@ -80,6 +80,9 @@ export type GameView = {
   spectatorRacks: { seat: number; rack: string[] }[] | null;
   spectatorsSeeRacks: boolean;
   watching: { userId: string; displayName: string }[];
+  /** The group a group game belongs to; null for open games. */
+  group: { id: string; name: string } | null;
+  /** The group's words, frozen when the game started (empty for open games and lobbies). */
   houseWords: { add: string[]; ban: string[] };
   lastMove: PublicMove | null;
   finalRoundAfter: number | null;
