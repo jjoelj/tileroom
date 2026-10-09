@@ -37,10 +37,15 @@ self.addEventListener('notificationclick', (e) => {
   const url: string = e.notification.data?.url ?? '/';
   e.waitUntil(
     (async () => {
-      const [win] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const win = wins.find((w) => w.focused) ?? wins[0];
       if (!win) return void (await self.clients.openWindow(url));
-      await win.focus();
-      win.postMessage({ type: 'navigate', url });
+      const target = new URL(url, self.location.origin).href;
+      if (win.url === target) return void (await win.focus());
+      // Navigate the window itself (works even if its page missed the message); else ask the page to route.
+      const moved = await win.navigate(target).catch(() => null);
+      await (moved ?? win).focus();
+      if (!moved) win.postMessage({ type: 'navigate', url });
     })(),
   );
 });

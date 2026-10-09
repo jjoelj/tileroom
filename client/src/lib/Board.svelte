@@ -203,7 +203,7 @@
       if (e.ctrlKey) {
         e.preventDefault();
         const [px, py] = local(e.clientX, e.clientY);
-        zoomAt(s * Math.exp(-e.deltaY * 0.0025), px, py); // ~1.3x per mouse-wheel notch
+        zoomAt(s * Math.exp(-e.deltaY * (e.deltaMode ? 0.15 : 0.006)), px, py); // ~1.8x per wheel notch; trackpad pinch tracks
       } else if (s > 1.01) {
         e.preventDefault();
         tx -= e.deltaX;
