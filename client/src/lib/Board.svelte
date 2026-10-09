@@ -195,8 +195,10 @@
   function move(e: PointerEvent) {
     const prev = pointers.get(e.pointerId);
     if (!prev) return;
+    if (e.pointerType === 'mouse' && e.buttons === 0) return up(e); // released where we couldn't hear it
     const now = { x: e.clientX, y: e.clientY };
     if (pointers.size >= 2 && pinch) {
+      capture(e);
       const [a, b] = [...pointers.values()];
       const midBefore = { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 };
       pointers.set(e.pointerId, now);
@@ -210,6 +212,7 @@
     }
     pointers.set(e.pointerId, now);
     if (!moved && Math.hypot(now.x - start.x, now.y - start.y) < 6) return;
+    if (!moved) capture(e);
     moved = true;
     if (s > 1.01) {
       tx += now.x - prev.x;
@@ -217,6 +220,10 @@
       clamp();
     }
   }
+
+  // Once a pan or pinch starts, keep the pointer even outside the board, so releasing anywhere ends it.
+  // (Not on pointerdown: capture would retarget the click that a plain tap on a cell needs.)
+  const capture = (e: PointerEvent) => viewport.hasPointerCapture(e.pointerId) || viewport.setPointerCapture(e.pointerId);
 
   function up(e: PointerEvent) {
     if (!pointers.delete(e.pointerId)) return;
@@ -265,6 +272,7 @@
   onpointermove={move}
   onpointerup={up}
   onpointercancel={up}
+  onlostpointercapture={up}
   onclickcapture={swallowClick}
   role="presentation"
 >
