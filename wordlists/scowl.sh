@@ -15,8 +15,10 @@ $PY combine.py create-db scowl.db > /dev/null
 # Size 80 = "a valid word in current usage" (the word-game size, see the ESDB README).
 # All spellings (US, GB -ise/-ize, CA, AU), variants up to 6 "acceptable", hacker words, no accents.
 # Abbreviations, prefixes, suffixes, word parts and non-words (roman numerals) are excluded by POS.
+# Proper nouns are excluded by POS class; `upper`/`upper?` are SCOWL's unclassified capitalized words (Paris, NASA).
 $PY scowl word-list 80 A,B,Z,C,D 6 \
   --wo-poses abbr,pre,suf --wo-pos-categories nonword,wordpart \
+  --wo-pos-classes name,name?,person,place,surname,demonym,trademark,upper,upper? \
   --categories hacker --deaccent --apostrophe False > "$OUT"
 cp Copyright "$(dirname "$OUT")/scowl-copyright.txt"
 rm -rf "$TMP"
