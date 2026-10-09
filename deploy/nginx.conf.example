@@ -1,0 +1,36 @@
+# Copy to deploy/nginx.conf (gitignored), fill in <private IP>, then install as
+# /etc/nginx/sites-available/tileroom, symlinked into sites-enabled.
+# 443 listens on the private IP only, so it doesn't clash with tailscaled holding the tailnet IP's 443 for Funnel.
+# Certificates come from `certbot certonly --nginx` (deploy/README.md), which leaves this file alone.
+
+server {
+    listen 80;
+    server_name tileroom.org www.tileroom.org staging.tileroom.org;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen <private IP>:443 ssl;
+    server_name www.tileroom.org;
+    ssl_certificate /etc/letsencrypt/live/tileroom.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tileroom.org/privkey.pem;
+    return 301 https://tileroom.org$request_uri;
+}
+
+server {
+    listen <private IP>:443 ssl;
+    server_name tileroom.org;
+    ssl_certificate /etc/letsencrypt/live/tileroom.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tileroom.org/privkey.pem;
+    set $tileroom http://127.0.0.1:3100;
+    include snippets/tileroom-proxy.conf;
+}
+
+server {
+    listen <private IP>:443 ssl;
+    server_name staging.tileroom.org;
+    ssl_certificate /etc/letsencrypt/live/staging.tileroom.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/staging.tileroom.org/privkey.pem;
+    set $tileroom http://127.0.0.1:3101;
+    include snippets/tileroom-proxy.conf;
+}

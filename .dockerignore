@@ -1,0 +1,7 @@
+node_modules
+client/dist
+client/dev-dist
+server/data
+.env
+.git
+.idea
