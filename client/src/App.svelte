@@ -28,6 +28,10 @@
       if (e.data?.type === 'navigate') go(e.data.url);
       if (e.data?.type === 'navigate' || e.data?.type === 'refresh') updates.n++;
     });
+    // Opened or resumed from a notification tap: ask the worker where it pointed (see sw.ts).
+    const where = () => void navigator.serviceWorker?.ready.then((r) => r.active?.postMessage({ type: 'where' }));
+    where();
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && where());
     setTimeout(preloadWords, 500); // after first paint
   });
 

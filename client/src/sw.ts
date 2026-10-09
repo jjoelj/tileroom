@@ -23,8 +23,8 @@ self.addEventListener('push', (e) => {
       // Open windows refetch now instead of waiting for their next poll.
       for (const w of wins) w.postMessage({ type: 'refresh' });
       // Someone looking at Tileroom right now sees the update; don't also notify them.
-      // ponytail: iOS may revoke subscriptions that get pushes without a notification, so it always notifies;
-      // milestone 4 skips the push server-side while the user has a live socket.
+      // iOS may revoke subscriptions that get pushes without a notification, so it always notifies; the server
+      // already skips the push while the user has the game open (realtime.ts `watching`).
       const watching = wins.some((w) => w.focused && w.visibilityState === 'visible');
       if (watching && !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
       await self.registration.showNotification(p.title, options);
@@ -32,22 +32,30 @@ self.addEventListener('push', (e) => {
   );
 });
 
+// Where the last tapped notification points, for a few seconds. Android may resume or cold-start the app
+// without delivering our message (or at "/"), so the app also asks for it on start and on return (`where`).
+let tapped: { url: string; at: number } | null = null;
+
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const url: string = e.notification.data?.url ?? '/';
+  tapped = { url, at: Date.now() };
   e.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const win = wins.find((w) => w.focused) ?? wins[0];
+      const win = wins.find((w) => w.focused) ?? wins.find((w) => w.visibilityState === 'visible') ?? wins[0];
       if (!win) return void (await self.clients.openWindow(url));
-      const target = new URL(url, self.location.origin).href;
-      if (win.url === target) return void (await win.focus());
-      // Navigate the window itself (works even if its page missed the message); else ask the page to route.
-      const moved = await win.navigate(target).catch(() => null);
-      await (moved ?? win).focus();
-      if (!moved) win.postMessage({ type: 'navigate', url });
+      // Bring the app forward first, then let it route itself (no reload).
+      const front = await win.focus().catch(() => win);
+      front.postMessage({ type: 'navigate', url });
     })(),
   );
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data?.type !== 'where') return;
+  if (tapped && Date.now() - tapped.at < 10_000) (e.source as Client | null)?.postMessage({ type: 'navigate', url: tapped.url });
+  tapped = null;
 });
 
 // iOS sometimes drops subscriptions; re-subscribe with the same key and tell the server (SPEC §8).
