@@ -11,8 +11,9 @@ let sub = '';
 let tries = 0;
 let retry = 0;
 
-// Hidden screens don't count as watching: the server then sends pushes instead.
-const current = () => (document.visibilityState === 'visible' ? sub : '');
+// Only a visible, focused window counts as watching; otherwise the server sends pushes as usual.
+// (A desktop window behind another one is still "visible", so focus matters too.)
+const current = () => (document.visibilityState === 'visible' && document.hasFocus() ? sub : '');
 const tell = () => ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ sub: current() }));
 
 function connect() {
@@ -51,3 +52,5 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !ws) connect(); // iOS kills background sockets
   else tell();
 });
+addEventListener('focus', () => sub && tell());
+addEventListener('blur', () => sub && tell());

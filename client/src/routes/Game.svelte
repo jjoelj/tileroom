@@ -99,10 +99,13 @@
       void load();
       void clearGameNotifications(id);
     };
+    const onFocus = () => void clearGameNotifications(id); // desktop: back from another window
     document.addEventListener('visibilitychange', onVisible);
+    addEventListener('focus', onFocus);
     return () => {
       unwatch();
       document.removeEventListener('visibilitychange', onVisible);
+      removeEventListener('focus', onFocus);
     };
   });
 
