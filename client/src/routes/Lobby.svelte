@@ -109,8 +109,8 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
       New game
     </button>
+    <button class="big outline" aria-expanded={joining} onclick={() => (joining = !joining)}>Join game or group</button>
   </div>
-  <button class="join" aria-expanded={joining} onclick={() => (joining = !joining)}>Join game or group</button>
 
   {#if joining}
     <form onsubmit={join} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
@@ -201,7 +201,7 @@
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .dark { border: none; background: var(--primary); color: var(--on-primary); }
   .newgroup { height: 44px; padding: 0 16px; border-radius: 22px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; }
-  .join { display: block; margin: 10px auto 0; height: 44px; padding: 0 18px; border-radius: 22px; border: 1.5px solid var(--line); background: transparent; font-weight: 700; font-size: 14px; }
+  .outline { border: 1.5px solid var(--ink); background: transparent; white-space: nowrap; padding: 0 12px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
   .game.mine { padding: 16px; gap: 10px; outline: 2px solid var(--p0); }
