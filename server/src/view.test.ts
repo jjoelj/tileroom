@@ -50,6 +50,8 @@ function loaded(s: GameState): LoadedGame {
       bagSize: 100,
       randomOrder: false,
       expandedWords: false,
+      groupId: null,
+      spectatorRacks: false,
       joinCode: 'ABCDEF',
       createdAt: 0,
       startedAt: 0,
