@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { api } from '../lib/api';
   import { pushSupported, subscribe } from '../lib/push';
   import { device, session } from '../lib/state.svelte';
 
@@ -22,6 +23,7 @@
       device.permission = await Notification.requestPermission();
       if (device.permission !== 'granted') return;
       await subscribe();
+      await api('/push/test', { method: 'POST' }).catch(() => {});
       if (session.me) session.me.pushReady = true;
     } catch {
       error = "Couldn't turn on notifications. Try again.";

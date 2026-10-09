@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AppEnv } from './auth';
 import { randomId } from './codes';
 import { pushSubs, sessions } from './db/schema';
-import { ApiError, body } from './http';
+import { ApiError, body, rateLimit } from './http';
 import { db } from './runtime/db';
 
 const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
@@ -58,6 +58,11 @@ export const push = new Hono<AppEnv>()
       else tx.insert(pushSubs).values({ id, ...values }).run();
       tx.update(sessions).set({ pushSubId: id }).where(eq(sessions.id, c.var.session.id)).run();
     });
-    if (!existing) void notify([user.id], { title: 'Tileroom', body: "You're all set. We'll tell you when it's your turn." });
+    return c.json({ ok: true });
+  })
+  // "You're all set" after enabling, and the Settings test button (SPEC §8). Waits for the push service's answer.
+  .post('/push/test', async (c) => {
+    rateLimit(`push-test:${c.var.user.id}`, 5);
+    await notify([c.var.user.id], { title: 'Tileroom', body: "You're all set. We'll tell you when it's your turn." });
     return c.json({ ok: true });
   });

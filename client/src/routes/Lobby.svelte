@@ -50,6 +50,15 @@
     }
   }
 
+  let tested = $state('');
+  async function testPush() {
+    tested = 'Sending…';
+    tested = await api('/push/test', { method: 'POST' }).then(
+      () => 'Sent. Check your notifications',
+      () => "Couldn't send. Try again",
+    );
+  }
+
   async function signOut() {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
     session.me = null;
@@ -80,6 +89,7 @@
       <div class="card popover" role="menu">
         <span style="font-weight: 800">{session.me?.displayName}</span>
         <span class="hint">@{session.me?.username}</span>
+        <button class="secondary" role="menuitem" onclick={testPush}>{tested || 'Send test notification'}</button>
         <button class="secondary" role="menuitem" onclick={signOut}>Sign out</button>
       </div>
     {/if}

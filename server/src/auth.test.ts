@@ -118,7 +118,10 @@ describe('guards', () => {
     await call('/push/subscribe', { method: 'POST', cookie: u.cookie, body: { endpoint: `https://push.test/${u.username}`, keys: { p256dh: 'p', auth: 'a' } } });
     expect((await call('/games', { cookie: u.cookie })).status).toBe(200);
     expect((await call('/me', { cookie: u.cookie })).json.pushReady).toBe(true);
-    expect(pushesTo(u)).toEqual(["You're all set. We'll tell you when it's your turn."]);
+    expect(pushesTo(u)).toEqual([]);
+    await call('/push/test', { method: 'POST', cookie: u.cookie });
+    await call('/push/test', { method: 'POST', cookie: u.cookie });
+    expect(pushesTo(u)).toEqual(["You're all set. We'll tell you when it's your turn.", "You're all set. We'll tell you when it's your turn."]);
   });
 
   test('settings: turn reminders can be switched off', async () => {
