@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { flip } from 'svelte/animate';
   import { plural } from '../../../shared/plural';
   import { previewPlay } from '../../../shared/rules';
-  import { VALUES } from '../../../shared/tiles';
+  import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
   import { api, ApiError } from '../lib/api';
   import Board, { type PendingTile } from '../lib/Board.svelte';
@@ -20,6 +21,7 @@
   let blankAt = $state<{ r: number; c: number; slot: number } | null>(null);
   let swapOpen = $state(false);
   let swapPick = $state<number[]>([]);
+  let unseenOpen = $state(false);
   let menuOpen = $state(false);
   let zoomed = $state(false);
   let boardRef = $state<Board>();
@@ -124,6 +126,8 @@
         : pending.find((p) => p.r === from.r && p.c === from.c);
     if (!tile) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
+    const origin = (e.target as Element).closest('.rk, .cell')?.getBoundingClientRect();
+    const home = origin ? { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 } : { x: e.clientX, y: e.clientY };
     const x0 = e.clientX;
     const y0 = e.clientY;
     let x = x0;
@@ -145,7 +149,7 @@
       }
       if (!frame) frame = requestAnimationFrame(paint);
     };
-    const end = (ev: PointerEvent) => {
+    const end = async (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', end);
@@ -154,7 +158,8 @@
       if (!drag) return;
       justDragged = true;
       setTimeout(() => (justDragged = false));
-      if (ev.type === 'pointerup') drop(from, ev.clientX, ev.clientY);
+      const to = ev.type === 'pointerup' ? await drop(from, ev.clientX, ev.clientY) : null;
+      await glide(to ?? home); // nowhere to go: back where it came from
       drag = null;
     };
     addEventListener('pointermove', move);
@@ -162,16 +167,28 @@
     addEventListener('pointercancel', end);
   }
 
-  function drop(from: DragFrom, x: number, y: number) {
+  /** Animates the ghost to a screen point (the center of where the tile is going). */
+  function glide(to: { x: number; y: number }) {
+    if (!ghost) return Promise.resolve();
+    ghost.style.transition = 'transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 160ms';
+    ghost.style.opacity = '1';
+    ghost.style.transform = `translate3d(${to.x}px, ${to.y}px, 0) translate(-50%, -50%)`;
+    return new Promise<void>((resolve) => setTimeout(resolve, 170));
+  }
+
+  /** Applies a drop; returns where the ghost should glide to, or null to send it home. */
+  async function drop(from: DragFrom, x: number, y: number): Promise<{ x: number; y: number } | null> {
     const cell = boardRef?.cellAt(x, y); // exactly where it's released
     const placed = from.kind === 'board' ? pending.findIndex((p) => p.r === from.r && p.c === from.c) : -1;
     if (cell && isFree(cell.r, cell.c, from)) {
+      const target = boardRef?.cellCenter(cell.r, cell.c) ?? { x, y };
+      await glide(target); // land first, then the tile appears in the square
       if (from.kind === 'board') Object.assign(pending[placed]!, cell);
       else if (rack[from.slot] === '?') blankAt = { ...cell, slot: from.slot };
       else pending.push({ ...cell, letter: rack[from.slot]!, blank: false, slot: from.slot });
       if (from.kind === 'rack') boardRef?.zoomToward(cell.r, cell.c);
       navigator.vibrate?.(8);
-      return;
+      return target;
     }
     const r = rackEl?.getBoundingClientRect();
     if (r && y >= r.top - 24 && y <= r.bottom + 24) {
@@ -183,8 +200,11 @@
       rest.splice(to, 0, slot);
       order = rest;
       navigator.vibrate?.(8);
+      await tick(); // the other tiles slide (flip); the ghost glides into the gap
+      const gap = rackEl?.querySelector(`[data-slot="${slot}"]`)?.getBoundingClientRect();
+      return gap ? { x: gap.left + gap.width / 2, y: gap.top + gap.height / 2 } : null;
     }
-    // Anywhere else: the tile stays where it came from.
+    return null; // anywhere else: the tile stays where it came from
   }
 
   function tapSlot(slot: number) {
@@ -297,6 +317,18 @@
         ? `${nameOf(m.seat)} swapped ${plural(m.count, 'tile', 'tiles')}`
         : `${nameOf(m.seat)} passed`;
 
+  // Everything not on the board or in my rack: the bag plus other players' racks, by letter.
+  const unseen = $derived.by(() => {
+    if (!view) return [] as [string, number][];
+    const left: Record<string, number> = { ...BAGS[view.bagSize] };
+    for (const row of view.board) for (const t of row) if (t) left[t.blank ? '?' : t.letter]!--;
+    for (const l of rack) left[l]!--;
+    return Object.entries(left)
+      .filter(([, n]) => n > 0)
+      .sort(([a], [b]) => (a === '?' ? 1 : b === '?' ? -1 : a.localeCompare(b)));
+  });
+  const unseenTotal = $derived(unseen.reduce((sum, [, n]) => sum + n, 0));
+
   const standings = $derived(view ? [...view.players].sort((a, b) => b.score - a.score) : []);
 </script>
 
@@ -384,7 +416,11 @@
             {view.lastMove ? `${describe(view.lastMove)} · ` : ''}{myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}
           {/if}
         </span>
-        <span>{view.finalRoundAfter !== null && view.status === 'active' ? 'Last round' : `${view.bagCount} in bag`}</span>
+        {#if view.status === 'active'}
+          <button class="bagbtn" aria-haspopup="dialog" onclick={() => (unseenOpen = true)}>
+            {view.finalRoundAfter !== null ? 'Last round · ' : ''}{view.bagCount} in bag
+          </button>
+        {/if}
       </div>
 
       <div style="position: relative">
@@ -423,7 +459,8 @@
       {:else}
         <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
           {#each order as slot (slot)}
-            {@const used = pending.some((p) => p.slot === slot) || (drag?.from.kind === 'rack' && drag.slot === slot)}
+            {@const used = pending.some((p) => p.slot === slot) || drag?.slot === slot}
+            <div class="slot" data-slot={slot} animate:flip={{ duration: 180 }}>
             {#if used}
               <span class="rk empty" aria-hidden="true"></span>
             {:else}
@@ -432,6 +469,7 @@
                 {#if rack[slot] !== '?'}<span class="pt">{VALUES[rack[slot]!]}</span>{/if}
               </button>
             {/if}
+            </div>
           {/each}
         </div>
 
@@ -465,9 +503,26 @@
       <span class="label">Blank tile: pick a letter</span>
       <div class="letters">
         {#each 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' as l (l)}
-          <button onclick={() => pickBlank(l)}>{l}</button>
+          <button class="tile-face" onclick={() => pickBlank(l)}>{l}</button>
         {/each}
       </div>
+    </div>
+  {/if}
+
+  {#if unseenOpen}
+    <div class="sheet-bg" role="presentation" onclick={() => (unseenOpen = false)}></div>
+    <div class="sheet" role="dialog" aria-label="Unseen tiles">
+      <span class="label">Tiles you can't see</span>
+      <span class="hint">{plural(view.bagCount, 'tile', 'tiles')} in the bag · {plural(unseenTotal - view.bagCount, 'tile', 'tiles')} on other racks</span>
+      <div class="unseen">
+        {#each unseen as [letter, n] (letter)}
+          <div class="u">
+            <span class="tile-face mini" aria-label={letter === '?' ? 'Blank' : letter}>{letter === '?' ? '' : letter}</span>
+            <span class="n">×{n}</span>
+          </div>
+        {/each}
+      </div>
+      <button class="secondary" onclick={() => (unseenOpen = false)}>Close</button>
     </div>
   {/if}
 
@@ -478,7 +533,7 @@
       <div class="rack" style="padding: 8px 0">
         {#each rack as letter, i (i)}
           <button
-            class="rk"
+            class="rk tile-face"
             class:sel={swapPick.includes(i)}
             aria-pressed={swapPick.includes(i)}
             aria-label={letter === '?' ? 'Blank tile' : `Tile ${letter}`}
@@ -517,7 +572,7 @@
   .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
   .ghost .ch { font-size: 24px; }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
-  .rk.empty { background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
+  .rk.empty { display: block; background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
   .rk .pt, .ghost .pt { position: absolute; right: 5px; bottom: 3px; font-family: var(--ui); font-size: 10px; font-weight: 700; opacity: 0.8; }
   .actions { margin-top: auto; padding: 0 8px 20px; display: flex; gap: 8px; align-items: center; }
@@ -539,6 +594,12 @@
   .final .row span:first-child { font-weight: 700; flex-grow: 1; }
   .sheet-bg { position: fixed; inset: 0; background: var(--scrim); z-index: 20; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 480px; margin: 0 auto; background: var(--ground); border-radius: 20px 20px 0 0; padding: 18px 16px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  .slot { display: block; }
+  .bagbtn { border: none; background: none; padding: 0; min-height: 24px; font-size: 12px; font-weight: 700; color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+  .unseen { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; max-height: 50dvh; overflow: auto; padding: 4px 0; }
+  .u { display: flex; align-items: center; gap: 4px; }
+  .mini { width: 28px; height: 30px; border-radius: 5px; font-size: 16px; flex-shrink: 0; }
+  .n { font-size: 13px; font-weight: 700; color: var(--muted); }
   .letters { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .letters button { height: 44px; border-radius: 8px; border: none; background: var(--tile-pending); font-weight: 800; font-size: 18px; }
+  .letters button { height: 44px; border-radius: 8px; border: none; font-size: 20px; }
 </style>
