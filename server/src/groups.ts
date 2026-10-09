@@ -288,6 +288,9 @@ export const groupRoutes = new Hono<AppEnv>()
       if (!hasAdmin) {
         const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, group.id)).orderBy(...joinOrder).limit(1).get();
         if (next) tx.update(groupMembers).set({ role: 'admin' }).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, next.userId))).run();
+        // Nobody left: orphan it. Joins only accept 8-character codes, so this token can never be typed; the row
+        // stays because its games still point at it (for the group's name).
+        else tx.update(groups).set({ joinCode: `orphaned-${randomId()}` }).where(eq(groups.id, group.id)).run();
       }
       return reevaluate(tx, group.id);
     });

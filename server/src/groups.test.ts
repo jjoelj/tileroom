@@ -64,6 +64,15 @@ describe('membership', () => {
   });
 });
 
+test('when the last member leaves, the group is orphaned: no code reaches it again', async () => {
+  const { id, code, members } = await groupOf(2);
+  for (const u of members) expect((await call(`/groups/${id}/members/me`, { method: 'DELETE', cookie: u.cookie })).status).toBe(200);
+  const stranger = await newUser();
+  expect((await call(`/groups/join/${code}`, { cookie: stranger.cookie })).status).toBe(404);
+  expect((await call(`/groups/join/${code}`, { method: 'POST', cookie: stranger.cookie })).status).toBe(404);
+  expect((await call(`/groups/${id}`, { cookie: stranger.cookie })).status).toBe(404);
+});
+
 describe('house words (unanimous)', () => {
   test('passes only when every member says yes; members are told', async () => {
     const { id, members } = await groupOf(3);
