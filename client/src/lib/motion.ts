@@ -9,7 +9,7 @@ export const ms = (n: number) => (reduced ? 0 : n);
 
 /** Tiles and badges: scale and fade in/out. `quiet` makes it instant (a drag has already shown the move). */
 export function pop(_node: Element, { quiet = false, delay = 0, duration = 180 } = {}) {
-  return { delay, duration: quiet ? 0 : ms(duration), easing: cubicOut, css: (t: number) => `transform: scale(${0.6 + 0.4 * t}); opacity: ${t}` };
+  return { delay: quiet ? 0 : delay, duration: quiet ? 0 : ms(duration), easing: cubicOut, css: (t: number) => `transform: scale(${0.6 + 0.4 * t}); opacity: ${t}` };
 }
 
 /** Sheets: slide up from the bottom edge. */
