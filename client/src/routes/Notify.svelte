@@ -14,7 +14,7 @@
     ? 'Open Settings → Notifications → Tileroom and allow notifications.'
     : /Android/.test(ua)
       ? 'Long-press the Tileroom icon → App info → Notifications, and turn them on.'
-      : "Open this site's settings in your browser (the icon left of the address) and allow notifications.";
+      : 'Click the lock or bell icon in the address bar, set notifications to Allow, then check again.';
 
   // Only ever asked from this tap (SPEC §9.6).
   async function enable() {
@@ -22,11 +22,12 @@
     error = '';
     hint = '';
     try {
-      device.permission = await Notification.requestPermission();
-      // Edge (and Chrome's quiet mode) can hide the prompt behind an address-bar icon and answer "no decision".
-      if (device.permission === 'default') {
-        hint = 'Your browser hid the request. Look for a bell or lock icon in the address bar, choose Allow, then tap again.';
-      }
+      // Edge (and Chrome's quiet mode) hide the prompt behind an address-bar icon and leave the request pending,
+      // or answer "no decision". Either way, say where to look.
+      const hidden = 'Your browser hid the request. Look for a bell icon at the right end of the address bar and choose Allow.';
+      const slow = setTimeout(() => (hint = hidden), 1500);
+      device.permission = await Notification.requestPermission().finally(() => clearTimeout(slow));
+      hint = device.permission === 'default' ? `${hidden} Then tap again.` : '';
       if (device.permission !== 'granted') return;
       await subscribe();
       await api('/push/test', { method: 'POST' }).catch(() => {});
