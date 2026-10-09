@@ -64,7 +64,12 @@ body {
   min-height: 100dvh;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   -webkit-tap-highlight-color: transparent;
+  /* an app, not a document: no text selection or long-press callouts (inputs still select) */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
+input, textarea { user-select: text; -webkit-user-select: text; }
 button, input, a { font: inherit; color: inherit; touch-action: manipulation; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
@@ -97,4 +102,9 @@ a { color: var(--link); }
   font-family: var(--display);
   font-weight: 800;
   display: flex; align-items: center; justify-content: center;
+}
+
+/* Respect "reduce motion": CSS transitions and animations become instant (Svelte ones use motion.ts). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

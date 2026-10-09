@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api } from '../lib/api';
+  import { show } from '../lib/motion';
   import { pushSupported, subscribe } from '../lib/push';
   import { device, session } from '../lib/state.svelte';
 
@@ -70,8 +71,8 @@
       <p class="lead" style="font-size: 15px"><b>Notifications are blocked.</b> {steps}</p>
       <button class="primary" onclick={check}>Check again</button>
     {:else}
-      {#if hint}<p class="lead" role="status" style="font-size: 15px">{hint}</p>{/if}
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      {#if hint}<p class="lead" role="status" transition:show style="font-size: 15px">{hint}</p>{/if}
+      {#if error}<p class="error" role="alert" transition:show>{error}</p>{/if}
       <button class="primary" onclick={enable} disabled={busy}>Turn on notifications</button>
       <div style="text-align: center; font-size: 13px; line-height: 1.45; color: var(--muted)">Only for your games: your turn, starts and ends.</div>
     {/if}

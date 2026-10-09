@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from './lib/api';
+  import { show } from './lib/motion';
   import { preloadWords } from './lib/dict';
   import { pushSupported, subscribe } from './lib/push';
   import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
@@ -42,8 +43,26 @@
 
   const gameId = $derived(route.path.match(/^\/games\/([\w-]+)$/)?.[1]);
   const joinCode = $derived(joinCodeIn(route.path));
+  // Which screen is up; changing it fades the new one in.
+  const screen = $derived(
+    !installed
+      ? 'install'
+      : session.me === undefined
+        ? 'loading'
+        : session.me === null
+          ? route.path === '/signup' ? 'signup' : 'signin'
+          : !session.me.pushReady || device.permission !== 'granted'
+            ? 'notify'
+            : gameId
+              ? `game:${gameId}`
+              : joinCode
+                ? `join:${joinCode}`
+                : route.path === '/new' ? 'new' : 'lobby',
+  );
 </script>
 
+{#key screen}
+<div in:show={{ duration: 180 }}>
 {#if !installed}
   <Install />
 {:else if session.me === undefined}
@@ -61,3 +80,5 @@
 {:else}
   <Lobby />
 {/if}
+</div>
+{/key}

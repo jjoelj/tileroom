@@ -8,6 +8,8 @@
   import { premiumAt, SIZE } from '../../../shared/board';
   import { VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
+  import Count from './Count.svelte';
+  import { pop, show } from './motion';
 
   let {
     board,
@@ -15,6 +17,7 @@
     lastTurn,
     outlines,
     bubble,
+    quiet,
     zoomed = $bindable(false),
     onCell,
     onPendingDown,
@@ -26,6 +29,8 @@
     /** Words to outline in lime (only when the whole move is valid). */
     outlines: FormedWord[];
     bubble: { r: number; c: number; score: number; valid: boolean } | null;
+    /** Tiles appear and leave instantly: a drag is already showing the movement. */
+    quiet: boolean;
     zoomed?: boolean;
     onCell: (r: number, c: number) => void;
     /** Pointer down on a placed-this-turn tile: the parent may start dragging it. */
@@ -54,13 +59,17 @@
         pending: !!p,
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
-        state: p ? 'tile-face pending' : t ? `tile-face${t.turn === lastTurn ? ' last' : ''}` : `empty p-${prem === '*' ? 'star' : prem}`,
+        square: `p-${prem === '*' ? 'star' : prem}`,
+        piece: p ? 'pending' : t && t.turn === lastTurn ? 'last' : '',
         label: `${COLS[c]}${r + 1}${tile ? `, ${tile.letter}${tile.blank ? ' (blank)' : ''}` : NAME[prem] ? `, ${NAME[prem]}` : ''}${p ? ', placed this turn' : ''}`,
       };
     });
   });
 
   const pos = (r: number, c: number) => `left: calc(${c} * (var(--cs) + 1px)); top: calc(${r} * (var(--cs) + 1px));`;
+  // On the anchor tile's bottom-right corner, but kept inside the board on the last row/column.
+  const bubblePos = (r: number, c: number) =>
+    `left: min(calc(${c + 1} * (var(--cs) + 1px)), calc(100% - 16px)); top: min(calc(${r + 1} * (var(--cs) + 1px)), calc(100% - 12px));`;
 
   // ---- zoom and pan: a CSS transform on the grid; the viewport clips it (SPEC §9.2) ----
   let viewport: HTMLDivElement;
@@ -229,18 +238,19 @@
   <div class="board" class:easing bind:this={grid} role="grid" aria-label="Game board" style="transform: translate({tx}px, {ty}px) scale({s})">
     {#each cells as cell (cell.i)}
       <button
-        class="cell {cell.state}"
+        class="cell {cell.square}"
         aria-label={cell.label}
         data-pending={cell.pending ? '' : undefined}
         data-r={cell.r}
         data-c={cell.c}
         onclick={() => onCell(cell.r, cell.c)}
       >
+        <span class="lab" aria-hidden="true">{LABEL[cell.prem]}</span>
         {#if cell.letter}
-          <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
-          {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}
-        {:else}
-          <span class="lab">{LABEL[cell.prem]}</span>
+          <span class="piece tile-face {cell.piece}" in:pop={{ quiet }} out:pop={{ quiet, duration: 140 }}>
+            <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
+            {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}
+          </span>
         {/if}
       </button>
     {/each}
@@ -249,13 +259,14 @@
       <div
         class="outline"
         aria-hidden="true"
+        transition:show={{ duration: 140 }}
         style="{pos(w.r, w.c)} width: calc({w.dir === 'across' ? w.length : 1} * (var(--cs) + 1px) - 1px); height: calc({w.dir === 'down' ? w.length : 1} * (var(--cs) + 1px) - 1px);"
       ></div>
     {/each}
 
     {#if bubble}
-      <div class="bubble" class:valid={bubble.valid} aria-label="Score if played: {bubble.score}" style={pos(bubble.r + 1, bubble.c + 1)}>
-        {bubble.score}
+      <div class="bubble" class:valid={bubble.valid} aria-label="Score if played: {bubble.score}" style={bubblePos(bubble.r, bubble.c)} transition:pop>
+        <Count value={bubble.score} />
       </div>
     {/if}
   </div>
@@ -281,14 +292,19 @@
   .p-D { background: var(--dw-bg); color: var(--dw-fg); }
   .p-T { background: var(--tw-bg); color: var(--tw-fg); }
   .p-star .lab { font-size: calc(var(--cs) * 0.5); }
-  .cell.tile-face { background: linear-gradient(180deg, var(--tile-top), var(--tile) 55%); color: var(--tile-fg); border-radius: calc(var(--cs) * 0.16); }
-  .cell.last { background: linear-gradient(180deg, var(--tile-top), var(--tile-last) 55%); }
-  .last::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--p4-bg); }
-  .cell.pending { background: var(--tile-pending); box-shadow: inset 0 0 0 2px var(--link), 0 1px 2px rgba(0, 0, 0, 0.25); z-index: 1; cursor: grab; }
-  .ch { font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
+  /* A tile is its own layer over the square, so it can animate in and out. */
+  .piece { position: absolute; inset: 0; border-radius: calc(var(--cs) * 0.16); z-index: 1; transition: box-shadow 300ms; }
+  /* last move: a warm wash and a dot that fade in and out */
+  .piece::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--tile-last); opacity: 0; transition: opacity 400ms; }
+  .piece::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--p4-bg); opacity: 0; transition: opacity 400ms; }
+  .piece.last::before { opacity: 0.6; }
+  .piece.last::after { opacity: 1; }
+  /* placed this turn: a blue ring that fades away once the move is played */
+  .piece.pending { box-shadow: inset 0 0 0 2px var(--link), 0 1px 2px rgba(0, 0, 0, 0.25); cursor: grab; }
+  .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
-  .outline { position: absolute; box-sizing: border-box; border: 3px solid var(--valid); border-radius: 6px; z-index: 2; pointer-events: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
-  .bubble { position: absolute; transform: translate(-60%, -60%); min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
+  .outline { transition: left 150ms, top 150ms, width 150ms, height 150ms; position: absolute; box-sizing: border-box; border: 3px solid var(--valid); border-radius: 6px; z-index: 2; pointer-events: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
+  .bubble { transition: left 150ms, top 150ms, background-color 200ms; position: absolute; transform: translate(-60%, -60%); min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--bubble-idle); color: #16161a; border: 2px solid #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 3; box-shadow: 0 2px 6px var(--shadow); pointer-events: none; }
   .bubble.valid { background: var(--valid); }
 </style>

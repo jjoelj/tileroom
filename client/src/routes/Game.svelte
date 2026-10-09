@@ -8,6 +8,8 @@
   import type { GameView, PublicMove } from '../../../shared/types';
   import { api, ApiError } from '../lib/api';
   import Board, { type PendingTile } from '../lib/Board.svelte';
+  import Count from '../lib/Count.svelte';
+  import { grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
   import { go, session, updates } from '../lib/state.svelte';
 
@@ -35,11 +37,14 @@
   const myTurn = $derived(view?.status === 'active' && view.currentSeat === view.mySeat);
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
+  let deal = $state(0); // bumped when the server deals a new rack, so its tiles animate in
+
   /** Applies a fresh view, keeping placed tiles while they still fit the rack and board. */
   function apply(v: GameView) {
     const rackChanged = !view || (view.myRack ?? []).join() !== (v.myRack ?? []).join();
     view = v;
     if (rackChanged) {
+      deal++;
       order = (v.myRack ?? []).map((_, i) => i);
       pending = restore(v);
       selected = null;
@@ -92,7 +97,7 @@
   type Result = { preview: Preview; invalid: string[] };
   let result = $state<Result | null>(null);
   $effect(() => {
-    const tiles = $state.snapshot(pending) as PendingTile[];
+    const tiles = $state.snapshot(onBoard) as PendingTile[];
     const v = view;
     if (!v || !tiles.length) {
       result = null;
@@ -128,6 +133,8 @@
   // ---- placing tiles: drag and drop (primary) or tap a tile, then a square (SPEC §9.2) ----
   type DragFrom = { kind: 'rack'; slot: number } | { kind: 'board'; r: number; c: number };
   let drag = $state<{ from: DragFrom; slot: number; letter: string; blank: boolean } | null>(null);
+  // Tiles on the board right now: a placed tile picked up off the board doesn't count while it's held.
+  const onBoard = $derived(drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending);
   let justDragged = false; // the click that follows a drag isn't a tap
 
   const isFree = (r: number, c: number, except?: DragFrom) =>
@@ -181,9 +188,11 @@
       const plan = (ev.type === 'pointerup' && (await planDrop(from, tile.slot, ev.clientX, ev.clientY))) || (await planHome(from, tile.slot));
       await glide(plan.rect, plan.onBoard, plan.ms);
       if (!plan.onBoard) await slideDone(tile.slot); // the ghost waits on the final spot; then swap
+      settling = true; // the ghost already showed this move: the swap itself is instant
       plan.commit?.();
       drag = null;
       landing = false;
+      requestAnimationFrame(() => (settling = false));
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', end);
@@ -191,6 +200,8 @@
   }
 
   let landing = $state(false); // the ghost takes the placed-tile look while it lands on the board
+  let settling = $state(false);
+  const hush = $derived(!!drag || settling);
   const GHOST = { w: 44, h: 48 };
 
   /** Moves and resizes the ghost onto `rect` over `ms`, resolving when it has arrived. */
@@ -400,6 +411,15 @@
   });
   const unseenTotal = $derived(unseen.reduce((sum, [, n]) => sum + n, 0));
 
+  const statusText = $derived(
+    !view
+      ? ''
+      : view.status === 'finished'
+        ? 'Game over'
+        : `${view.lastMove ? `${describe(view.lastMove)} · ` : ''}${myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}`,
+  );
+  const line = $derived(message || problem || (view?.status === 'active' ? 'Drag tiles onto the board · drag back to the rack to undo' : ''));
+
   const standings = $derived(view ? [...view.players].sort((a, b) => b.score - a.score) : []);
 </script>
 
@@ -426,7 +446,7 @@
         <span style="width: 44px"></span>
       {/if}
       {#if menuOpen}
-        <div class="card popover" role="menu">
+        <div class="card popover" role="menu" transition:grow>
           {#if myTurn}
             <button class="secondary" role="menuitem" disabled={busy} onclick={pass}>Pass this turn</button>
           {:else}
@@ -464,7 +484,7 @@
         {:else}
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
         {/if}
-        {#if message}<p class="hint" role="status">{message}</p>{/if}
+        {#if message}<p class="hint" role="status" transition:show>{message}</p>{/if}
       </section>
     {:else}
       <section class="strip" aria-label="Scores, in turn order">
@@ -472,21 +492,15 @@
           <div class="pc" class:on={view.status === 'active' && p.seat === view.currentSeat}>
             <div class="pn" style="color: var(--p{p.colorIndex % 6})">
               <span class="dot"></span>{p.seat === view.mySeat ? 'You' : p.displayName}
-              {#if view.winnerSeats?.includes(p.seat)}<svg role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
+              {#if view.winnerSeats?.includes(p.seat)}<svg in:pop role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
             </div>
-            <div class="sc">{p.score}</div>
+            <div class="sc"><Count value={p.score} /></div>
           </div>
         {/each}
       </section>
 
       <div class="status">
-        <span>
-          {#if view.status === 'finished'}
-            Game over
-          {:else}
-            {view.lastMove ? `${describe(view.lastMove)} · ` : ''}{myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}
-          {/if}
-        </span>
+        {#key statusText}<span in:show={{ y: 4 }}>{statusText}</span>{/key}
         {#if view.status === 'active'}
           <button class="bagbtn" aria-haspopup="dialog" onclick={() => (unseenOpen = true)}>
             {view.finalRoundAfter !== null ? 'Last round · ' : ''}{view.bagCount} in bag
@@ -499,7 +513,8 @@
           bind:this={boardRef}
           bind:zoomed
           board={view.board}
-          pending={drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending}
+          pending={onBoard}
+          quiet={hush}
           lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
           {outlines}
           {bubble}
@@ -511,10 +526,12 @@
         </button>
       </div>
 
-      <p class="problem" role="status">{message || problem || (view.status === 'active' ? 'Drag tiles onto the board · drag back to the rack to undo' : '')}</p>
+      <p class="problem" role="status">
+        {#key line}<span in:show={{ y: 4 }}>{line}</span>{/key}
+      </p>
 
       {#if view.status === 'finished'}
-        <section class="final">
+        <section class="final" in:show={{ y: 8 }}>
           <h2 class="h1" style="font-size: 26px">
             {view.winnerSeats?.includes(view.mySeat ?? -1) ? (view.winnerSeats.length > 1 ? 'You tied for the win!' : 'You won!') : `${nameOf(standings[0]!.seat)} won`}
           </h2>
@@ -529,13 +546,13 @@
         </section>
       {:else}
         <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
-          {#each order as slot (slot)}
+          {#each order as slot, i (`${deal}:${slot}`)}
             {@const used = pending.some((p) => p.slot === slot) || drag?.slot === slot}
             <div class="slot" data-slot={slot} animate:flip={{ duration: 180 }}>
             {#if used}
-              <span class="rk empty" aria-hidden="true"></span>
+              <span class="rk empty" aria-hidden="true" in:show={{ duration: hush ? 0 : 160 }}></span>
             {:else}
-              <button class="rk tile-face" class:sel={selected === slot} onpointerdown={(e) => pointerDrag(e, { kind: 'rack', slot })} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(VALUES[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
+              <button in:pop={{ quiet: hush, delay: i * 40 }} class="rk tile-face" class:sel={selected === slot} onpointerdown={(e) => pointerDrag(e, { kind: 'rack', slot })} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(VALUES[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
                 <span class="ch">{rack[slot] === '?' ? '' : rack[slot]}</span>
                 {#if rack[slot] !== '?'}<span class="pt">{VALUES[rack[slot]!]}</span>{/if}
               </button>
@@ -553,8 +570,8 @@
           </button>
           <button class="tool wide" disabled={!myTurn || busy || view.bagCount === 0} onclick={() => (swapOpen = true)}>Swap</button>
           <button class="playbtn" disabled={!myTurn || !allValid || busy} onclick={play}>
-            {#if allValid}<span class="ready"></span>{/if}
-            Play{preview?.ok ? ` · ${preview.score}` : ''}
+            {#if allValid}<span class="ready" transition:pop></span>{/if}
+            Play{#if preview?.ok}&nbsp;·&nbsp;<Count value={preview.score} />{/if}
           </button>
         </div>
       {/if}
@@ -569,8 +586,8 @@
   {/if}
 
   {#if blankAt}
-    <div class="sheet-bg" role="presentation" onclick={() => (blankAt = null)}></div>
-    <div class="sheet" role="dialog" aria-label="Choose a letter for the blank">
+    <div class="sheet-bg" transition:show role="presentation" onclick={() => (blankAt = null)}></div>
+    <div class="sheet" transition:rise role="dialog" aria-label="Choose a letter for the blank">
       <span class="label">Blank tile: pick a letter</span>
       <div class="letters">
         {#each 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' as l (l)}
@@ -581,8 +598,8 @@
   {/if}
 
   {#if unseenOpen}
-    <div class="sheet-bg" role="presentation" onclick={() => (unseenOpen = false)}></div>
-    <div class="sheet" role="dialog" aria-label="Unseen tiles">
+    <div class="sheet-bg" transition:show role="presentation" onclick={() => (unseenOpen = false)}></div>
+    <div class="sheet" transition:rise role="dialog" aria-label="Unseen tiles">
       <span class="label">Tiles you can't see</span>
       <span class="hint">{plural(view.bagCount, 'tile', 'tiles')} in the bag · {plural(unseenTotal - view.bagCount, 'tile', 'tiles')} on other racks</span>
       <div class="unseen">
@@ -598,8 +615,8 @@
   {/if}
 
   {#if swapOpen}
-    <div class="sheet-bg" role="presentation" onclick={() => (swapOpen = false)}></div>
-    <div class="sheet" role="dialog" aria-label="Swap tiles">
+    <div class="sheet-bg" transition:show role="presentation" onclick={() => (swapOpen = false)}></div>
+    <div class="sheet" transition:rise role="dialog" aria-label="Swap tiles">
       <span class="label">Pick tiles to swap</span>
       <div class="rack" style="padding: 8px 0">
         {#each rack as letter, i (i)}
@@ -628,7 +645,7 @@
   .title { flex-grow: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
   .title h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .title span { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .popover { position: absolute; right: 8px; top: 52px; z-index: 10; width: 220px; padding: 12px; box-shadow: 0 10px 30px var(--shadow); }
+  .popover { transform-origin: top right; position: absolute; right: 8px; top: 52px; z-index: 10; width: 220px; padding: 12px; box-shadow: 0 10px 30px var(--shadow); }
   .strip { display: flex; gap: 6px; padding: 0 8px 10px; overflow-x: auto; }
   .pc { flex: 0 0 auto; min-width: 68px; background: var(--surface); border-radius: 12px; padding: 7px 10px; display: flex; flex-direction: column; gap: 1px; }
   .pc.on { outline: 2px solid var(--p0); outline-offset: -2px; }
@@ -642,7 +659,7 @@
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
   .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
   .ghost .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
-  .ghost.landing { background: var(--tile-pending); box-shadow: inset 0 0 0 4px var(--link); }
+  .ghost.landing { box-shadow: inset 0 0 0 4px var(--link), 0 2px 4px rgba(0, 0, 0, 0.25); }
   .rk.sel { outline: 3px solid var(--p0); outline-offset: 2px; transform: translateY(-6px); }
   .rk.empty { display: block; background: transparent; border: 1.5px dashed var(--dash); box-shadow: none; }
   .rk .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }

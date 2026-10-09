@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
+  import { show } from '../lib/motion';
   import { go } from '../lib/state.svelte';
 
   let name = $state('Game night');
@@ -98,7 +99,7 @@
   </div>
 
   <div style="padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px">
-    {#if error}<p class="error" role="alert" style="margin: 0">{error}</p>{/if}
+    {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" onclick={create} disabled={busy || !name.trim()}>Create game</button>
     <div class="hint" style="text-align: center">You'll get a code to share with the other players.</div>
   </div>

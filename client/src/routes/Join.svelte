@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api';
+  import { show } from '../lib/motion';
   import { forgetJoin, go } from '../lib/state.svelte';
 
   let { code }: { code: string } = $props();
@@ -56,22 +57,22 @@
   <div style="padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 16px; flex-grow: 1">
     <span class="label">Join game · {code.toUpperCase()}</span>
     {#if game}
-      <h1 class="h1" style="font-size: 32px">{game.name}</h1>
-      <p class="lead">
+      <h1 in:show={{ y: 6 }} class="h1" style="font-size: 32px">{game.name}</h1>
+      <p class="lead" in:show={{ y: 6, delay: 40 }}>
         {game.hostName ? `${game.hostName} invited you.` : ''}
         {game.players.length} of {game.seatCount} seats filled: {game.players.join(', ')}.
       </p>
       {#if game.status !== 'lobby'}
-        <p class="error">This game has already started.</p>
+        <p class="error" in:show>This game has already started.</p>
       {:else if full}
-        <p class="error">This game is full.</p>
+        <p class="error" in:show>This game is full.</p>
       {/if}
     {/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert" transition:show>{error}</p>{/if}
 
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
       {#if game && game.status === 'lobby' && !full}
-        <button class="primary" disabled={busy} onclick={join}>Join game</button>
+        <button class="primary" in:show disabled={busy} onclick={join}>Join game</button>
       {/if}
       <button class="secondary" onclick={back}>Back to games</button>
     </div>

@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { api, ApiError } from '../lib/api';
+  import { show } from '../lib/motion';
   import { go, home, type Me, session } from '../lib/state.svelte';
 
   type Check = { valid: boolean; invitedBy: string | null };
@@ -72,9 +73,9 @@
         spellcheck="false"
       />
       {#if invite?.valid}
-        <span class="good">Valid invite{invite.invitedBy ? ` from ${invite.invitedBy}` : ''}</span>
+        <span class="good" transition:show>Valid invite{invite.invitedBy ? ` from ${invite.invitedBy}` : ''}</span>
       {:else if invite}
-        <span class="error">This code isn't valid or was already used</span>
+        <span class="error" transition:show>This code isn't valid or was already used</span>
       {/if}
     </div>
 
@@ -98,12 +99,12 @@
         <label for="cp" class="label">Confirm password</label>
         <input id="cp" class="field" type="password" bind:value={confirm} autocomplete="new-password" />
         {#if confirm}
-          <span class={matches ? 'good' : 'error'}>{matches ? 'Passwords match' : "Passwords don't match"}</span>
+          <span class={matches ? 'good' : 'error'} transition:show>{matches ? 'Passwords match' : "Passwords don't match"}</span>
         {/if}
       </div>
     </fieldset>
 
-    {#if error}<p class="error" role="alert" style="margin: 0">{error}</p>{/if}
+    {#if error}<p class="error" role="alert" transition:show style="margin: 0">{error}</p>{/if}
     <button class="primary" type="submit" disabled={!ready || busy} style="margin-top: auto">Create account</button>
   </form>
 </main>
