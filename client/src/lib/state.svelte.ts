@@ -34,6 +34,8 @@ export function go(path: string) {
 // An invite link (/join/CODE for a game, /groups/join/CODE for a group) survives install, sign-in and sign-up
 // (sessionStorage is per tab and per installed app).
 const JOIN_KEY = 'tileroom:join';
+/** An account invite link (/signup/CODE). Like join links, it can't reach into an installed app, so Install shows the code. */
+export const signupCodeIn = (path: string) => path.match(/^\/signup\/([\w-]+)$/)?.[1];
 export const joinCodeIn = (path: string) => path.match(/^\/join\/([\w-]+)$/)?.[1];
 /** The invite in a path, if it is one: which kind, and its code. */
 export const inviteIn = (path: string) => {

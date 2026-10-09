@@ -67,7 +67,7 @@
       : session.me === undefined
         ? 'loading'
         : session.me === null
-          ? route.path === '/signup' ? 'signup' : 'signin'
+          ? route.path.startsWith('/signup') ? 'signup' : 'signin'
           : !session.me.pushReady || device.permission !== 'granted'
             ? 'notify'
             : gameId
@@ -89,7 +89,7 @@
 {:else if session.me === undefined}
   <div class="screen" aria-busy="true"></div>
 {:else if session.me === null}
-  {#if route.path === '/signup'}<SignUp />{:else}<SignIn />{/if}
+  {#if route.path.startsWith('/signup')}<SignUp />{:else}<SignIn />{/if}
 {:else if !session.me.pushReady || device.permission !== 'granted'}
   <Notify />
 {:else if gameId}

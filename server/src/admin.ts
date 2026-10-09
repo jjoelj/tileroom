@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Admin tools. Admins make as many invites as they like and see who used each one. No game visibility (SPEC §6.1).
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { z } from 'zod';
@@ -26,6 +26,7 @@ export const adminRoutes = new Hono<AppEnv>()
   .get('/admin/invites', (c) => {
     const rows = db
       .select({
+        id: invites.codeHash, // admins only; the code itself is never stored
         hint: invites.codeHint,
         note: invites.note,
         createdAt: invites.createdAt,
@@ -40,4 +41,16 @@ export const adminRoutes = new Hono<AppEnv>()
       .orderBy(desc(invites.createdAt))
       .all();
     return c.json({ invites: rows.map((r) => ({ ...r, usedBy: r.usedBy?.username ? r.usedBy : null })) });
+  })
+
+  .delete('/admin/invites/:id', (c) => {
+    // Only while unused: the same condition signup consumes it with, so the two can't both win.
+    const done = db
+      .update(invites)
+      .set({ revokedAt: Date.now() })
+      .where(and(eq(invites.codeHash, c.req.param('id')), isNull(invites.usedBy), isNull(invites.revokedAt)))
+      .returning({ id: invites.codeHash })
+      .all();
+    if (done.length !== 1) throw new ApiError(409, 'not_revocable', 'That invite was already used or revoked');
+    return c.json({ ok: true });
   });

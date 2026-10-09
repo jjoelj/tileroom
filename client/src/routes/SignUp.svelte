@@ -3,11 +3,11 @@
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
-  import { go, home, type Me, session } from '../lib/state.svelte';
+  import { go, home, type Me, route, session, signupCodeIn } from '../lib/state.svelte';
 
   type Check = { valid: boolean; invitedBy: string | null };
 
-  let inviteCode = $state('');
+  let inviteCode = $state(signupCodeIn(route.path)?.toUpperCase() ?? ''); // from an invite link
   let username = $state('');
   let displayName = $state('');
   let password = $state('');

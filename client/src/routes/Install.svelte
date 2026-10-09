@@ -1,18 +1,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- ponytail: generic steps; the per-platform install gate is milestone 7 -->
 <script lang="ts">
-  import { inviteIn, route } from '../lib/state.svelte';
+  import { inviteIn, route, signupCodeIn } from '../lib/state.svelte';
 
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
   // A link can't carry data into the installed app (SPEC §9.6), so show the code to type in there.
   const invite = inviteIn(route.path);
+  const account = signupCodeIn(route.path)?.toUpperCase();
   const code = invite?.code.toUpperCase();
 </script>
 
 <main class="screen">
   <div style="padding-top: 64px; display: flex; flex-direction: column; gap: 16px">
     <div class="brand" aria-hidden="true"><span>T</span><span>R</span></div>
-    {#if code}
+    {#if account}
+      <span class="label">You're invited to Tileroom</span>
+      <div style="font-family: var(--display); font-weight: 800; font-size: 30px; letter-spacing: 0.06em; overflow-wrap: anywhere">{account}</div>
+      <p class="lead"><b>Install Tileroom, then choose "Have an invite code?"</b> and enter this code.</p>
+    {:else if code}
       <span class="label">You're invited to a {invite?.kind}</span>
       <div style="font-family: var(--display); font-weight: 800; font-size: 44px; letter-spacing: 0.08em">{code}</div>
       <p class="lead"><b>Install Tileroom, then enter this code</b> with "Join game or group".</p>
