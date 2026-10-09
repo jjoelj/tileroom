@@ -182,9 +182,7 @@ describe('game end', () => {
   });
 
   test('ties share the win', () => {
-    const s = game(['A', 'B', 'C']);
-    s.players.forEach((p, i) => (p.score = i === 1 ? 5 : 10));
-    expect(winnerSeats(s)).toEqual([0, 2]);
+    expect(winnerSeats([10, 5, 10])).toEqual([0, 2]);
   });
 });
 

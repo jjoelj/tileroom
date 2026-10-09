@@ -6,7 +6,8 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
+    "esModuleInterop": true,
     "types": ["bun"]
   },
-  "include": ["shared"]
+  "include": ["shared", "server", "drizzle.config.ts"]
 }

@@ -1,0 +1,4 @@
+{
+  "files": { "includes": ["shared/**", "server/**", "!server/drizzle"] },
+  "linter": { "rules": { "recommended": true, "style": { "noNonNullAssertion": "off" } } }
+}

@@ -5,12 +5,27 @@
   "license": "AGPL-3.0-or-later",
   "packageManager": "bun@1.4.2",
   "scripts": {
+    "dev": "bun --watch server/src/index.ts",
+    "start": "bun server/src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun server/src/db/migrate.ts",
+    "cli": "bun server/src/cli.ts"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@types/bun": "1.4.2",
+    "@types/web-push": "3.6.4",
+    "drizzle-kit": "0.31.11",
     "fast-check": "4.10.2",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.13",
+    "web-push": "3.6.7",
+    "zod": "4.6.5"
   }
 }

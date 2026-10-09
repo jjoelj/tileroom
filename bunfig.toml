@@ -1,2 +1,5 @@
 [test]
-coverageThreshold = 0.95
+preload = ["./server/test-setup.ts"]
+# Line coverage per file. Function counts are skewed by Drizzle's column lambdas, so they aren't gated.
+coverageThreshold = { lines = 0.95, functions = 0 }
+coveragePathIgnorePatterns = ["server/test-setup.ts", "server/src/test-utils.ts"]

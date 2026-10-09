@@ -64,7 +64,10 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
   for (const t of tiles) {
     for (const [dir, wr, wc] of DIRS) {
       let r = t.r, c = t.c;
-      while (letterAt(r - wr, c - wc)) (r -= wr), (c -= wc);
+      while (letterAt(r - wr, c - wc)) {
+        r -= wr;
+        c -= wc;
+      }
       const key = `${dir}${r},${c}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -126,12 +129,18 @@ function takeFromRack(rack: string[], letters: string[]) {
  * the seat that emptied the bag gets one more turn, and empty racks are skipped during the final round.
  */
 function advance(s: GameState, seat: number, finalRoundJustStarted: boolean) {
-  if (s.finalRoundAfter === seat && !finalRoundJustStarted) return void (s.status = 'finished');
+  if (s.finalRoundAfter === seat && !finalRoundJustStarted) {
+    s.status = 'finished';
+    return;
+  }
   const n = s.players.length;
   for (let i = 1; i <= n; i++) {
     const next = (seat + i) % n;
     const p = s.players[next]!;
-    if (s.finalRoundAfter === null || p.rack.length > 0) return void (s.currentSeat = next);
+    if (s.finalRoundAfter === null || p.rack.length > 0) {
+      s.currentSeat = next;
+      return;
+    }
     if (next === s.finalRoundAfter) break; // their last turn is skipped, so the round is over
   }
   s.status = 'finished';
@@ -183,9 +192,9 @@ export function applyMove(state: GameState, seat: number, move: Move, isWord: Is
 }
 
 /** Highest score wins; ties share the win. */
-export function winnerSeats(s: GameState) {
-  const best = Math.max(...s.players.map((p) => p.score));
-  return s.players.flatMap((p, seat) => (p.score === best ? [seat] : []));
+export function winnerSeats(scores: number[]) {
+  const best = Math.max(...scores);
+  return scores.flatMap((score, seat) => (score === best ? [seat] : []));
 }
 
 /** A turn left untaken this long voids the whole game (SPEC §4.8). */

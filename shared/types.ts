@@ -47,3 +47,42 @@ export type MoveRecord = {
 
 /** Returns a uniform integer in [0, max). The server passes `crypto.randomInt`. */
 export type RandomInt = (max: number) => number;
+
+// ---- Wire types (SPEC §6). Built only by server/src/view.ts. ----
+
+export type PublicMove =
+  | { seat: number; turn: number; type: 'play'; tiles: Required<Placement>[]; words: WordScore[]; score: number }
+  | { seat: number; turn: number; type: 'swap'; count: number }
+  | { seat: number; turn: number; type: 'pass' };
+
+/** A move in the log; `private` is present only on the requester's own moves. */
+export type LogMove = PublicMove & { private?: MoveRecord['private'] };
+
+export type GameView = {
+  id: string;
+  name: string;
+  status: 'lobby' | 'active' | 'finished';
+  hostUserId: string;
+  /** Only while in the lobby, for sharing. */
+  joinCode: string | null;
+  seatCount: number;
+  bagSize: 100 | 150;
+  turnNumber: number;
+  currentSeat: number;
+  /** When the current turn began; the game is voided 7 days later (SPEC §4.8). */
+  turnStartedAt: number | null;
+  bagCount: number;
+  board: (BoardTile | null)[][];
+  players: { seat: number; userId: string; displayName: string; colorIndex: number; score: number; rackCount: number }[];
+  role: 'player' | 'spectator';
+  mySeat: number | null;
+  myRack: string[] | null;
+  spectatorRacks: { seat: number; rack: string[] }[] | null;
+  spectatorsSeeRacks: boolean;
+  watching: { userId: string; displayName: string }[];
+  houseWords: { add: string[]; ban: string[] };
+  lastMove: PublicMove | null;
+  finalRoundAfter: number | null;
+  finalRacks?: { seat: number; rack: string[] }[];
+  winnerSeats?: number[];
+};
