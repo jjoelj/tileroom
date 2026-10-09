@@ -61,10 +61,15 @@ const load = (name: 'words' | 'abbreviations') =>
   (lists[name] ??= parseWordList(readFileSync(new URL(`../../wordlists/${name}.txt`, import.meta.url), 'utf8')));
 
 /** Makes a single-use invite and returns its code, the only time it exists in the clear (only the hash is stored). */
-export function createInvite(q: Q, createdBy: string | null, note?: string) {
-  const code = newInviteCode();
-  const normalized = normalizeCode(code);
-  q.insert(invites).values({ codeHash: sha256(normalized), codeHint: normalized.slice(-4), createdBy, note }).run();
+export function createInvite(q: Q, createdBy: string | null, note?: string, newCode = newInviteCode) {
+  // Never reissue a code that exists (unused, or used: those rows are the record of who joined).
+  let code: string;
+  let hash: string;
+  do {
+    code = newCode();
+    hash = sha256(normalizeCode(code));
+  } while (q.select({ h: invites.codeHash }).from(invites).where(eq(invites.codeHash, hash)).get());
+  q.insert(invites).values({ codeHash: hash, codeHint: normalizeCode(code).slice(-4), createdBy, note }).run();
   return code;
 }
 

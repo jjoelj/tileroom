@@ -89,7 +89,7 @@ export const checkOrigin: MiddlewareHandler = async (c, next) => {
 };
 
 const usableInvite = (codeHash: string, now: number) =>
-  and(eq(invites.codeHash, codeHash), isNull(invites.usedBy), isNull(invites.revokedAt), or(isNull(invites.expiresAt), gt(invites.expiresAt, now)));
+  and(eq(invites.codeHash, codeHash), isNull(invites.usedBy), or(isNull(invites.expiresAt), gt(invites.expiresAt, now)));
 
 let dummyHash: Promise<string> | undefined;
 

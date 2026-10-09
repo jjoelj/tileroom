@@ -34,7 +34,7 @@ describe('signup', () => {
   test('unknown, revoked or expired codes create nothing', async () => {
     expect((await signup('AAAA-BBBB-CCCC', 'nobody1')).json.error).toBe('invite_invalid');
     const revoked = makeInvite();
-    db.update(invites).set({ revokedAt: Date.now() }).where(eq(invites.codeHint, revoked.slice(-4))).run();
+    db.delete(invites).where(eq(invites.codeHint, revoked.slice(-4))).run(); // revoking deletes it
     const expired = makeInvite();
     db.update(invites).set({ expiresAt: Date.now() - 1 }).where(eq(invites.codeHint, expired.slice(-4))).run();
     expect((await signup(revoked, 'nobody2')).json.error).toBe('invite_invalid');

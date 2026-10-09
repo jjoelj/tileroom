@@ -36,6 +36,13 @@
       "when": 1791533557538,
       "tag": "0004_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791584788883,
+      "tag": "0005_drop_invite_revoked",
+      "breakpoints": true
     }
   ]
 }

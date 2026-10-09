@@ -2,11 +2,10 @@
 import { spyOn } from 'bun:test';
 import webpush from 'web-push';
 import { app } from './app';
-import { newInviteCode, normalizeCode, sha256 } from './codes';
-import { invites } from './db/schema';
 import { resetRateLimits } from './http';
 import type { PushPayload } from './push';
 import { db } from './runtime/db';
+import { createInvite } from './store';
 
 export const ORIGIN = 'https://tileroom.test';
 
@@ -30,11 +29,7 @@ export async function call(path: string, { method = 'GET', body, cookie, origin 
   return { status: res.status, json: await res.json().catch(() => null), cookie: setCookie };
 }
 
-export function makeInvite() {
-  const code = newInviteCode();
-  db.insert(invites).values({ codeHash: sha256(normalizeCode(code)), codeHint: code.slice(-4) }).run();
-  return code;
-}
+export const makeInvite = () => createInvite(db, null);
 
 export const PASSWORD = 'correct horse battery';
 

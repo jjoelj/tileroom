@@ -3,7 +3,8 @@ import { expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { users } from './db/schema';
 import { db } from './runtime/db';
-import { call, newUser, PASSWORD } from './test-utils';
+import { createInvite } from './store';
+import { call, makeInvite, newUser, PASSWORD } from './test-utils';
 
 test('admins make unlimited invites and see who used each; others get 403', async () => {
   const [admin, member] = [await newUser(), await newUser()];
@@ -36,4 +37,11 @@ test('admins make unlimited invites and see who used each; others get 403', asyn
   expect((await call('/admin/invites', { cookie: admin.cookie })).json.invites.some((i: { id: string }) => i.id === unused.id)).toBe(false);
   const late = await call('/auth/signup', { method: 'POST', body: { inviteCode: codes[1], username: `ben_${Date.now() % 1e6}`, password: PASSWORD, displayName: 'Ben' } });
   expect(late.json.error).toBe('invite_invalid');
+});
+
+test('a new invite never reuses an existing code', () => {
+  const taken = makeInvite();
+  const fresh = 'ZZZZ-ZZZZ-ZZZ2';
+  const codes = [taken, taken, fresh];
+  expect(createInvite(db, null, undefined, () => codes.shift()!)).toBe(fresh);
 });
