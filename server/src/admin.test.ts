@@ -64,4 +64,12 @@ test('admins see every group, its members and its game counts; nothing about the
   expect(mine.games).toEqual({ lobby: 1, active: 1, finished: 0 });
   expect(JSON.stringify(mine)).not.toMatch(/rack|board|bag|joinCode/);
   expect((await call(`/games/${game.id}`, { cookie: admin.cookie })).status).toBe(404); // still no game visibility
+
+  // games outside groups: counts, and the players of each one still going
+  const solo = (await call('/games', { method: 'POST', cookie: outsider.cookie, body: { bagSize: 100, randomOrder: false } })).json;
+  const { ungrouped } = (await call('/admin/groups', { cookie: admin.cookie })).json;
+  expect(ungrouped.counts.lobby).toBeGreaterThanOrEqual(1);
+  const row = ungrouped.going.find((g: { id: string }) => g.id === solo.id);
+  expect(row).toMatchObject({ status: 'lobby', players: [expect.any(String)] });
+  expect(JSON.stringify(ungrouped)).not.toMatch(/rack|board|bag|joinCode/);
 });

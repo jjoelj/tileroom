@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Admin tools. Admins make as many invites as they like and see who used each one, and see every group with its
 // members and how many games it has. Counts only: no boards, racks or moves (no game visibility, SPEC §6.1).
-import { and, asc, count, desc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNotNull, isNull, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { AppEnv } from './auth';
-import { games, groupMembers, groups, invites, users } from './db/schema';
+import { gamePlayers, games, groupMembers, groups, invites, users } from './db/schema';
 import { ApiError } from './http';
 import { db } from './runtime/db';
 import { createInvite } from './store';
@@ -16,6 +16,27 @@ export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
 };
 
 const creator = alias(users, 'creator');
+
+/** Games outside any group: counts, and who's in each one still going (not finished). Players only, nothing else. */
+function ungrouped() {
+  const byStatus = db.select({ status: games.status, n: count() }).from(games).where(isNull(games.groupId)).groupBy(games.status).all();
+  const seats = db
+    .select({ gameId: games.id, status: games.status, createdAt: games.createdAt, displayName: users.displayName })
+    .from(games)
+    .innerJoin(gamePlayers, eq(gamePlayers.gameId, games.id))
+    .innerJoin(users, eq(users.id, gamePlayers.userId))
+    .where(and(isNull(games.groupId), ne(games.status, 'finished')))
+    .orderBy(desc(games.createdAt), asc(gamePlayers.seat))
+    .all();
+  const going = new Map<string, { id: string; status: string; createdAt: number; players: string[] }>();
+  for (const s of seats) {
+    const g = going.get(s.gameId) ?? { id: s.gameId, status: s.status, createdAt: s.createdAt, players: [] };
+    g.players.push(s.displayName);
+    going.set(s.gameId, g);
+  }
+  const n = (status: string) => byStatus.find((t) => t.status === status)?.n ?? 0;
+  return { counts: { lobby: n('lobby'), active: n('active'), finished: n('finished') }, going: [...going.values()] };
+}
 
 export const adminRoutes = new Hono<AppEnv>()
   .post('/admin/invites', (c) => c.json({ code: createInvite(db, c.var.user.id) }, 201))
@@ -58,6 +79,7 @@ export const adminRoutes = new Hono<AppEnv>()
         members: members.filter((m) => m.groupId === g.id).map(({ groupId, ...m }) => m),
         games: Object.fromEntries((['lobby', 'active', 'finished'] as const).map((s) => [s, tallies.find((t) => t.groupId === g.id && t.status === s)?.n ?? 0])),
       })),
+      ungrouped: ungrouped(),
     });
   })
 

@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Admins only (Settings > Admin): invites, and every group with its members and game counts. Counts, not games. -->
+<!-- Admins only (Settings > Admin): invites, every group with its members and game counts, and games outside groups
+     (counts, and who's in the ones still going). Never boards, racks or moves. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { plural } from '../../../shared/plural';
@@ -17,13 +18,15 @@
     games: { lobby: number; active: number; finished: number };
   };
   let invites = $state<Invite[]>([]);
+  type Ungrouped = { counts: Group['games']; going: { id: string; status: 'lobby' | 'active'; createdAt: number; players: string[] }[] };
   let groups = $state<Group[] | null>(null);
+  let ungrouped = $state<Ungrouped | null>(null);
   let fresh = $state(''); // the code just made: shown once, only its hash is stored
 
   const loadInvites = () => api<{ invites: Invite[] }>('/admin/invites').then((r) => (invites = r.invites), () => {});
   onMount(() => {
     void loadInvites();
-    void api<{ groups: Group[] }>('/admin/groups').then((r) => (groups = r.groups), sayError);
+    void api<{ groups: Group[]; ungrouped: Ungrouped }>('/admin/groups').then((r) => ((groups = r.groups), (ungrouped = r.ungrouped)), sayError);
   });
 
   async function makeInvite() {
@@ -99,6 +102,20 @@
         </ul>
       </div>
     {/each}
+
+    {#if ungrouped}
+      <span class="label" style="margin-top: 22px">Games without a group</span>
+      <div class="card group">
+        <span class="hint">{tally(ungrouped.counts)}</span>
+        {#if ungrouped.going.length}
+          <ul>
+            {#each ungrouped.going as g (g.id)}
+              <li>{g.players.join(', ')} <span class="hint">{g.status === 'active' ? 'playing' : 'waiting for players'} · since {day(g.createdAt)}</span></li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
   </div>
 </main>
 
