@@ -3,7 +3,7 @@
   import { onMount, tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { plural } from '../../../shared/plural';
-  import { previewPlay } from '../../../shared/rules';
+  import { type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
   import { api, ApiError } from '../lib/api';
@@ -29,7 +29,6 @@
   let ghost = $state<HTMLDivElement>();
   let busy = $state(false);
   let message = $state('');
-  let invalid = $state<string[] | null>(null);
 
   const storeKey = $derived(`tileroom:pending:${id}`);
   const rack = $derived(view?.myRack ?? []);
@@ -88,27 +87,32 @@
   });
 
   // ---- live preview (SPEC §9.2) ----
-  // The preview (and its word lookups) runs two frames after a change, so placing a tile only costs the swap.
-  let settled = $state<PendingTile[]>([]);
+  // Geometry, score and word lookups are computed together, two frames after a change (so placing a tile only
+  // costs the swap), and replace the previous result in one step: the bubble and message never blank or flicker.
+  type Result = { preview: Preview; invalid: string[] };
+  let result = $state<Result | null>(null);
   $effect(() => {
-    const snap = $state.snapshot(pending) as PendingTile[];
+    const tiles = $state.snapshot(pending) as PendingTile[];
+    const v = view;
+    if (!v || !tiles.length) {
+      result = null;
+      return;
+    }
+    let live = true;
     let id = requestAnimationFrame(() => {
-      id = requestAnimationFrame(() => (settled = snap));
+      id = requestAnimationFrame(async () => {
+        const p = previewPlay(v.board, tiles, () => true);
+        const bad = p.ok ? await invalidWords(p.words.map((w) => w.word), v.expandedWords) : [];
+        if (live) result = { preview: p, invalid: bad };
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      live = false;
+      cancelAnimationFrame(id);
+    };
   });
-  const preview = $derived(view && pending.length && settled.length === pending.length ? previewPlay(view.board, settled, () => true) : null);
-  $effect(() => {
-    const p = preview;
-    invalid = null;
-    if (!p?.ok || !view) return;
-    invalidWords(
-      p.words.map((w) => w.word),
-      view.expandedWords,
-    ).then((bad) => {
-      if (preview === p) invalid = bad;
-    });
-  });
+  const preview = $derived(result?.preview ?? null);
+  const invalid = $derived(result?.invalid ?? null);
   const allValid = $derived(!!preview?.ok && invalid !== null && invalid.length === 0);
   // Lime outlines only when the whole move is valid; one bad word means none at all.
   const outlines = $derived(allValid && preview?.ok ? preview.words : []);
