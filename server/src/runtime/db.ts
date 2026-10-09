@@ -17,3 +17,6 @@ export type Db = typeof db;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 export const migrate = () => runMigrations(db, { migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)) });
+
+/** A consistent copy of the live database, safe while the app is writing (SQLite's VACUUM INTO). */
+export const vacuumInto = (file: string) => sqlite.prepare('VACUUM INTO ?').run(file);

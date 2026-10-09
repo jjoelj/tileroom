@@ -57,5 +57,15 @@ Staging follows `master`; production follows the newest `v*` tag. `crontab -e`:
 */5 * * * * $HOME/docker-apps/tileroom/deploy/deploy.sh prod >> $HOME/tileroom-deploy.log 2>&1
 ```
 
+Nightly backups of the production database (a consistent copy, safe while the app runs; the last 14 days are kept
+in `server/data/backups/`):
+
+```cron
+0 3 * * * cd $HOME/docker-apps/tileroom && docker compose exec -T tileroom bun server/src/cli.ts backup >> $HOME/tileroom-backup.log 2>&1
+```
+
+To restore: `docker compose stop`, then `sudo cp server/data/backups/tileroom-<date>.db server/data/tileroom.db`,
+`sudo rm -f server/data/tileroom.db-wal server/data/tileroom.db-shm`, and `docker compose up -d`.
+
 Release: `git tag vx.y.z && git push origin --tags`. Never move production off `tileroom.org`:
 installed PWAs are tied to the origin.

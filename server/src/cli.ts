@@ -9,6 +9,8 @@ import { ApiError } from './http';
 import { db, migrate } from './runtime/db';
 import { hashPassword } from './runtime/hash';
 import { createInvite } from './store';
+import { backup } from './backup';
+import { fileURLToPath } from 'node:url';
 
 const piped = process.stdin.isTTY ? undefined : createInterface({ input: process.stdin })[Symbol.asyncIterator]();
 
@@ -61,7 +63,8 @@ migrate();
 try {
   if (command === 'create-admin') await createAdmin(arg);
   else if (command === 'create-invite') console.log(createInvite(db, null, arg)); // shown once
-  else throw new Error('Commands: create-admin <username>, create-invite [note]');
+  else if (command === 'backup') console.log(backup(fileURLToPath(new URL('../data/backups/', import.meta.url))));
+  else throw new Error('Commands: create-admin <username>, create-invite [note], backup');
 } catch (e) {
   console.error(e instanceof ApiError ? e.message : (e as Error).message);
   process.exitCode = 1;
