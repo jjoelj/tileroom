@@ -80,6 +80,7 @@ test('members with the group open hear about changes live; outsiders hear nothin
   const outsider = await newUser();
   const a = listen(members[0]!, `group:${id}`);
   const spy = listen(outsider, `group:${id}`);
+  a.got.length = 0; // subscribing nudges a refetch; count from here
   await call(`/groups/join/${code}`, { method: 'POST', cookie: (await newUser()).cookie });
   expect(a.got).toEqual([{ t: 'group' }]);
   expect(spy.got).toEqual([]);
