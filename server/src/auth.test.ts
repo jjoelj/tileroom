@@ -145,6 +145,21 @@ describe('guards', () => {
     expect(to(laptopEndpoint)).toHaveLength(2);
   });
 
+  test('change password: needs the current one, signs out other devices, keeps this one', async () => {
+    const u = await newUser();
+    const other = (await call('/auth/login', { method: 'POST', body: { username: u.username, password: PASSWORD } })).cookie;
+    const change = (current: string, password: string) => call('/me/password', { method: 'POST', cookie: u.cookie, body: { current, password } });
+    expect((await change('not my password', 'brand new secret 42')).json.error).toBe('wrong_password');
+    expect((await change(PASSWORD, 'short')).status).toBe(400);
+    expect((await change(PASSWORD, '1234567890')).json.error).toBe('weak_password');
+    expect((await change(PASSWORD, 'brand new secret 42')).status).toBe(200);
+    expect((await call('/me', { cookie: u.cookie })).status).toBe(200);
+    expect((await call('/me', { cookie: other })).status).toBe(401);
+    resetRateLimits();
+    expect((await call('/auth/login', { method: 'POST', body: { username: u.username, password: PASSWORD } })).status).toBe(401);
+    expect((await call('/auth/login', { method: 'POST', body: { username: u.username, password: 'brand new secret 42' } })).status).toBe(200);
+  });
+
   test('settings: turn reminders can be switched off', async () => {
     const u = await newUser();
     await call('/me/settings', { method: 'PATCH', cookie: u.cookie, body: { remindTurn: false } });

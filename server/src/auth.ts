@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from 'node:fs';
-import { and, eq, gt, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne, or } from 'drizzle-orm';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { parse } from 'hono/utils/cookie';
@@ -177,6 +177,21 @@ export const auth = new Hono<AppEnv>()
       remindTurn: u.remindTurn,
       pushReady: c.var.session.pushSubId !== null,
     });
+  })
+
+  .post('/me/password', async (c) => {
+    const u = c.var.user;
+    rateLimit(`password:${u.id}`, 5);
+    const b = await body(c, z.object({ current: z.string().max(128), password: Password }));
+    if (!(await verifyPassword(b.current, u.passwordHash))) throw new ApiError(400, 'wrong_password', "That isn't your current password");
+    checkPassword(b.password, u.username);
+    const passwordHash = await hashPassword(b.password);
+    db.transaction((tx) => {
+      tx.update(users).set({ passwordHash }).where(eq(users.id, u.id)).run();
+      // Other devices sign out (the usual reason to change it); this one stays signed in.
+      tx.delete(sessions).where(and(eq(sessions.userId, u.id), ne(sessions.id, c.var.session.id))).run();
+    });
+    return c.json({ ok: true });
   })
 
   .patch('/me/settings', async (c) => {

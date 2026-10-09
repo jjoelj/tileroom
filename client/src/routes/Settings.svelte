@@ -1,6 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { slide } from 'svelte/transition';
+  import { ms, show } from '../lib/motion';
+  import { say } from '../lib/say.svelte';
   import { api } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
@@ -60,6 +63,28 @@
     void loadInvites();
   }
 
+  // Change password (SPEC §9.6): confirm field with a live match check; other devices get signed out.
+  let changing = $state(false);
+  let current = $state('');
+  let password = $state('');
+  let confirmPw = $state('');
+  let saving = $state(false);
+  const pwMatch = $derived(password === confirmPw);
+  async function changePassword(e: SubmitEvent) {
+    e.preventDefault();
+    saving = true;
+    try {
+      await api('/me/password', { method: 'POST', body: { current, password } });
+      changing = false;
+      current = password = confirmPw = '';
+      say('Password changed. Your other devices were signed out.');
+    } catch (err) {
+      sayError(err);
+    } finally {
+      saving = false;
+    }
+  }
+
   async function signOut() {
     if (!(await confirm({ title: 'Sign out?', body: "You'll need your username and password to sign back in.", action: 'Sign out', danger: true }))) return;
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
@@ -84,6 +109,24 @@
       </span>
       <button class="secondary" style="width: auto; height: 44px; padding: 0 14px; flex-shrink: 0" onclick={rename}>Change name</button>
     </div>
+
+    <button class="secondary" aria-expanded={changing} onclick={() => (changing = !changing)}>Change password</button>
+    {#if changing}
+      <form class="stack" onsubmit={changePassword} transition:slide={{ duration: ms(180) }}>
+        <input type="text" autocomplete="username" value={session.me?.username} hidden readonly />
+        <label for="cur" class="label">Current password</label>
+        <input id="cur" class="field" type="password" bind:value={current} autocomplete="current-password" />
+        <label for="np" class="label">New password</label>
+        <input id="np" class="field" type="password" bind:value={password} autocomplete="new-password" />
+        <span class="hint">At least 10 characters. Your other devices will be signed out.</span>
+        <label for="cp" class="label">Confirm new password</label>
+        <input id="cp" class="field" type="password" bind:value={confirmPw} autocomplete="new-password" />
+        {#if confirmPw}
+          <span class={pwMatch ? 'good' : 'error'} transition:show>{pwMatch ? 'Passwords match' : "Passwords don't match"}</span>
+        {/if}
+        <button class="primary" disabled={!current || password.length < 10 || !pwMatch || saving}>Save password</button>
+      </form>
+    {/if}
 
     <div>
       <span class="label">Theme</span>
