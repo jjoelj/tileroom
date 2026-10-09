@@ -97,6 +97,13 @@ describe('login', () => {
     for (let i = 0; i < 6; i++) statuses.push((await call('/auth/login', { method: 'POST', body: { username: 'limited', password: 'x' } })).status);
     expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
   });
+
+  test('rate limited to 30 a minute per IP across usernames', async () => {
+    const statuses = [];
+    for (let i = 0; i < 31; i++) statuses.push((await call('/auth/login', { method: 'POST', body: { username: `spray${i}`, password: 'x' } })).status);
+    expect(statuses.at(-2)).toBe(401);
+    expect(statuses.at(-1)).toBe(429);
+  });
 });
 
 describe('guards', () => {

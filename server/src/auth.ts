@@ -145,6 +145,7 @@ export const auth = new Hono<AppEnv>()
   .post('/auth/login', async (c) => {
     const b = await body(c, z.object({ username: z.string().max(40), password: z.string().max(128) }));
     const username = b.username.trim().toLowerCase();
+    rateLimit(`login:${clientIp(c)}`, 30); // caps argon2 work per IP across usernames
     rateLimit(`login:${clientIp(c)}:${username}`, 5);
     const user = db.select().from(users).where(eq(users.username, username)).get();
     // Unknown usernames still pay for a verify, so timing doesn't reveal which exist.
