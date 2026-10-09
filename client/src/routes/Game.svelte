@@ -11,6 +11,7 @@
   import Count from '../lib/Count.svelte';
   import { grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
+  import { confirm } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { clearGameNotifications } from '../lib/push';
   import { go, session, updates } from '../lib/state.svelte';
@@ -372,10 +373,10 @@
   }
 
   const play = () => send({ type: 'play', tiles: pending.map(({ r, c, letter, blank }) => ({ r, c, letter, blank })) });
-  const pass = () => {
+  async function pass() {
     menuOpen = false;
-    if (confirm('Pass this turn?')) void send({ type: 'pass' });
-  };
+    if (await confirm({ title: 'Pass this turn?', body: 'You score nothing and keep your tiles.', action: 'Pass' })) void send({ type: 'pass' });
+  }
   async function swap() {
     const letters = swapPick.map((i) => rack[i]!);
     swapOpen = false;

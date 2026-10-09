@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { names, plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
+  import { confirm, prompt } from '../lib/ask.svelte';
   import { show } from '../lib/motion';
   import { go, session, updates } from '../lib/state.svelte';
 
@@ -136,19 +137,42 @@
       );
   }
 
-  function rename() {
-    const name = prompt('Group name', group?.name)?.trim();
-    if (name && name !== group?.name) void act(`/groups/${id}/settings`, 'PATCH', { name: name.slice(0, 30) });
+  async function rename() {
+    if (!group) return;
+    const name = await prompt({ title: 'Rename group', action: 'Rename', input: { label: 'Group name', value: group.name, maxlength: 30 } });
+    if (name && name !== group.name) void act(`/groups/${id}/settings`, 'PATCH', { name });
   }
 
-  async function leave() {
-    if (!group || !confirm(`Leave ${group.name}? Games you're playing carry on.`)) return;
+  async function newCode() {
+    const ok = await confirm({ title: 'Make a new code?', body: 'The old code stops working. Members stay in the group.', action: 'Make new code' });
+    if (ok) void act(`/groups/${id}/code`, 'POST', undefined, 'New code made. The old one no longer works.');
+  }
+
+  /** Leaving or deleting: both end at the games list. */
+  async function goodbye(path: string, method: 'DELETE') {
     try {
-      await api(`/groups/${id}/members/me`, { method: 'DELETE' });
+      await api(path, { method });
       go('/');
     } catch (e) {
       message = e instanceof ApiError ? e.message : 'Check your connection and try again.';
     }
+  }
+
+  async function leave() {
+    if (!group) return;
+    const ok = await confirm({ title: `Leave ${group.name}?`, body: "Games you're playing carry on. You'll need the group code to come back.", action: 'Leave', danger: true });
+    if (ok) await goodbye(`/groups/${id}/members/me`, 'DELETE');
+  }
+
+  async function remove() {
+    if (!group) return;
+    const ok = await confirm({
+      title: `Delete ${group.name}?`,
+      body: 'Its house words and votes are deleted for everyone. This can’t be undone.',
+      action: 'Delete group',
+      danger: true,
+    });
+    if (ok) await goodbye(`/groups/${id}`, 'DELETE');
   }
 
   const others = (g: Detail['games'][number]) => g.players.filter((p) => p.userId !== me).map((p) => p.displayName);
@@ -276,9 +300,7 @@
       <button class="pill" onclick={share}>{canShare ? 'Share' : 'Copy'}</button>
     </div>
     {#if admin}
-      <button class="textbtn" disabled={busy} onclick={() => confirm('Make a new code? The old one stops working.') && act(`/groups/${id}/code`, 'POST', undefined, 'New code made. The old one no longer works.')}>
-        Make a new code
-      </button>
+      <button class="textbtn" disabled={busy} onclick={newCode}>Make a new code</button>
       <label class="card item toggle">
         <span class="grow">
           <span class="strong">Spectators can see trays</span>
@@ -296,6 +318,8 @@
     {/if}
 
     <button class="textbtn leave" onclick={leave}>Leave {group.name}</button>
+    <!-- a group's games show its name, so only a group with none can go -->
+    {#if admin && !group.games.length}<button class="textbtn leave" style="margin-top: 0" onclick={remove}>Delete {group.name}</button>{/if}
   </main>
 {/if}
 
