@@ -111,11 +111,12 @@
 <style>
   .tag { height: 30px; padding: 0 10px; margin-right: 8px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 800; display: flex; align-items: center; }
   .card { overflow: hidden; }
-  .words { padding: 12px 14px; min-height: 0; align-items: flex-start; }
-  .words .what { font-size: 15px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
-  .words .list { font-size: 15px; font-weight: 700; text-align: right; line-height: 1.4; overflow-wrap: anywhere; max-height: 84px; overflow: auto; }
   .line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 8px 0 14px; min-height: 60px; }
   .line + .line { border-top: 1px solid var(--line-soft); }
+  /* a word row: label left, words right; after .line so its spacing wins */
+  .line.words { padding: 14px; min-height: 0; align-items: baseline; }
+  .words .what { font-size: 15px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .words .list { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-align: right; line-height: 1.5; overflow-wrap: anywhere; max-height: 90px; overflow: auto; }
   .strong { font-weight: 800; font-size: 16px; }
   .segment { display: flex; background: var(--well); border-radius: 12px; padding: 3px; }
   .segment button { height: 38px; min-width: 52px; padding: 0 12px; border-radius: 9px; border: none; background: transparent; font-weight: 700; font-size: 14px; }
