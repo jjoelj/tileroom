@@ -293,7 +293,9 @@ export const gameRoutes = new Hono<AppEnv>()
     if (g.game.currentSeat === seat) throw new ApiError(409, 'your_turn', "It's your turn");
     const me = g.seats[seat]!;
     const now = Date.now();
-    if (me.lastNudgeAt !== null && now - me.lastNudgeAt < DAY) throw new ApiError(429, 'nudge_limited', 'You can nudge once a day');
+    // once a day per turn per game: a nudge from an earlier turn doesn't count
+    const thisTurn = me.lastNudgeAt !== null && me.lastNudgeAt >= (g.game.turnStartedAt ?? 0);
+    if (thisTurn && now - me.lastNudgeAt! < DAY) throw new ApiError(429, 'nudge_limited', 'You can nudge once a day per turn');
     db.update(gamePlayers).set({ lastNudgeAt: now }).where(and(eq(gamePlayers.gameId, g.game.id), eq(gamePlayers.seat, seat))).run();
     void notifyGame([g.seats[g.game.currentSeat]!.userId], g.game, `${me.displayName} nudged you: it's your turn in ${g.game.name}`);
     return c.json({ ok: true });

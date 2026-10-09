@@ -191,6 +191,19 @@ describe('nudge', () => {
     expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p2.cookie })).status).toBe(200);
     expect((await view(id, p0)).json.turnNumber).toBe(0);
   });
+
+  test('the limit is per turn: a new turn allows a new nudge', async () => {
+    const { id, players } = await started(3);
+    const [p0, p1, p2] = players as [TestUser, TestUser, TestUser];
+    expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(200);
+    expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(429);
+    expect((await move(id, p0, { turnNumber: 0, type: 'pass' })).status).toBe(200);
+    expect((await move(id, p1, { turnNumber: 1, type: 'pass' })).status).toBe(200);
+    // p2's turn now: p1's nudge from p0's turn doesn't count
+    expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(200);
+    expect(pushesTo(p2).at(-1)).toContain('nudged you');
+    expect((await call(`/games/${id}/nudge`, { method: 'POST', cookie: p1.cookie })).status).toBe(429);
+  });
 });
 
 describe('7-day turn timeout', () => {
