@@ -30,21 +30,27 @@ export function go(path: string) {
   scrollTo(0, 0);
 }
 
-// A /join/CODE link survives install, sign-in and sign-up (sessionStorage is per tab and per installed app).
+// An invite link (/join/CODE for a game, /groups/join/CODE for a group) survives install, sign-in and sign-up
+// (sessionStorage is per tab and per installed app).
 const JOIN_KEY = 'tileroom:join';
 export const joinCodeIn = (path: string) => path.match(/^\/join\/([\w-]+)$/)?.[1];
-const remembered = joinCodeIn(location.pathname);
+/** The invite in a path, if it is one: which kind, and its code. */
+export const inviteIn = (path: string) => {
+  const m = path.match(/^\/(groups\/)?join\/([\w-]+)$/);
+  return m ? { kind: m[1] ? ('group' as const) : ('game' as const), code: m[2]!, path } : undefined;
+};
+const remembered = inviteIn(location.pathname);
 try {
-  if (remembered) sessionStorage.setItem(JOIN_KEY, remembered);
+  if (remembered) sessionStorage.setItem(JOIN_KEY, remembered.path);
 } catch {
   // storage blocked: the link still works if they stay on this page
 }
 
-/** Where to land after signing in: the pending join link, else the lobby. */
+/** Where to land after signing in: the pending invite link, else the lobby. */
 export function home() {
   try {
-    const code = sessionStorage.getItem(JOIN_KEY);
-    return code ? `/join/${code}` : '/';
+    const path = sessionStorage.getItem(JOIN_KEY);
+    return path && inviteIn(path) ? path : '/';
   } catch {
     return '/';
   }

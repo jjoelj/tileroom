@@ -5,7 +5,7 @@
   import { names } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
   import { show } from '../lib/motion';
-  import { go } from '../lib/state.svelte';
+  import { forgetJoin, go } from '../lib/state.svelte';
 
   let { code }: { code: string } = $props();
 
@@ -17,18 +17,28 @@
   onMount(async () => {
     try {
       group = await api<Preview>(`/groups/join/${encodeURIComponent(code)}`);
-      if (group.joined) go(`/groups/${group.id}`);
+      if (group.joined) open(group.id);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
     }
   });
+
+  function open(id: string) {
+    forgetJoin();
+    go(`/groups/${id}`);
+  }
+
+  function back() {
+    forgetJoin();
+    go('/');
+  }
 
   async function join() {
     busy = true;
     error = '';
     try {
       const g = await api<{ id: string }>(`/groups/join/${encodeURIComponent(code)}`, { method: 'POST' });
-      go(`/groups/${g.id}`);
+      open(g.id);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Check your connection and try again.';
       busy = false;
@@ -38,7 +48,7 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back to games" onclick={() => go('/')}>
+    <button class="iconbtn" aria-label="Back to games" onclick={back}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
   </header>
@@ -53,7 +63,7 @@
 
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
       {#if group}<button class="primary" in:show disabled={busy} onclick={join}>Join {group.name}</button>{/if}
-      <button class="secondary" onclick={() => go('/')}>Back to games</button>
+      <button class="secondary" onclick={back}>Back to games</button>
     </div>
   </div>
 </main>
