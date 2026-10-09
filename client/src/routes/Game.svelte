@@ -175,7 +175,8 @@
       // Decide where the tile ends up, glide the ghost onto exactly that spot (same size and look),
       // then swap in the real tile and drop the ghost in the same update: nothing jumps.
       const plan = (ev.type === 'pointerup' && (await planDrop(from, tile.slot, ev.clientX, ev.clientY))) || (await planHome(from, tile.slot));
-      await glide(plan.rect, plan.onBoard);
+      await glide(plan.rect, plan.onBoard, plan.ms);
+      if (!plan.onBoard) await slideDone(tile.slot); // the ghost waits on the final spot; then swap
       plan.commit?.();
       drag = null;
       landing = false;
@@ -188,16 +189,16 @@
   let landing = $state(false); // the ghost takes the placed-tile look while it lands on the board
   const GHOST = { w: 44, h: 48 };
 
-  /** Moves and resizes the ghost onto `rect`. */
-  function glide(rect: DOMRect | undefined, onBoard: boolean) {
+  /** Moves and resizes the ghost onto `rect` over `ms`, resolving when it has arrived. */
+  function glide(rect: DOMRect | undefined, onBoard: boolean, ms = 120) {
     if (!ghost || !rect) return Promise.resolve();
     landing = onBoard;
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    ghost.style.transition = 'transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms';
+    ghost.style.transition = `transform ${ms}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ${ms}ms`;
     ghost.style.opacity = '1';
     ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%) scale(${rect.width / GHOST.w}, ${rect.height / GHOST.h})`;
-    return new Promise<void>((resolve) => setTimeout(resolve, 125));
+    return new Promise<void>((resolve) => setTimeout(resolve, ms + 5));
   }
 
   const overRack = (y: number, r: DOMRect) => y >= r.top - 24 && y <= r.bottom + 24;
@@ -208,9 +209,32 @@
     rest.splice(to, 0, slot);
     order = rest;
   }
-  const slotRect = (slot: number) => rackEl?.querySelector(`[data-slot="${slot}"] .rk`)?.getBoundingClientRect();
+  /**
+   * Where a rack slot will be once its slide (flip) finishes, and how long that takes. The ghost aims there
+   * and lands no sooner, so it arrives together with the sliding tiles instead of cutting them short.
+   */
+  function slotTarget(slot: number): { rect: DOMRect | undefined; ms: number } {
+    const el = rackEl?.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+    if (!el || !rackEl) return { rect: undefined, ms: 120 };
+    const box = rackEl.getBoundingClientRect();
+    // offsetLeft/Top are layout positions, unaffected by the running flip transform
+    const rect = new DOMRect(box.left + rackEl.clientLeft + el.offsetLeft, box.top + rackEl.clientTop + el.offsetTop, el.offsetWidth, el.offsetHeight);
+    let left = 0;
+    for (const a of el.getAnimations()) {
+      const t = a.effect?.getComputedTiming();
+      if (t) left = Math.max(left, Number(t.endTime ?? 0) - Number(t.localTime ?? 0));
+    }
+    return { rect, ms: Math.max(120, Math.ceil(left)) };
+  }
 
-  type Plan = { rect: DOMRect | undefined; onBoard: boolean; commit?: () => void };
+  /** Resolves when a rack slot has stopped sliding (its flip may start a frame after the reorder). */
+  async function slideDone(slot: number) {
+    await new Promise(requestAnimationFrame);
+    const el = rackEl?.querySelector(`[data-slot="${slot}"]`);
+    await Promise.all((el?.getAnimations() ?? []).map((a) => a.finished.catch(() => {})));
+  }
+
+  type Plan = { rect: DOMRect | undefined; onBoard: boolean; ms?: number; commit?: () => void };
 
   /** Where a released tile goes, without changing anything yet. Null: nowhere valid. */
   async function planDrop(from: DragFrom, slot: number, x: number, y: number): Promise<Plan | null> {
@@ -233,7 +257,7 @@
       moveSlot(slot, slotIndex(x, r));
       await tick();
       return {
-        rect: slotRect(slot),
+        ...slotTarget(slot),
         onBoard: false,
         commit: () => {
           if (from.kind === 'board') pending = pending.filter((p) => !(p.r === from.r && p.c === from.c));
@@ -247,7 +271,7 @@
   async function planHome(from: DragFrom, slot: number): Promise<Plan> {
     if (from.kind === 'board') return { rect: boardRef?.cellRect(from.r, from.c), onBoard: true };
     await tick();
-    return { rect: slotRect(slot), onBoard: false };
+    return { ...slotTarget(slot), onBoard: false };
   }
 
   function tapSlot(slot: number) {
@@ -610,7 +634,7 @@
   .status { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
   .zoombtn { position: absolute; right: 14px; bottom: 6px; width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--float); color: #fff; backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 4; }
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
-  .rack { display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
+  .rack { position: relative; display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
   .ghost { position: fixed; left: 0; top: 0; width: 44px; height: 48px; border-radius: 8px; pointer-events: none; z-index: 30; will-change: transform; opacity: 0.7; box-shadow: 0 8px 20px var(--shadow), inset 0 -2px 0 var(--tile-edge); }
   .ghost .ch { font-size: 26px; line-height: 1; transform: translateY(-4%); }
