@@ -32,7 +32,6 @@ export const adminRoutes = new Hono<AppEnv>()
         createdAt: invites.createdAt,
         createdBy: creator.displayName, // null: made with the CLI
         usedAt: invites.usedAt,
-        revokedAt: invites.revokedAt,
         usedBy: { username: users.username, displayName: users.displayName },
       })
       .from(invites)
@@ -44,13 +43,13 @@ export const adminRoutes = new Hono<AppEnv>()
   })
 
   .delete('/admin/invites/:id', (c) => {
-    // Only while unused: the same condition signup consumes it with, so the two can't both win.
+    // Revoking deletes it. Only while unused (used ones stay as the record of who joined), with the same
+    // condition signup consumes it with, so the two can't both win.
     const done = db
-      .update(invites)
-      .set({ revokedAt: Date.now() })
-      .where(and(eq(invites.codeHash, c.req.param('id')), isNull(invites.usedBy), isNull(invites.revokedAt)))
+      .delete(invites)
+      .where(and(eq(invites.codeHash, c.req.param('id')), isNull(invites.usedBy)))
       .returning({ id: invites.codeHash })
       .all();
-    if (done.length !== 1) throw new ApiError(409, 'not_revocable', 'That invite was already used or revoked');
+    if (done.length !== 1) throw new ApiError(409, 'not_revocable', 'That invite was already used');
     return c.json({ ok: true });
   });

@@ -36,7 +36,7 @@
   }
 
   // Admins: unlimited invites, and who used each one.
-  type Invite = { id: string; hint: string; note: string | null; createdAt: number; createdBy: string | null; usedAt: number | null; revokedAt: number | null; usedBy: { username: string; displayName: string } | null };
+  type Invite = { id: string; hint: string; note: string | null; createdAt: number; createdBy: string | null; usedAt: number | null; usedBy: { username: string; displayName: string } | null };
   let invites = $state<Invite[]>([]);
   let note = $state('');
   let fresh = $state(''); // the code just made: shown once, only its hash is stored
@@ -57,13 +57,14 @@
   const link = $derived(`${location.origin}/signup/${fresh}`);
 
   async function revoke(inv: Invite) {
-    const ok = await confirm({ title: 'Revoke this invite?', body: `${inv.note || 'No note'} (…${inv.hint}) will stop working.`, action: 'Revoke', danger: true });
+    const ok = await confirm({ title: 'Revoke this invite?', body: `${inv.note || 'No note'} (…${inv.hint}) will stop working and be deleted.`, action: 'Revoke', danger: true });
     if (!ok) return;
     await api(`/admin/invites/${inv.id}`, { method: 'DELETE' }).catch(sayError);
     void loadInvites();
   }
 
   async function signOut() {
+    if (!(await confirm({ title: 'Sign out?', body: "You'll need your username and password to sign back in.", action: 'Sign out', danger: true }))) return;
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
     session.me = null;
     go('/');
@@ -105,8 +106,6 @@
     </div>
 
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
-    <button class="secondary" onclick={signOut}>Sign out</button>
-
     {#if session.me?.isAdmin}
       <div style="display: flex; flex-direction: column; gap: 10px">
         <span class="label">Invites</span>
@@ -134,15 +133,16 @@
               <span style="font-weight: 700">{inv.note || 'No note'} <span class="hint">…{inv.hint}</span></span>
               <span class="hint">
                 {#if inv.usedBy}Used by {inv.usedBy.displayName} (@{inv.usedBy.username}) · {day(inv.usedAt!)}
-                {:else if inv.revokedAt}Revoked
                 {:else}Unused · made {day(inv.createdAt)}{inv.createdBy ? ` by ${inv.createdBy}` : ' on the server'}{/if}
               </span>
             </span>
-            {#if !inv.usedBy && !inv.revokedAt}<button class="secondary small" onclick={() => revoke(inv)}>Revoke</button>{/if}
+            {#if !inv.usedBy}<button class="secondary small" onclick={() => revoke(inv)}>Revoke</button>{/if}
           </div>
         {/each}
       </div>
     {/if}
+
+    <button class="secondary signout" onclick={signOut}>Sign out</button>
   </div>
 </main>
 
@@ -150,6 +150,7 @@
   .item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
   .grow { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .code { font: 700 17px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.05em; }
+  .signout { color: var(--bad); border-color: var(--bad); margin-top: 12px; }
   .fresh { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; }
   .small { width: auto; height: 44px; padding: 0 14px; flex-shrink: 0; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }

@@ -27,12 +27,13 @@ test('admins make unlimited invites and see who used each; others get 403', asyn
   expect(list.find((i: { note: string }) => i.note === 'for 1').usedBy).toBeNull();
   expect(JSON.stringify(list)).not.toContain(codes[1]); // only hints, never codes
 
-  // revoke: unused only, once; a revoked code can't sign up
+  // revoke: unused only; it's deleted, so it's gone from the list and can't sign up
   const unused = list.find((i: { note: string }) => i.note === 'for 1');
   expect((await call(`/admin/invites/${used.id}`, { method: 'DELETE', cookie: admin.cookie })).status).toBe(409);
   expect((await call(`/admin/invites/${unused.id}`, { method: 'DELETE', cookie: member.cookie })).status).toBe(403);
   expect((await call(`/admin/invites/${unused.id}`, { method: 'DELETE', cookie: admin.cookie })).status).toBe(200);
   expect((await call(`/admin/invites/${unused.id}`, { method: 'DELETE', cookie: admin.cookie })).status).toBe(409);
+  expect((await call('/admin/invites', { cookie: admin.cookie })).json.invites.some((i: { id: string }) => i.id === unused.id)).toBe(false);
   const late = await call('/auth/signup', { method: 'POST', body: { inviteCode: codes[1], username: `ben_${Date.now() % 1e6}`, password: PASSWORD, displayName: 'Ben' } });
   expect(late.json.error).toBe('invite_invalid');
 });
