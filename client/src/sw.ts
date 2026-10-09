@@ -18,13 +18,17 @@ self.addEventListener('push', (e) => {
   // renotify: a newer notification for the same game replaces the old one but still alerts (sound, pop-up).
   const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: '/icons/icon-192.png' };
   e.waitUntil(
-    Promise.all([
-      self.registration.showNotification(p.title, options),
-      // An open window refetches now instead of waiting for its next poll.
-      self.clients.matchAll({ type: 'window' }).then((wins) => {
-        for (const w of wins) w.postMessage({ type: 'refresh' });
-      }),
-    ]),
+    (async () => {
+      const wins = await self.clients.matchAll({ type: 'window' });
+      // Open windows refetch now instead of waiting for their next poll.
+      for (const w of wins) w.postMessage({ type: 'refresh' });
+      // Someone looking at Tileroom right now sees the update; don't also notify them.
+      // ponytail: iOS may revoke subscriptions that get pushes without a notification, so it always notifies;
+      // milestone 4 skips the push server-side while the user has a live socket.
+      const watching = wins.some((w) => w.focused && w.visibilityState === 'visible');
+      if (watching && !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+      await self.registration.showNotification(p.title, options);
+    })(),
   );
 });
 
