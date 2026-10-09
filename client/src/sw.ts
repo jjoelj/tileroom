@@ -16,7 +16,7 @@ type Payload = { title: string; body: string; url?: string; tag?: string };
 self.addEventListener('push', (e) => {
   const p: Payload = e.data?.json() ?? { title: 'Tileroom', body: '' };
   // renotify: a newer notification for the same game replaces the old one but still alerts (sound, pop-up).
-  const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: '/icons/icon-192.png' };
+  const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: import.meta.env.VITE_STAGING === '1' ? '/icons/staging/icon-192.png' : '/icons/icon-192.png' };
   e.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: 'window' });

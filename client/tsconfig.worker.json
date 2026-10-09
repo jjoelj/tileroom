@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "lib": ["ESNext", "WebWorker"], "types": [] },
+  "compilerOptions": { "lib": ["ESNext", "WebWorker"], "types": ["vite/client"] },
   "include": ["src/sw.ts", "src/lib/dict.worker.ts"],
   "exclude": []
 }

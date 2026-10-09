@@ -10,6 +10,7 @@ export default defineConfig(({ command }) => {
   // Staging (STAGING=1 at build): its own name and blue icons, so both apps can sit on one home screen.
   const staging = process.env.STAGING === '1';
   const icons = staging ? '/icons/staging' : '/icons';
+  if (staging) process.env.VITE_STAGING = '1'; // the service worker picks its notification icon from it (sw.ts)
   return {
     root: fileURLToPath(new URL('.', import.meta.url)),
     envDir: fileURLToPath(new URL('..', import.meta.url)),
