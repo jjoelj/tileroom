@@ -103,7 +103,7 @@ export function newGame(seatCount: number, bagSize: 100 | 150, randomInt: Random
     status: 'active',
     board: emptyBoard(),
     bag,
-    players: Array.from({ length: seatCount }, () => ({ rack: draw(bag, RACK_SIZE, randomInt), score: 0, resigned: false })),
+    players: Array.from({ length: seatCount }, () => ({ rack: draw(bag, RACK_SIZE, randomInt), score: 0 })),
     turnNumber: 0,
     currentSeat: 0,
     scorelessStreak: 0,
@@ -121,8 +121,6 @@ function takeFromRack(rack: string[], letters: string[]) {
   return left;
 }
 
-const activeCount = (s: GameState) => s.players.filter((p) => !p.resigned).length;
-
 /**
  * Hands the turn on after `seat` moved. Ends the game when the final round is over (SPEC §4.8):
  * the seat that emptied the bag gets one more turn, and empty racks are skipped during the final round.
@@ -133,7 +131,7 @@ function advance(s: GameState, seat: number, finalRoundJustStarted: boolean) {
   for (let i = 1; i <= n; i++) {
     const next = (seat + i) % n;
     const p = s.players[next]!;
-    if (!p.resigned && (s.finalRoundAfter === null || p.rack.length > 0)) return void (s.currentSeat = next);
+    if (s.finalRoundAfter === null || p.rack.length > 0) return void (s.currentSeat = next);
     if (next === s.finalRoundAfter) break; // their last turn is skipped, so the round is over
   }
   s.status = 'finished';
@@ -144,16 +142,10 @@ export function applyMove(state: GameState, seat: number, move: Move, isWord: Is
   const s = structuredClone(state);
   if (s.status !== 'active') throw new RuleError('This game is over');
   const player = s.players[seat];
-  if (!player || player.resigned) throw new RuleError("You're not playing in this game");
+  if (!player) throw new RuleError("You're not playing in this game");
   const record: MoveRecord = { seat, turn: s.turnNumber, type: move.type, score: 0 };
   s.turnNumber++;
 
-  if (move.type === 'resign') {
-    player.resigned = true;
-    if (activeCount(s) <= 1) s.status = 'finished';
-    else if (s.currentSeat === seat) advance(s, seat, false);
-    return { state: s, record };
-  }
   if (s.currentSeat !== seat) throw new RuleError("It's not your turn");
 
   let finalRoundJustStarted = false;
@@ -185,15 +177,18 @@ export function applyMove(state: GameState, seat: number, move: Move, isWord: Is
   }
 
   s.scorelessStreak = record.score === 0 ? s.scorelessStreak + 1 : 0;
-  // ponytail: stalemate counts active (non-resigned) players, see SPEC §4.8 decision
-  if (s.scorelessStreak >= 2 * activeCount(s)) s.status = 'finished';
+  if (s.scorelessStreak >= 2 * s.players.length) s.status = 'finished';
   else advance(s, seat, finalRoundJustStarted);
   return { state: s, record };
 }
 
-/** Highest score among players who didn't resign; ties share the win. */
+/** Highest score wins; ties share the win. */
 export function winnerSeats(s: GameState) {
-  const live = s.players.map((p, seat) => ({ ...p, seat })).filter((p) => !p.resigned);
-  const best = Math.max(...live.map((p) => p.score));
-  return live.filter((p) => p.score === best).map((p) => p.seat);
+  const best = Math.max(...s.players.map((p) => p.score));
+  return s.players.flatMap((p, seat) => (p.score === best ? [seat] : []));
 }
+
+/** A turn left untaken this long voids the whole game (SPEC §4.8). */
+export const TURN_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const turnExpired = (turnStartedAt: number, now: number) => now - turnStartedAt >= TURN_TIMEOUT_MS;

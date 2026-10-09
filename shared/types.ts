@@ -12,10 +12,9 @@ export type Placement = { r: number; c: number; letter: string; blank?: boolean 
 export type Move =
   | { type: 'play'; tiles: Placement[] }
   | { type: 'swap'; swap: string[] }
-  | { type: 'pass' }
-  | { type: 'resign' };
+  | { type: 'pass' };
 
-export type PlayerState = { rack: string[]; score: number; resigned: boolean };
+export type PlayerState = { rack: string[]; score: number };
 
 /** Server-side state. Never sent to clients as-is; see toView (SPEC §6.1). */
 export type GameState = {

@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import fc from 'fast-check';
 import { CENTER, emptyBoard, SIZE } from './board';
-import { applyMove, newGame, RuleError, winnerSeats } from './rules';
+import { applyMove, newGame, RuleError, TURN_TIMEOUT_MS, turnExpired, winnerSeats } from './rules';
 import { BAGS, bagCount } from './tiles';
 import type { Bag, GameState, Move } from './types';
 
@@ -17,7 +17,7 @@ function game(racks: string[], bag: Bag = {}): GameState {
     status: 'active',
     board,
     bag,
-    players: racks.map((r) => ({ rack: [...r], score: 0, resigned: false })),
+    players: racks.map((r) => ({ rack: [...r], score: 0 })),
     turnNumber: 1,
     currentSeat: 0,
     scorelessStreak: 0,
@@ -57,7 +57,7 @@ describe('play', () => {
     const before = game(['ZQ', 'B'], { E: 3 });
     const { state, record } = applyMove(before, 0, { type: 'play', tiles: [{ r: 7, c: 8, letter: 'Z' }] }, any, first);
     expect(state.board[7]![8]).toEqual({ letter: 'Z', blank: false, seat: 0, turn: 1 });
-    expect(state.players[0]).toEqual({ rack: ['Q', 'E', 'E', 'E'], score: 11, resigned: false });
+    expect(state.players[0]).toEqual({ rack: ['Q', 'E', 'E', 'E'], score: 11 });
     expect(state.bag).toEqual({});
     expect(state.turnNumber).toBe(2);
     expect(state.currentSeat).toBe(1);
@@ -176,22 +176,9 @@ describe('game end', () => {
     expect(s.status).toBe('finished');
   });
 
-  test('resign: out of turn, auto-skipped, last active player ends it, never wins', () => {
-    let s = game(['B', 'C', 'D']);
-    s = move(s, 0, play('B', 7, 8));
-    s = move(s, 2, { type: 'resign' }); // not their turn
-    expect(s.currentSeat).toBe(1);
-    s = move(s, 1, pass);
-    expect(s.currentSeat).toBe(0); // seat 2 skipped
-    s.players[2]!.score = 999;
-    s = move(s, 0, { type: 'resign' }); // current player resigns
-    expect(s.status).toBe('finished');
-    expect(winnerSeats(s)).toEqual([1]);
-  });
-
-  test('resigning on your turn passes the turn on', () => {
-    const s = move(game(['B', 'C', 'D']), 0, { type: 'resign' });
-    expect(s).toMatchObject({ status: 'active', currentSeat: 1, scorelessStreak: 0 });
+  test('a turn left for 7 days expires', () => {
+    expect(turnExpired(0, TURN_TIMEOUT_MS - 1)).toBe(false);
+    expect(turnExpired(0, TURN_TIMEOUT_MS)).toBe(true);
   });
 
   test('ties share the win', () => {
@@ -224,8 +211,7 @@ test('property: random games conserve tiles, follow the final round, and always 
         const p = s.players[seat]!;
         const roll = r(100);
         let m: Move = pass;
-        if (roll < 1) m = { type: 'resign' };
-        else if (roll < 10 && bagCount(s.bag) > 0 && p.rack.length) m = { type: 'swap', swap: p.rack.slice(0, 1 + r(Math.min(p.rack.length, bagCount(s.bag)))) };
+        if (roll < 10 && bagCount(s.bag) > 0 && p.rack.length) m = { type: 'swap', swap: p.rack.slice(0, 1 + r(Math.min(p.rack.length, bagCount(s.bag)))) };
         else if (roll < 95 && p.rack.length >= 2) m = randomPlay(s, p.rack, r);
         const wasFinal = s.finalRoundAfter !== null;
         s = applyMove(s, seat, m, any, r).state;
