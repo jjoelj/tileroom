@@ -156,6 +156,30 @@ describe('moves', () => {
   });
 });
 
+describe('expanded word list', () => {
+  const FAQ = { turnNumber: 0, type: 'play', tiles: [{ r: 7, c: 6, letter: 'F' }, { r: 7, c: 7, letter: 'A' }, { r: 7, c: 8, letter: 'Q' }] };
+
+  test('off by default: abbreviations are rejected', async () => {
+    const { id, players } = await started(2);
+    expect((await view(id, players[0]!)).json.expandedWords).toBe(false);
+    setRack(id, 0, 'FAQXYZE');
+    expect((await move(id, players[0]!, FAQ)).json.message).toBe("FAQ isn't in this game's word list");
+  });
+
+  test('the host can turn it on in the lobby; abbreviations then count', async () => {
+    const { host, id, joinCode } = await lobby(2);
+    const r = await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { expandedWords: true } });
+    expect(r.json.expandedWords).toBe(true);
+    const guest = await newUser();
+    await call(`/join/${joinCode}`, { method: 'POST', cookie: guest.cookie });
+    await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie });
+    setRack(id, 0, 'FAQXYZE');
+    const played = await move(id, host, FAQ);
+    expect(played.status).toBe(200);
+    expect(played.json.lastMove.words).toEqual([{ word: 'FAQ', score: 15 }]);
+  });
+});
+
 describe('nudge', () => {
   test('others can nudge the current player once a day', async () => {
     const { id, players } = await started(3);

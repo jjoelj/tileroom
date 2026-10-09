@@ -52,10 +52,11 @@ export const isExpired = (game: GameRow, now = Date.now()) =>
 /** "As if it never happened" (SPEC §4.8): players and moves go with it via ON DELETE CASCADE. */
 export const voidGame = (q: Q, id: string) => q.delete(games).where(eq(games.id, id)).run();
 
-let base: Set<string> | undefined;
+const lists: Record<string, Set<string>> = {};
+const load = (name: 'words' | 'abbreviations') =>
+  (lists[name] ??= parseWordList(readFileSync(new URL(`../../wordlists/${name}.txt`, import.meta.url), 'utf8')));
 
-/** Base list only until groups land (milestone 5). */
-export function dictionary(): IsWord {
-  base ??= parseWordList(readFileSync(new URL('../../wordlists/words.txt', import.meta.url), 'utf8'));
-  return effectiveDictionary(base);
+/** The game's dictionary: base words, plus abbreviations if the game uses the expanded list. House words: milestone 5. */
+export function dictionary(game: Pick<GameRow, 'expandedWords'>): IsWord {
+  return effectiveDictionary(game.expandedWords ? [load('words'), load('abbreviations')] : [load('words')]);
 }

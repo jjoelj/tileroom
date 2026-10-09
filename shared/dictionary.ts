@@ -8,12 +8,12 @@ export const WORD_RE = /^[A-Z]{2,15}$/;
 export const parseWordList = (text: string) =>
   new Set(text.split(/\r?\n/).map((w) => w.trim().toUpperCase()).filter((w) => WORD_RE.test(w)));
 
-/** valid = (base ∪ add) − ban, A–Z, length 2–15 (SPEC §4.9). */
+/** valid = (bases ∪ add) − ban, A–Z, length 2–15 (SPEC §4.9). Bases: the word list, plus abbreviations if expanded. */
 export function effectiveDictionary(
-  base: ReadonlySet<string>,
+  bases: readonly ReadonlySet<string>[],
   house: { add: readonly string[]; ban: readonly string[] } = { add: [], ban: [] },
 ): IsWord {
   const add = new Set(house.add);
   const ban = new Set(house.ban);
-  return (w) => WORD_RE.test(w) && (base.has(w) || add.has(w)) && !ban.has(w);
+  return (w) => WORD_RE.test(w) && (bases.some((b) => b.has(w)) || add.has(w)) && !ban.has(w);
 }

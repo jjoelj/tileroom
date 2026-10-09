@@ -92,7 +92,13 @@ export const gameRoutes = new Hono<AppEnv>()
   .post('/games', async (c) => {
     const b = await body(
       c,
-      z.object({ name: Name, seatCount: SeatCount, bagSize: z.union([z.literal(100), z.literal(150)]), randomOrder: z.boolean() }),
+      z.object({
+        name: Name,
+        seatCount: SeatCount,
+        bagSize: z.union([z.literal(100), z.literal(150)]),
+        randomOrder: z.boolean(),
+        expandedWords: z.boolean().default(false),
+      }),
     );
     const id = randomId();
     db.transaction((tx) => {
@@ -140,7 +146,7 @@ export const gameRoutes = new Hono<AppEnv>()
 
   .patch('/games/:id', async (c) => {
     const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
-    const b = await body(c, z.object({ name: Name.optional(), seatCount: SeatCount.optional() }));
+    const b = await body(c, z.object({ name: Name.optional(), seatCount: SeatCount.optional(), expandedWords: z.boolean().optional() }));
     if (g.game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     if (b.seatCount !== undefined && b.seatCount < g.seats.length) throw new ApiError(400, 'too_few_seats', 'Seats are already taken');
@@ -208,7 +214,7 @@ export const gameRoutes = new Hono<AppEnv>()
       if (g.game.currentSeat !== seat) throw new ApiError(409, 'not_your_turn', "It's not your turn");
       let applied: ReturnType<typeof applyMove>;
       try {
-        applied = applyMove(stateOf(g), seat, move, dictionary(), randomInt);
+        applied = applyMove(stateOf(g), seat, move, dictionary(g.game), randomInt);
       } catch (e) {
         if (e instanceof RuleError) throw new ApiError(400, 'invalid_move', e.message);
         throw e;

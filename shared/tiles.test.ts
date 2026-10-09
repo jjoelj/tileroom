@@ -48,10 +48,14 @@ test('draws are uniform over the remaining multiset', () => {
 test('effective dictionary = base ∪ add − ban', () => {
   const base = parseWordList('cat\r\nDOG\nx\nnot-a-word\n');
   expect([...base].sort()).toEqual(['CAT', 'DOG']);
-  const isWord = effectiveDictionary(base, { add: ['RIZZ'], ban: ['DOG'] });
+  const isWord = effectiveDictionary([base], { add: ['RIZZ'], ban: ['DOG'] });
   expect(isWord('CAT')).toBe(true);
   expect(isWord('RIZZ')).toBe(true);
   expect(isWord('DOG')).toBe(false);
   expect(isWord('cat')).toBe(false);
-  expect(effectiveDictionary(base)('DOG')).toBe(true);
+  expect(effectiveDictionary([base])('DOG')).toBe(true);
+  const expanded = effectiveDictionary([base, new Set(['FAQ', 'DOG'])], { add: [], ban: ['DOG'] });
+  expect(expanded('FAQ')).toBe(true);
+  expect(expanded('DOG')).toBe(false); // a ban wins over every base list
+  expect(effectiveDictionary([base])('FAQ')).toBe(false);
 });

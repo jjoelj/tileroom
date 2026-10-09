@@ -59,6 +59,7 @@ export const games = sqliteTable('games', {
   seatCount: integer('seat_count').notNull(),
   bagSize: integer('bag_size').$type<100 | 150>().notNull(),
   randomOrder: bool('random_order').notNull(),
+  expandedWords: bool('expanded_words').notNull().default(false), // also accept SCOWL abbreviations (SPEC §4.9)
   joinCode: text('join_code').notNull().unique(),
   createdAt: ms('created_at').notNull().default(now()),
   startedAt: ms('started_at'),

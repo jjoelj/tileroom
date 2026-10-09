@@ -67,6 +67,8 @@ export type GameView = {
   joinCode: string | null;
   seatCount: number;
   bagSize: 100 | 150;
+  /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
+  expandedWords: boolean;
   turnNumber: number;
   currentSeat: number;
   /** When the current turn began; the game is voided 7 days later (SPEC §4.8). */

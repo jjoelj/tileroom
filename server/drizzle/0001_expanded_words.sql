@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `expanded_words` integer DEFAULT false NOT NULL;

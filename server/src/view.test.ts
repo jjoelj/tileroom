@@ -51,6 +51,7 @@ function loaded(s: GameState): LoadedGame {
       seatCount: s.players.length,
       bagSize: 100,
       randomOrder: false,
+      expandedWords: false,
       joinCode: 'ABCDEF',
       createdAt: 0,
       startedAt: 0,

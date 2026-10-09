@@ -41,6 +41,7 @@ export function toView({ game, seats }: LoadedGame, viewerSeat: number, last: Mo
     joinCode: game.status === 'lobby' ? formatJoinCode(game.joinCode) : null,
     seatCount: game.seatCount,
     bagSize: game.bagSize,
+    expandedWords: game.expandedWords,
     turnNumber: game.turnNumber,
     currentSeat: game.currentSeat,
     turnStartedAt: game.turnStartedAt,
