@@ -273,10 +273,8 @@ export const gameRoutes = new Hono<AppEnv>()
         tx.update(games).set({ spectatorRacks: !!group?.racks }).where(eq(games.id, game.id)).run();
       }
     });
-    order.forEach((s, seat) => {
-      if (s.userId === game.hostId && seat !== state.currentSeat) return;
-      notifyGame(g, [s.userId], seat === state.currentSeat ? "The game has started. It's your turn." : 'The game has started.');
-    });
+    // only whoever goes first hears about it: everyone else gets their turn's push when it comes
+    notifyGame(g, [order[state.currentSeat]!.userId], 'Your turn. The game has started.');
     changed(game.id);
     return c.json(viewFor(game.id, c.var.user.id));
   })

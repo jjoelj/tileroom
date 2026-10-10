@@ -55,9 +55,10 @@ describe('lobby', () => {
     expect((await call(`/games/${id}/start`, { method: 'POST', cookie: guest.cookie })).json.error).toBe('not_host');
     const s = await call(`/games/${id}/start`, { method: 'POST', cookie: host.cookie });
     expect(s.json).toMatchObject({ status: 'active', joinCode: null, turnNumber: 0, currentSeat: 0, bagCount: 86 });
-    expect(pushesTo(guest)).toContain('The game has started.');
-    expect(sent.find((s) => s.endpoint === guest.endpoint && s.payload.body === 'The game has started.')!.payload.title).toBe(
-      `User ${host.username.match(/\d+/)![0]}`, // a game is called by the other players' names
+    // only the first player hears about the start, and as their turn; the guest waits for their own turn's push
+    expect(pushesTo(guest).filter((b) => b.includes('started'))).toEqual([]);
+    expect(sent.find((s) => s.endpoint === host.endpoint && s.payload.body === 'Your turn. The game has started.')!.payload.title).toBe(
+      `User ${guest.username.match(/\d+/)![0]}`, // a game is called by the other players' names
     );
     expect((await call(`/join/${joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json.error).toBe('already_started');
   });

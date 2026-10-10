@@ -10,6 +10,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - New game opens your game straight away. Its settings (board, tile bag, turn order, word list) are in the lobby, where you can change them until you start. Everyone waiting sees them.
 - A game or group open in a window beside another one now updates live, without clicking into it first.
 - While it's someone's turn, you see blank tiles where they're trying their letters (never which letters). The host can turn it off in the lobby with Show tiles being placed.
+- When a game starts, only whoever goes first gets a notification (it's their turn). Everyone else hears when their turn comes.
 - When a game is canceled or times out, everyone with it open sees right away that it's gone, and it drops off your games list and the group page.
 
 ## v0.7.1 (2026-10-09)
