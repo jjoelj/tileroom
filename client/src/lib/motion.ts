@@ -12,6 +12,11 @@ export function pop(_node: Element, { quiet = false, delay = 0, duration = 180 }
   return { delay: quiet ? 0 : delay, duration: quiet ? 0 : ms(duration), easing: cubicOut, css: (t: number) => `scale: ${0.6 + 0.4 * t}; opacity: ${t}` }; // `scale`, not `transform`: keeps the node's own transform
 }
 
+/** A tile another player just played: set down from just above. Hidden until its `delay` is up. */
+export function drop(_node: Element, { delay = 0, duration = 300 } = {}) {
+  return { delay: ms(delay), duration: ms(duration), easing: cubicOut, css: (t: number) => `scale: ${1.35 - 0.35 * t}; translate: 0 ${(1 - t) * -45}%; opacity: ${t}` };
+}
+
 /** Sheets: slide up from the bottom edge. */
 export function rise(_node: Element, { duration = 240 } = {}) {
   return { duration: ms(duration), easing: cubicOut, css: (t: number) => `transform: translateY(${(1 - t) * 100}%)` };

@@ -3,6 +3,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
   import { ago, names, plural } from '../../../shared/plural';
+  import { SIZE } from '../../../shared/board';
   import { MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
@@ -45,14 +46,19 @@
   const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
+  let dropping = $state(new Map<number, number>()); // another player's tiles arriving now (Board `dropping`)
   let deal = $state(0); // bumped when the server deals a new rack, so its tiles animate in
 
   /** Applies a fresh view, keeping placed tiles while they still fit the rack and board. */
   function apply(v: GameView) {
     const rackChanged = !view || (view.myRack ?? []).join() !== (v.myRack ?? []).join();
-    // a play while the game is on screen (anyone's, mine included): show it being placed, once the board has it
+    // a play while the game is on screen (anyone's, mine included): show it being placed. Another player's tiles
+    // drop in as they appear (`dropping`, in the same update); the board moves to them once it has them.
     const m = v.lastMove;
-    if (view && m?.type === 'play' && m.turn !== view.lastMove?.turn) void tick().then(() => boardRef?.placed(m.tiles, m.seat === v.mySeat));
+    const fresh = !!view && m?.type === 'play' && m.turn !== view.lastMove?.turn;
+    const mine = m?.seat === v.mySeat;
+    dropping = fresh && !mine && m?.type === 'play' ? new Map([...m.tiles].sort((a, b) => a.r - b.r || a.c - b.c).map((t, k) => [t.r * SIZE + t.c, k])) : new Map();
+    if (fresh && m?.type === 'play') void tick().then(() => boardRef?.placed(m.tiles, mine));
     view = v;
     if (rackChanged) {
       deal++;
@@ -617,6 +623,7 @@
           board={view.board}
           pending={onBoard}
           quiet={hush}
+          {dropping}
           lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
           {outlines}
           {bubble}
