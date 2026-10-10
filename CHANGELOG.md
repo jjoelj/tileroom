@@ -5,8 +5,8 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
-- Leaderboards: a global one and one for each group, ranked by wins or points (ties count as wins for everyone tied). Open it from the trophy on the games list or on a group's page.
-- Settings has a switch to leave the global leaderboard. You always show on your groups' boards.
+- Leaderboards: a global one and one for each group, ranked by wins or points (ties count as wins for everyone tied). Open it from the trophy on the games list or on a group's page. Everyone's on it from the start, at 0 until they finish a game.
+- You can leave the global leaderboard (on the leaderboard or in Settings). You still see where you'd be, and you always show on your groups' boards.
 
 ## v0.4.1 (2026-10-09)
 

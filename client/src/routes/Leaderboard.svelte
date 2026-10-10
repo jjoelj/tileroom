@@ -8,7 +8,7 @@
   import { sayError } from '../lib/say.svelte';
   import { go, session } from '../lib/state.svelte';
 
-  type Row = { userId: string; displayName: string; games: number; wins: number; points: number; best: number };
+  type Row = { userId: string; displayName: string; games: number; wins: number; points: number; best: number; listed: boolean };
   let groups = $state<{ id: string; name: string }[]>([]);
   const from = new URLSearchParams(location.search).get('group') ?? ''; // opened from a group page: back goes there
   let group = $state(from);
@@ -31,8 +31,23 @@
   }
 
   const other = $derived(by === 'wins' ? 'points' : 'wins');
-  const sorted = $derived(data ? [...data.rows].sort((a, b) => b[by] - a[by] || b[other] - a[other]) : []);
-  const line = (r: Row) => `${plural(r.games, 'game', 'games')} · best ${r.best}`;
+  // My own row joins the list where it belongs: past the top 100, or opted out of the global board (only I see it).
+  const sorted = $derived.by(() => {
+    if (!data) return [];
+    const me = data.me && !data.rows.some((r) => r.userId === data?.me?.userId) ? [data.me] : [];
+    // ponytail: past the top 100 my rank shows as 101; fine for a few friends, fetch my real rank if boards grow
+    return [...data.rows, ...me].sort((a, b) => b[by] - a[by] || b[other] - a[other]);
+  });
+
+  async function setGlobal(on: boolean) {
+    const me = session.me;
+    if (!me) return;
+    await api('/me/settings', { method: 'PATCH', body: { showOnGlobal: on } }).then(() => {
+      me.showOnGlobal = on;
+      if (data?.me) data.me.listed = on;
+    }, sayError);
+  }
+  const line = (r: Row) => (r.games ? `${plural(r.games, 'game', 'games')} · best ${r.best}` : 'No games yet');
   const unit = (r: Row) => (by === 'wins' ? (r.wins === 1 ? 'win' : 'wins') : 'pts');
 </script>
 
@@ -63,19 +78,19 @@
       {#each sorted as r, i (r.userId)}
         <li class="card row" class:mine={r.userId === session.me?.id} in:show={{ y: 6 }}>
           <span class="rank">{i + 1}</span>
-          <span class="who"><span class="name">{r.userId === session.me?.id ? 'You' : r.displayName}</span><span class="hint">{line(r)}</span></span>
+          <span class="who"
+            ><span class="name">{r.userId === session.me?.id ? 'You' : r.displayName}</span><span class="hint">{r.listed ? line(r) : 'Hidden. Only you see this.'}</span></span
+          >
           <span class="num">{r[by]}<span class="hint">{unit(r)}</span></span>
         </li>
       {/each}
     </ol>
-    {#if data?.me}
-      <div class="card row mine" aria-label="Your place">
-        <span class="rank">…</span>
-        <span class="who"><span class="name">You</span><span class="hint">{line(data.me)}</span></span>
-        <span class="num">{data.me[by]}<span class="hint">{unit(data.me)}</span></span>
-      </div>
+    {#if !group}
+      <label class="card toggle">
+        <span class="who"><span style="font-weight: 700">Show me on the global leaderboard</span><span class="hint">Group leaderboards always show their members.</span></span>
+        <input type="checkbox" checked={session.me?.showOnGlobal} onchange={(e) => setGlobal(e.currentTarget.checked)} />
+      </label>
     {/if}
-    {#if !group}<p class="hint" style="margin: 0">You can leave the global board in Settings. Group boards always show their members.</p>{/if}
   </div>
 </main>
 
@@ -88,6 +103,8 @@
   .segment button.on { background: var(--surface); }
   ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .toggle { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+  .toggle input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--primary); }
   .row.mine { outline: 2px solid var(--p0); outline-offset: -2px; }
   .rank { width: 24px; font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--muted); text-align: center; }
   .who { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

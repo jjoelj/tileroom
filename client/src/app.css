@@ -73,6 +73,7 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 button, input, a { font: inherit; color: inherit; touch-action: manipulation; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
+input[type='checkbox'], label:has(input[type='checkbox']) { cursor: pointer; }
 /* hover: tint with the button's own text color, so dark buttons lighten and light ones darken. Mouse only (no sticky hover on touch).
    Not on board squares or tiles: they have their own drag and selection feedback. */
 @media (hover: hover) {

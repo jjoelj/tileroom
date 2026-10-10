@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Leaderboards (SPEC §4.12): Wins and Points boards, global and per group, from finished games. Ratings come later
-// and add a Rating board. Plain stats, so everyone is listed (no "unranked" rule here).
-import { and, desc, eq, max, type SQL, sql } from 'drizzle-orm';
+// and add a Rating board. Plain stats, so everyone is listed (no "unranked" rule), with 0s until they finish a game.
+import { and, desc, eq, max, or, type SQL, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AppEnv } from './auth';
 import { gamePlayers, games, groupMembers, users } from './db/schema';
@@ -9,41 +9,53 @@ import { ApiError } from './http';
 import { db } from './runtime/db';
 import { isMember } from './store';
 
-export type Standing = { userId: string; displayName: string; games: number; wins: number; points: number; best: number };
+export type Standing = { userId: string; displayName: string; games: number; wins: number; points: number; best: number; listed: boolean };
 
 const TOP = 100;
 
-/** Finished games only. Global: everyone who hasn't opted out. Group: that group's games, its current members. */
-export function standings(groupId: string | null): Standing[] {
+/**
+ * Global: everyone who hasn't opted out, plus the viewer either way (unlisted if opted out, so they can see where
+ * they'd be). Group: its current members, counting only its games. Sorted by wins, then points.
+ */
+export function standings(groupId: string | null, viewerId: string): Standing[] {
   const top = db.select({ gameId: gamePlayers.gameId, score: max(gamePlayers.score).as('top_score') }).from(gamePlayers).groupBy(gamePlayers.gameId).as('top');
-  const where: SQL[] = [eq(games.status, 'finished')];
-  if (groupId) where.push(eq(games.groupId, groupId));
-  else where.push(eq(users.showOnGlobal, true));
-  let q = db
+  const finished: SQL[] = [eq(games.status, 'finished')];
+  if (groupId) finished.push(eq(games.groupId, groupId));
+  const stats = db
     .select({
       userId: gamePlayers.userId,
-      displayName: users.displayName,
-      games: sql<number>`count(*)`,
+      games: sql<number>`count(*)`.as('games'),
       wins: sql<number>`sum(case when ${gamePlayers.score} = ${top.score} then 1 else 0 end)`.as('wins'), // ties count (SPEC §4.12)
       points: sql<number>`sum(${gamePlayers.score})`.as('points'),
-      best: sql<number>`max(${gamePlayers.score})`,
+      best: sql<number>`max(${gamePlayers.score})`.as('best'),
     })
     .from(gamePlayers)
     .innerJoin(games, eq(games.id, gamePlayers.gameId))
     .innerJoin(top, eq(top.gameId, gamePlayers.gameId))
-    .innerJoin(users, eq(users.id, gamePlayers.userId))
-    .$dynamic();
-  if (groupId) q = q.innerJoin(groupMembers, and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, gamePlayers.userId)));
+    .where(and(...finished))
+    .groupBy(gamePlayers.userId)
+    .as('stats');
+  const fields = {
+    userId: users.id,
+    displayName: users.displayName,
+    games: sql<number>`coalesce(${stats.games}, 0)`,
+    wins: sql<number>`coalesce(${stats.wins}, 0)`.as('w'),
+    points: sql<number>`coalesce(${stats.points}, 0)`.as('p'),
+    best: sql<number>`coalesce(${stats.best}, 0)`,
+    listed: groupId ? sql<number>`1` : sql<number>`${users.showOnGlobal}`,
+  };
+  const q = groupId
+    ? db.select(fields).from(groupMembers).innerJoin(users, eq(users.id, groupMembers.userId)).leftJoin(stats, eq(stats.userId, users.id)).where(eq(groupMembers.groupId, groupId))
+    : db.select(fields).from(users).leftJoin(stats, eq(stats.userId, users.id)).where(or(eq(users.showOnGlobal, true), eq(users.id, viewerId)));
   // ponytail: computed per request; a few friends' games are cheap. Cache for 60 s (SPEC) if it ever shows up in timings.
-  return q.where(and(...where)).groupBy(gamePlayers.userId).orderBy(desc(sql`wins`), desc(sql`points`)).all();
+  return q.orderBy(desc(sql`w`), desc(sql`p`)).all().map((r) => ({ ...r, listed: !!r.listed }));
 }
 
 export const leaderboardRoutes = new Hono<AppEnv>().get('/leaderboard', (c) => {
+  const uid = c.var.user.id;
   const groupId = c.req.query('group') ?? null;
-  if (groupId && !isMember(db, groupId, c.var.user.id)) throw new ApiError(404, 'not_found');
-  const all = standings(groupId);
-  const rows = all.slice(0, TOP);
-  // the viewer's own row, pinned, when they're further down
-  const me = rows.some((r) => r.userId === c.var.user.id) ? null : (all.find((r) => r.userId === c.var.user.id) ?? null);
-  return c.json({ rows, me });
+  if (groupId && !isMember(db, groupId, uid)) throw new ApiError(404, 'not_found');
+  const all = standings(groupId, uid);
+  // `me`: the viewer's own row, always, even when opted out of the global board (only they see it, in their place).
+  return c.json({ rows: all.filter((r) => r.listed).slice(0, TOP), me: all.find((r) => r.userId === uid) ?? null });
 });
