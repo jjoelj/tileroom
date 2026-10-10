@@ -123,6 +123,7 @@
     };
   });
   const ready = $derived(standing?.word === typed ? standing : null);
+  const proposal = $derived(ready ? actionFor(ready) : null); // what Propose would do with the typed word
 
   async function propose(w: string, action: Action) {
     const ok = await act(`/groups/${id}/proposals`, 'POST', { word: w, action }, `Proposed. Everyone in ${group?.name} gets a vote.`);
@@ -152,6 +153,7 @@
     }
   }
 
+  let showCode = $state(false); // the group code is hidden until asked for (it's a key to the group)
   const inviteLink = $derived(group ? `${location.origin}/groups/join/${group.joinCode}` : '');
 
   async function rename() {
@@ -216,18 +218,34 @@
       <button class="iconbtn" aria-label="Back" onclick={() => back()}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <div style="display: flex; flex-direction: column">
+      <div style="display: flex; flex-direction: column; min-width: 0">
         <h1 class="h1" style="font-size: 22px">{group.name}</h1>
         <span class="hint">{plural(group.members.length, 'member', 'members')} · {plural(group.words.add.length + group.words.ban.length, 'house word', 'house words')}</span>
       </div>
       <button class="iconbtn" style="margin-left: auto" aria-label="Leaderboard" title="Leaderboard" onclick={() => go(`/leaderboard?group=${group?.id}`)}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4" /></svg>
       </button>
-      {#if admin}<button class="textbtn" disabled={busy} onclick={rename}>Rename</button>{/if}
     </header>
 
-    <h2 class="label section">Games</h2>
-    <button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>
+    <!-- the code near the top, hidden by default; copying and sharing work without showing it -->
+    <div class="card item codebar">
+      <span class="grow">
+        <span class="hint">Group code</span>
+        <span class="code" aria-label={showCode ? group.joinCode : 'Hidden'}>{showCode ? group.joinCode : '••••-••••'}</span>
+      </span>
+      <button class="pill quiet" aria-pressed={showCode} onclick={() => (showCode = !showCode)}>{showCode ? 'Hide' : 'Show'}</button>
+      {#if canShare}
+        <button class="pill" onclick={() => shareText(`Join my Tileroom group ${group?.name} with code ${group?.joinCode}: ${inviteLink}`)}>Share</button>
+      {:else}
+        <button class="pill" onclick={() => copy(inviteLink, 'Link')}>Copy link</button>
+      {/if}
+    </div>
+
+    <div class="row section">
+      <h2 class="label" style="margin: 0">Games</h2>
+      {#if current.length}<button class="pill" onclick={() => go(`/new?group=${group?.id}`)}>+ New game</button>{/if}
+    </div>
+    {#if !current.length}<button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>{/if}
     {#each current as g (g.id)}
       <div class="card item">
         <span class="grow">
@@ -273,23 +291,22 @@
 
     <h2 class="label section">House words</h2>
     <form class="propose" onsubmit={submit}>
-      <input class="field" bind:value={word} placeholder="Type a word to add or ban" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="15" aria-label="Word to propose" />
-      <!-- fixed height: the button and its note fill in without moving anything below -->
-      <div class="next" aria-live="polite">
-        {#if ready}
-          {@const a = actionFor(ready)}
-          {#if a}
-            <button class="primary" disabled={busy}>Propose {ING[a]} {ready.word}</button>
-            <span class="hint">{WHY[a]}</span>
-          {:else}
-            <button class="primary" disabled>Propose {ready.word}</button>
-            <span class="hint">{ready.word} is already up for a vote below.</span>
-          {/if}
-        {:else}
-          <button class="primary" disabled>{wellFormed ? `Propose ${typed}` : 'Propose a word'}</button>
-          <span class="hint">{typed && !wellFormed ? 'Words are 2 to 15 letters, A to Z.' : 'Everyone in the group votes. It needs a yes from all of you.'}</span>
-        {/if}
+      <div class="inline">
+        <input class="field" bind:value={word} placeholder="Type a word to add or ban" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="15" aria-label="Word to propose" />
+        <button class="primary" disabled={busy || !proposal}>Propose</button>
       </div>
+      <!-- one line, always there: what Propose would do, so nothing below moves -->
+      <span class="hint next" aria-live="polite">
+        {#if ready && proposal}
+          Proposes {ING[proposal]} {ready.word}. {WHY[proposal]}
+        {:else if ready}
+          {ready.word} is already up for a vote.
+        {:else if typed && !wellFormed}
+          Words are 2 to 15 letters, A to Z.
+        {:else}
+          Everyone in the group votes. It needs a yes from all of you.
+        {/if}
+      </span>
     </form>
     {#if group.words.add.length}
       <span class="sub">Added <span class="hint">· tap to propose removing</span></span>
@@ -303,65 +320,66 @@
       <span class="hint">No house words yet. Games here use the standard list until a proposal passes.</span>
     {/if}
 
-    <h2 class="label section">Members</h2>
-    <div class="card list">
-      {#each group.members as m (m.userId)}
-        <div class="member">
-          <span class="av" style="background: var(--p{m.colorIndex % 6}-bg)">{m.displayName[0]?.toUpperCase() ?? ''}</span>
-          <span class="grow strong">{m.userId === me ? 'You' : m.displayName}</span>
-          {#if m.role === 'admin'}<span class="hint">Admin</span>{/if}
-          {#if admin && m.userId !== me}
-            <button class="textbtn" disabled={busy} onclick={() => act(`/groups/${id}/members/${m.userId}/role`, 'PUT', { role: m.role === 'admin' ? 'member' : 'admin' })}>
-              {m.role === 'admin' ? 'Remove admin' : 'Make admin'}
-            </button>
-          {/if}
-        </div>
-      {/each}
-    </div>
-    <div class="card item">
-      <span class="grow">
-        <span class="hint">Group code</span>
-        <span class="code">{group.joinCode}</span>
-      </span>
-      {#if canShare}
-        <button class="pill" onclick={() => shareText(`Join my Tileroom group ${group?.name} with code ${group?.joinCode}: ${inviteLink}`)}>Share</button>
-      {:else}
-        <button class="pill quiet" onclick={() => copy(group!.joinCode, 'Code')}>Copy code</button>
-        <button class="pill" onclick={() => copy(inviteLink, 'Link')}>Copy link</button>
-      {/if}
-    </div>
-    {#if admin}<button class="textbtn" disabled={busy} onclick={newCode}>Make a new code</button>{/if}
+    <details class="fold">
+      <summary class="label">Members ({group.members.length})</summary>
+      <div class="card list">
+        {#each group.members as m (m.userId)}
+          <div class="member">
+            <span class="av" style="background: var(--p{m.colorIndex % 6}-bg)">{m.displayName[0]?.toUpperCase() ?? ''}</span>
+            <span class="grow strong">{m.userId === me ? 'You' : m.displayName}</span>
+            {#if m.role === 'admin'}<span class="hint">Admin</span>{/if}
+            {#if admin && m.userId !== me}
+              <button class="textbtn" disabled={busy} onclick={() => act(`/groups/${id}/members/${m.userId}/role`, 'PUT', { role: m.role === 'admin' ? 'member' : 'admin' })}>
+                {m.role === 'admin' ? 'Remove admin' : 'Make admin'}
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </details>
 
     <!-- Everyone sees the settings; only admins change them. -->
-    <h2 class="label section">Settings</h2>
-    {#if !admin}<span class="hint">Only admins can change these</span>{/if}
-    <label class="card item toggle" class:readonly={!admin}>
-      <span class="grow">
-        <span class="strong">Spectators can see trays</span>
-        <span class="hint">
-          {group.spectatorsSeeRacks
-            ? 'Members watching see every tray in games started while this is on. Turning it off hides them at once, in every game.'
-            : 'Members watching see only the board. Turning this on applies to new games only, so players in running games are never exposed.'}
+    <details class="fold">
+      <summary class="label">Settings</summary>
+      {#if !admin}<span class="hint">Only admins can change these</span>{/if}
+      {#if admin}
+        <div class="card item">
+          <span class="grow"><span class="hint">Name</span><span class="strong">{group.name}</span></span>
+          <button class="pill quiet" disabled={busy} onclick={rename}>Rename</button>
+        </div>
+      {/if}
+      <label class="card item toggle" class:readonly={!admin}>
+        <span class="grow">
+          <span class="strong">Spectators can see trays</span>
+          <span class="hint">
+            {group.spectatorsSeeRacks
+              ? 'Members watching see every tray in games started while this is on. Turning it off hides them at once, in every game.'
+              : 'Members watching see only the board. Turning this on applies to new games only, so players in running games are never exposed.'}
+          </span>
         </span>
-      </span>
-      <input
-        type="checkbox"
-        checked={group.spectatorsSeeRacks}
-        disabled={busy || !admin}
-        onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
-      />
-    </label>
-
-    {#if group.history.length}
-      <h2 class="label section">Past votes</h2>
-      {#each group.history.slice(0, 8) as p (p.id)}
-        <span class="hint past">{VERB[p.action]} {p.word} {outcome(p)}</span>
-      {/each}
-    {/if}
-
-    <button class="textbtn leave" onclick={leave}>Leave {group.name}</button>
-    <!-- a group's games show its name, so only a group with none can go -->
-    {#if admin && !group.games.length}<button class="textbtn leave" style="margin-top: 0" onclick={remove}>Delete {group.name}</button>{/if}
+        <input
+          type="checkbox"
+          checked={group.spectatorsSeeRacks}
+          disabled={busy || !admin}
+          onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
+        />
+      </label>
+      {#if admin}
+        <div class="card item">
+          <span class="grow"><span class="strong">Group code</span><span class="hint">A new code stops the old one working. Members stay.</span></span>
+          <button class="pill quiet" disabled={busy} onclick={newCode}>New code</button>
+        </div>
+      {/if}
+      {#if group.history.length}
+        <span class="sub">Past votes</span>
+        {#each group.history.slice(0, 8) as p (p.id)}
+          <span class="hint past">{VERB[p.action]} {p.word} {outcome(p)}</span>
+        {/each}
+      {/if}
+      <button class="textbtn leave" onclick={leave}>Leave {group.name}</button>
+      <!-- a group's games show its name, so only a group with none can go -->
+      {#if admin && !group.games.length}<button class="textbtn leave" style="margin-top: 0" onclick={remove}>Delete {group.name}</button>{/if}
+    </details>
   </main>
 {/if}
 
@@ -380,10 +398,16 @@
   .vote.yes { color: var(--ok); }
   .vote.no { color: var(--bad); }
   .pair { display: flex; gap: 8px; }
-  .propose { display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; align-items: center; justify-content: space-between; }
+  .section.row { margin: 24px 0 8px; min-height: 44px; }
+  .codebar { margin-top: 4px; }
+  .codebar .code { font-size: 18px; }
+  .propose { display: flex; flex-direction: column; gap: 6px; }
+  .inline { display: flex; gap: 8px; }
+  .inline .primary { width: auto; height: 54px; padding: 0 18px; flex-shrink: 0; }
   .propose .field { text-transform: uppercase; letter-spacing: 0.05em; }
   .propose .field::placeholder { text-transform: none; letter-spacing: normal; } /* only typed words are capitals */
-  .next { min-height: 92px; display: flex; flex-direction: column; gap: 6px; }
+  .next { min-height: 2.9em; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
   .list { padding: 4px 0; }
@@ -393,5 +417,11 @@
   .toggle input { width: 22px; height: 22px; accent-color: var(--ink); flex-shrink: 0; }
   .toggle.readonly { opacity: 0.45; } /* the whole setting, not just the switch: it can't be changed here */
   .past { display: block; margin-top: 4px; }
-  .leave { color: var(--bad); margin-top: 24px; }
+  .leave { color: var(--bad); margin-top: 16px; display: block; }
+  .fold { margin-top: 24px; }
+  .fold + .fold { margin-top: 4px; }
+  .fold summary { min-height: 44px; display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
+  .fold summary::-webkit-details-marker { display: none; }
+  .fold summary::after { content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-top: -4px; transition: transform 150ms; }
+  .fold[open] summary::after { transform: rotate(225deg); margin-top: 4px; }
 </style>
