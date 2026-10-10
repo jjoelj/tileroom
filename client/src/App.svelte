@@ -103,13 +103,6 @@
   );
 </script>
 
-{#if update.phase}
-  <!-- checking for (or installing) a new version before anything shows: see update.svelte.ts -->
-  <main class="screen splash" aria-busy="true">
-    <div class="brand" aria-hidden="true"><span>T</span><span>R</span></div>
-    <p class="lead" role="status">{update.phase === 'updating' ? 'Updating Tileroom…' : 'Checking for updates…'}</p>
-  </main>
-{:else}
 {#key screen}
 <div in:show={{ duration: 180 }}>
 {#if session.me === undefined}
@@ -143,7 +136,6 @@
 {/if}
 </div>
 {/key}
-{/if}
 
 <footer>
   {#if update.ready}
@@ -152,7 +144,7 @@
   <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener" title="View source" aria-label={`View source (${VERSION})`}>{VERSION}</a>
 </footer>
 
-{#if !update.phase && news.length && session.me?.pushReady && device.permission === 'granted'}
+{#if news.length && session.me?.pushReady && device.permission === 'granted'}
   <div class="bg" transition:show role="presentation" onclick={closeNews}></div>
   <div class="sheet" transition:rise role="dialog" aria-modal="true" aria-labelledby="news-title">
     <h2 id="news-title" class="h1" style="font-size: 22px">What's new</h2>
@@ -165,7 +157,6 @@
 <Toast />
 
 <style>
-  .splash { justify-content: center; align-items: center; gap: 20px; }
   .bg { position: fixed; inset: 0; background: var(--scrim); z-index: 40; }
   .sheet {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; max-width: 480px; max-height: 80dvh; margin: 0 auto;
