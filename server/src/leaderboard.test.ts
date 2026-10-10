@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { expect, test } from 'bun:test';
+import type { Layout } from '../../shared/board';
 import { randomId } from './codes';
 import { gamePlayers, games } from './db/schema';
 import { db } from './runtime/db';
 import { call, newUser, type TestUser } from './test-utils';
 
 /** A game with these final scores, in seat order. */
-function played(players: [TestUser, number][], groupId: string | null = null, status: 'finished' | 'active' = 'finished') {
+function played(players: [TestUser, number][], groupId: string | null = null, status: 'finished' | 'active' = 'finished', layout: Layout = 'default') {
   const id = randomId();
-  db.insert(games).values({ id, hostId: players[0]![0].id, bagSize: 100, randomOrder: false, joinCode: randomId().slice(0, 6), status, groupId }).run();
+  db.insert(games).values({ id, hostId: players[0]![0].id, bagSize: 100, randomOrder: false, joinCode: randomId().slice(0, 6), status, groupId, layout }).run();
   players.forEach(([u, score], seat) => void db.insert(gamePlayers).values({ gameId: id, seat, userId: u.id, score }).run());
 }
 
@@ -53,4 +54,13 @@ test('opting out of the global board: hidden from others, still on group boards,
   const own = await board(b);
   expect(rowOf(own.rows, b)).toBeUndefined(); // not in the shared list...
   expect(own.me).toMatchObject({ userId: b.id, games: 1, points: 50, listed: false }); // ...but b sees where they'd be
+});
+
+test('Special games count for wins and games played, not for points or best game', async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  played([[a, 400], [b, 100]], null, 'finished', 'special');
+  played([[a, 120], [b, 150]]);
+  const { rows } = await board(a);
+  expect(rowOf(rows, a)).toMatchObject({ games: 2, wins: 1, points: 120, best: 120 });
+  expect(rowOf(rows, b)).toMatchObject({ games: 2, wins: 1, points: 150, best: 150 });
 });

@@ -26,8 +26,9 @@ export function standings(groupId: string | null, viewerId: string): Standing[] 
       userId: gamePlayers.userId,
       games: sql<number>`count(*)`.as('games'),
       wins: sql<number>`sum(case when ${gamePlayers.score} = ${top.score} then 1 else 0 end)`.as('wins'), // ties count (SPEC §4.12)
-      points: sql<number>`sum(${gamePlayers.score})`.as('points'),
-      best: sql<number>`max(${gamePlayers.score})`.as('best'),
+      // Special games count for wins but not points: its bonuses sit close together and inflate scores
+      points: sql<number>`sum(case when ${games.layout} = 'special' then 0 else ${gamePlayers.score} end)`.as('points'),
+      best: sql<number>`max(case when ${games.layout} = 'special' then 0 else ${gamePlayers.score} end)`.as('best'),
     })
     .from(gamePlayers)
     .innerJoin(games, eq(games.id, gamePlayers.gameId))
