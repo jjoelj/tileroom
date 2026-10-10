@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.10.0 (2026-10-10)
 
 - Groups can pass house words by majority instead of unanimously (Settings, admins). If switching would pass open votes right away, it asks first and says how many.
 
