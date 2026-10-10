@@ -82,7 +82,7 @@
       <div class="stack">
         <label for="su" class="label">Username</label>
         <input id="su" class="field" bind:value={username} autocomplete="username" autocapitalize="none" spellcheck="false" />
-        <span class="hint">3–20 letters, numbers or _ · how you sign in</span>
+        <span class="hint">3–20 letters, numbers or underscores · how you sign in</span>
       </div>
       <div class="stack">
         <label for="dn" class="label">Display name</label>

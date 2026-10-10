@@ -25,7 +25,7 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const COMMON = new Set(readFileSync(new URL('./common-passwords.txt', import.meta.url), 'utf8').split(/\r?\n/));
 
 const DisplayName = z.string().trim().min(1).max(24).refine((n) => !n.includes(DELETED_MARK), `Names can't contain ${DELETED_MARK}`);
-export const Username =z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,20}$/, 'Usernames are 3–20 letters, digits or _');
+export const Username =z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,20}$/, 'Usernames are 3–20 letters, numbers or underscores');
 const Password = z.string().min(10, 'Use at least 10 characters').max(128, 'Use at most 128 characters');
 
 /** Throws 400 `weak_password` for common passwords or the username itself. */
