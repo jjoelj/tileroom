@@ -273,7 +273,7 @@ describe('group games', () => {
     expect(join.json).toEqual({ error: 'not_group_member', message: 'This game is for Friends. Join the group first.' });
   });
 
-  test("the group's words are frozen at start: adds count, bans don't, later votes change nothing", async () => {
+  test("the group's words are frozen at start (not creation): adds count, bans don't, later votes change nothing", async () => {
     const { id, members } = await groupOf(2);
     const [a, b] = members as [TestUser, TestUser];
     const pass = async (word: string, action: string) => {
@@ -281,9 +281,9 @@ describe('group games', () => {
       await vote(pid, b, 'yes');
     };
     await pass('QXZJ', 'add');
-    await pass('CAT', 'ban');
     const g = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
     await call(`/join/${g.json.joinCode}`, { method: 'POST', cookie: b.cookie });
+    await pass('CAT', 'ban'); // while the game waits in its lobby: it counts, since the list is copied at start
     const started = await call(`/games/${g.json.id}/start`, { method: 'POST', cookie: a.cookie });
     expect(started.json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
     await pass('DOG', 'ban'); // after the start: not in this game
