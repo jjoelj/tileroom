@@ -210,10 +210,11 @@
   /** Slides the tile now at (r, c) over from the square it just left (the other half of a swap). */
   export function slideFrom(r: number, c: number, from: { r: number; c: number }) {
     const [a, b] = [cellRect(from.r, from.c), cellRect(r, c)];
-    const at = `${(a.left - b.left) / s}px ${(a.top - b.top) / s}px`; // the grid is scaled: back to board pixels
+    const [x, y] = [(a.left - b.left) / s, (a.top - b.top) / s]; // the grid is scaled: back to board pixels
+    // `inset`, not `translate`: a composited layer at fractional zoom snaps to whole pixels when it ends
     grid.children[r * SIZE + c]
       ?.querySelector('.piece')
-      ?.animate([{ translate: at, zIndex: 2 }, { translate: '0 0', zIndex: 2 }], { duration: ms(200), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+      ?.animate([{ inset: `${y}px ${-x}px ${-y}px ${x}px`, zIndex: 2 }, { inset: '0px', zIndex: 2 }], { duration: ms(200), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
   }
 
   /** A cell's on-screen box, zoom included (for animating a tile exactly into it). */
