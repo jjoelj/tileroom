@@ -20,7 +20,7 @@ const board = async (u: TestUser, group?: string) => {
 };
 const rowOf = (rows: Row[], u: TestUser) => rows.find((r) => r.userId === u.id);
 
-test('wins (ties count), points and best game; group boards count only that group, members only', async () => {
+test('global: wins (ties count), then fewer games, no points; groups: only their games and members, with points', async () => {
   const [a, b, c, outsider] = [await newUser(), await newUser(), await newUser(), await newUser()];
   const g = (await call('/groups', { method: 'POST', cookie: a.cookie, body: { name: 'Board' } })).json;
   await call(`/groups/join/${g.joinCode}`, { method: 'POST', cookie: b.cookie });
@@ -31,13 +31,16 @@ test('wins (ties count), points and best game; group boards count only that grou
   played([[a, 999], [b, 1]], g.id, 'active'); // not finished: doesn't count
 
   const global = (await board(a)).rows;
-  expect(rowOf(global, a)).toMatchObject({ games: 2, wins: 2, points: 500, best: 300 });
-  expect(rowOf(global, b)).toMatchObject({ games: 3, wins: 2, points: 760, best: 310 });
-  expect(rowOf(global, c)).toMatchObject({ games: 1, wins: 0, points: 100, best: 100 });
-  expect((await board(outsider)).me).toMatchObject({ games: 0, wins: 0, points: 0, best: 0, listed: true }); // on the board before any game
+  expect(rowOf(global, a)).toMatchObject({ games: 2, wins: 2 });
+  expect(rowOf(global, b)).toMatchObject({ games: 3, wins: 2 });
+  expect((await board(c)).me).toMatchObject({ games: 1, wins: 0 }); // own row: other tests' players may fill the top 100
+  for (const r of global) expect(r).not.toContainAnyKeys(['points', 'best']); // points are compared within groups only
+  expect(global.findIndex((r) => r.userId === a.id)).toBeLessThan(global.findIndex((r) => r.userId === b.id)); // same wins, fewer games
+  expect((await board(outsider)).me).toMatchObject({ games: 0, wins: 0, listed: true }); // on the board before any game
 
   const group = (await board(a, g.id)).rows;
-  expect(rowOf(group, b)).toMatchObject({ games: 2, wins: 1, points: 450 }); // the outside game isn't here
+  expect(rowOf(group, a)).toMatchObject({ games: 2, wins: 2, points: 500, best: 300 });
+  expect(rowOf(group, b)).toMatchObject({ games: 2, wins: 1, points: 450, best: 250 }); // the outside game isn't here
   expect(rowOf(group, c)).toBeUndefined(); // not a member
   expect((await board(outsider, g.id)).status).toBe(404);
 });
@@ -53,14 +56,16 @@ test('opting out of the global board: hidden from others, still on group boards,
   expect(rowOf((await board(a, g.id)).rows, b)).toBeDefined();
   const own = await board(b);
   expect(rowOf(own.rows, b)).toBeUndefined(); // not in the shared list...
-  expect(own.me).toMatchObject({ userId: b.id, games: 1, points: 50, listed: false }); // ...but b sees where they'd be
+  expect(own.me).toMatchObject({ userId: b.id, games: 1, wins: 0, listed: false }); // ...but b sees where they'd be
 });
 
 test('Special games count for wins and games played, not for points or best game', async () => {
   const [a, b] = [await newUser(), await newUser()];
-  played([[a, 400], [b, 100]], null, 'finished', 'special');
-  played([[a, 120], [b, 150]]);
-  const { rows } = await board(a);
+  const g = (await call('/groups', { method: 'POST', cookie: a.cookie, body: { name: 'Old board' } })).json;
+  await call(`/groups/join/${g.joinCode}`, { method: 'POST', cookie: b.cookie });
+  played([[a, 400], [b, 100]], g.id, 'finished', 'special');
+  played([[a, 120], [b, 150]], g.id);
+  const { rows } = await board(a, g.id);
   expect(rowOf(rows, a)).toMatchObject({ games: 2, wins: 1, points: 120, best: 120 });
   expect(rowOf(rows, b)).toMatchObject({ games: 2, wins: 1, points: 150, best: 150 });
 });

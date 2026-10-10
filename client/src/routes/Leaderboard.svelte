@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Leaderboards (SPEC §4.12): Global and each of my groups; Wins or Points. A Rating board joins later as the default. -->
+<!-- Leaderboards (SPEC §4.12): Global (wins) and each of my groups (wins or points). A Rating board joins later. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { plural } from '../../../shared/plural';
@@ -8,7 +8,7 @@
   import { sayError } from '../lib/say.svelte';
   import { back, go, session } from '../lib/state.svelte';
 
-  type Row = { userId: string; displayName: string; games: number; wins: number; points: number; best: number; listed: boolean };
+  type Row = { userId: string; displayName: string; games: number; wins: number; points?: number; best?: number; listed: boolean };
   let groups = $state<{ id: string; name: string }[]>([]);
   const from = new URLSearchParams(location.search).get('group') ?? ''; // opened from a group page: back goes there
   let group = $state(from);
@@ -30,13 +30,16 @@
     history.replaceState(history.state, '', id ? `/leaderboard?group=${id}` : '/leaderboard');
   }
 
-  const other = $derived(by === 'wins' ? 'points' : 'wins');
+  const rank = $derived(group ? by : 'wins'); // points are only compared within a group
   // My own row joins the list where it belongs: past the top 100, or opted out of the global board (only I see it).
   const sorted = $derived.by(() => {
     if (!data) return [];
     const me = data.me && !data.rows.some((r) => r.userId === data?.me?.userId) ? [data.me] : [];
     // ponytail: past the top 100 my rank shows as 101; fine for a few friends, fetch my real rank if boards grow
-    return [...data.rows, ...me].sort((a, b) => b[by] - a[by] || b[other] - a[other]);
+    const n = (r: Row, k: 'wins' | 'points') => r[k] ?? 0;
+    return [...data.rows, ...me].sort((a, b) =>
+      rank === 'points' ? n(b, 'points') - n(a, 'points') || b.wins - a.wins : b.wins - a.wins || (group ? n(b, 'points') - n(a, 'points') : a.games - b.games),
+    );
   });
 
   async function setGlobal(on: boolean) {
@@ -47,8 +50,8 @@
       if (data?.me) data.me.listed = on;
     }, sayError);
   }
-  const line = (r: Row) => (r.games ? `${plural(r.games, 'game', 'games')} · best ${r.best}` : 'No games yet');
-  const unit = (r: Row) => (by === 'wins' ? (r.wins === 1 ? 'win' : 'wins') : 'pts');
+  const line = (r: Row) => (r.games ? `${plural(r.games, 'game', 'games')}${r.best === undefined ? '' : ` · best ${r.best}`}` : 'No games yet');
+  const unit = (r: Row) => (rank === 'wins' ? (r.wins === 1 ? 'win' : 'wins') : 'pts');
 </script>
 
 <!-- One screen tall: tabs and the opt-out stay put, the list scrolls between them, and my row is sticky in it. -->
@@ -67,10 +70,12 @@
         <button role="tab" aria-selected={group === g.id} class:on={group === g.id} onclick={() => pick(g.id)}>{g.name}</button>
       {/each}
     </div>
-    <div class="segment" role="radiogroup" aria-label="Rank by">
-      <button role="radio" aria-checked={by === 'wins'} class:on={by === 'wins'} onclick={() => (by = 'wins')}>Wins</button>
-      <button role="radio" aria-checked={by === 'points'} class:on={by === 'points'} onclick={() => (by = 'points')}>Points</button>
-    </div>
+    {#if group}
+      <div class="segment" role="radiogroup" aria-label="Rank by">
+        <button role="radio" aria-checked={by === 'wins'} class:on={by === 'wins'} onclick={() => (by = 'wins')}>Wins</button>
+        <button role="radio" aria-checked={by === 'points'} class:on={by === 'points'} onclick={() => (by = 'points')}>Points</button>
+      </div>
+    {/if}
 
     {#if data && !sorted.length}
       <p class="hint" style="margin: 0">No finished games yet.</p>
@@ -82,7 +87,7 @@
           <span class="who"
             ><span class="name">{r.userId === session.me?.id ? 'You' : r.displayName}</span><span class="hint">{r.listed ? line(r) : 'Hidden. Only you see this.'}</span></span
           >
-          <span class="num">{r[by]}<span class="hint">{unit(r)}</span></span>
+          <span class="num">{r[rank] ?? 0}<span class="hint">{unit(r)}</span></span>
         </li>
       {/each}
     </ol>
