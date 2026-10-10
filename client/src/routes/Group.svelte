@@ -2,7 +2,7 @@
 <!-- A group (SPEC §4.10): its games, open votes on house words, the word list, members and settings. -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { names, plural, turnAge } from '../../../shared/plural';
+  import { ago, names, plural } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
@@ -35,7 +35,7 @@
     proposals: Proposal[];
     history: Proposal[];
     morePast: boolean;
-    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; turnNumber: number; turnStartedAt: number | null; finishedAt: number | null; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
+    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; turnStartedAt: number | null; finishedAt: number | null; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
   };
   /** Where a word stands in this group (the lookup behind the propose button). */
   type Standing = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
@@ -208,7 +208,7 @@
       ? `Starting soon · ${plural(g.players.length, 'player', 'players')}`
       : g.status === 'finished'
         ? 'Finished'
-        : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn${g.turnStartedAt === null ? '' : ` · ${turnAge(g.turnNumber, g.turnStartedAt, Date.now())}`}`;
+        : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn${g.turnStartedAt === null ? '' : ` · ${ago(Date.now() - g.turnStartedAt)}`}`;
   const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
   // Past games: the group screen brings the latest few; Show more pages back from the last one shown.
   type GameRow = Detail['games'][number];

@@ -10,6 +10,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - Notifications you've already opened or swiped away on one device clear on your others the next time Tileroom opens there. A phone that was offline gets only the latest notification for each game.
 - The swap sheet shows your tiles in the same order as your rack.
 - Drag a tile you've placed onto another one you've placed and they swap squares.
+- "Your turn" stands out in a game. Times on your games list and group pages are short (3m, 2d), and the game screen no longer shows them.
 - When a word is played while you have the game open, yours or anyone's, the board moves so you can see it and the tiles are set down one by one.
 
 ## v0.6.0 (2026-10-09)

@@ -114,7 +114,6 @@ export const gameRoutes = new Hono<AppEnv>()
         status: game.status,
         currentSeat: game.currentSeat,
         turnStartedAt: game.turnStartedAt,
-        turnNumber: game.turnNumber,
         finishedAt: game.finishedAt,
         mySeat,
         group: g.group,

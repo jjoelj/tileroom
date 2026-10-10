@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ms, show } from '../lib/motion';
-  import { names, plural, turnAge } from '../../../shared/plural';
+  import { ago, names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
@@ -14,7 +14,6 @@
     id: string;
     status: 'lobby' | 'active' | 'finished';
     currentSeat: number;
-    turnNumber: number;
     turnStartedAt: number | null;
     mySeat: number;
     group: { id: string; name: string } | null;
@@ -87,7 +86,7 @@
   const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
   const scoreLine = (g: Summary) =>
     g.players.map((p) => `${p.seat === g.mySeat ? 'You' : p.displayName} ${p.score}`).join(' · ');
-  const since = (g: Summary) => (g.turnStartedAt === null ? '' : ` · ${turnAge(g.turnNumber, g.turnStartedAt, Date.now())}`);
+  const since = (g: Summary) => (g.turnStartedAt === null ? '' : ` · ${ago(Date.now() - g.turnStartedAt)}`);
   const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
   const result = (g: Summary) => {
     const best = Math.max(...g.players.map((p) => p.score));

@@ -6,14 +6,11 @@ export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 
 /** "Sam", "Sam & Ben", "Sam, Ben & Ana". Games have no names: they're called by who's in them. */
 export const names = (list: string[]) => (list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} & ${list.at(-1)}`);
 
-/** How long a game's turn has waited: since the last move, or since the start before anyone has moved. */
-export const turnAge = (turnNumber: number, turnStartedAt: number, now: number) => `${turnNumber ? 'last move' : 'started'} ${ago(now - turnStartedAt)}`;
-
-/** How long ago, from a duration in ms: "just now", "1 minute ago", "3 hours ago", "2 days ago". */
+/** How long ago, short, from a duration in ms: "now", "3m", "2h", "2d". */
 export function ago(ms: number) {
   const m = Math.floor(ms / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${plural(m, 'minute', 'minutes')} ago`;
+  if (m < 1) return 'now';
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  return h < 24 ? `${plural(h, 'hour', 'hours')} ago` : `${plural(Math.floor(h / 24), 'day', 'days')} ago`;
+  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }

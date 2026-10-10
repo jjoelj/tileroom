@@ -2,7 +2,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
-  import { ago, names, plural } from '../../../shared/plural';
+  import { names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
@@ -496,7 +496,7 @@
       ? ''
       : view.status === 'finished'
         ? 'Game over'
-        : `${view.lastMove ? `${describe(view.lastMove)}, ${ago(Date.now() - (view.turnStartedAt ?? Date.now()))} · ` : ''}${myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}`,
+        : [view.lastMove && describe(view.lastMove), !myTurn && `${nameOf(view.currentSeat)} is next`].filter(Boolean).join(' · '), // my turn: the pill
   );
   const line = $derived(
     message ||
@@ -624,7 +624,10 @@
       </section>
 
       <div class="status">
-        {#key statusText}<span in:show={{ y: 4 }}>{statusText}</span>{/key}
+        <span class="said">
+          {#if myTurn}<span class="yourturn" in:pop>Your turn</span>{/if}
+          {#key statusText}<span in:show={{ y: 4 }}>{statusText}</span>{/key}
+        </span>
         {#if view.status === 'active'}
           <button class="bagbtn" aria-haspopup="dialog" onclick={() => (unseenOpen = true)}>
             {view.finalRoundAfter !== null ? 'Last round · ' : ''}{view.bagCount} in bag
@@ -818,7 +821,9 @@
   @keyframes live { from { box-shadow: 0 0 0 0 currentColor; } to { box-shadow: 0 0 0 7px transparent; } }
   @media (prefers-reduced-motion: reduce) { .dot.here { animation: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px currentColor; } }
   .sc { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; }
-  .status { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .status { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 12px 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .said { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .yourturn { flex: none; font-size: 13px; font-weight: 800; color: var(--on-color); background: var(--p0-bg); padding: 4px 10px; border-radius: 999px; }
   .problem { margin: 10px 12px 0; min-height: 16px; font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
   .rack { position: relative; display: flex; justify-content: center; gap: 6px; padding: 18px 8px 12px; }
   .rk { position: relative; width: 44px; height: 48px; border-radius: 8px; border: none; transition: transform 0.12s; touch-action: none; cursor: grab; }
