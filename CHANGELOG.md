@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.4.1 (2026-10-09)
 
 - The board has a little room around its edge, so the outline around words on the edge shows, and tiles dropped just past an edge square land on it.
 
