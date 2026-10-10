@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import fc from 'fast-check';
 import { CENTER, emptyBoard, SIZE } from './board';
-import { applyMove, newGame, RuleError, TURN_TIMEOUT_MS, turnExpired, winnerSeats } from './rules';
+import { applyMove, finalTurns, newGame, RuleError, TURN_TIMEOUT_MS, turnExpired, winnerSeats } from './rules';
 import { BAGS, bagCount } from './tiles';
 import type { Bag, GameState, Move } from './types';
 
@@ -28,6 +28,7 @@ function game(racks: string[], bag: Bag = {}): GameState {
 
 const play = (letter: string, r: number, c: number, blank = false): Move => ({ type: 'play', tiles: [{ r, c, letter, blank }] });
 const pass: Move = { type: 'pass' };
+const left = (s: GameState) => finalTurns(s.players.map((p) => p.rack.length), s.currentSeat, s.finalRoundAfter)!;
 const move = (s: GameState, seat: number, m: Move) => applyMove(s, seat, m, any, first).state;
 const err = (f: () => unknown) => {
   try {
@@ -146,12 +147,22 @@ describe('game end', () => {
     s.currentSeat = mover;
     s = move(s, mover, play('B', 7, 8));
     expect(s.finalRoundAfter).toBe(mover);
+    const predicted = left(s);
     const turns: number[] = [];
     while (s.status === 'active') {
       turns.push(s.currentSeat);
       s = move(s, s.currentSeat, pass);
     }
     expect(turns).toEqual(Array.from({ length: n }, (_, i) => (mover + 1 + i) % n));
+    expect(predicted).toEqual(turns);
+  });
+
+  test('finalTurns: none before the final round; then who still plays, in order, skipping empty racks', () => {
+    expect(finalTurns([7, 7, 7], 1, null)).toBeNull();
+    expect(finalTurns([7, 7, 7], 1, 0)).toEqual([1, 2, 0]); // seat 0 emptied the bag: 1 and 2, then 0 once more
+    expect(finalTurns([7, 7, 7], 0, 0)).toEqual([0]); // the emptier's extra turn is the last
+    expect(finalTurns([7, 0, 7, 7], 3, 1)).toEqual([3, 0]); // seat 1 has no tiles: its turn is skipped
+    expect(finalTurns([0, 7], 1, 0)).toEqual([1]);
   });
 
   test('empty racks are skipped in the final round, including the one that ends it', () => {
@@ -164,6 +175,7 @@ describe('game end', () => {
     s = move(s, 1, pass);
     expect(s.currentSeat).toBe(2);
     s.players[0]!.rack = [];
+    expect(left(s)).toEqual([2]); // seat 0's turn will be skipped
     s = move(s, 2, pass);
     expect(s.status).toBe('finished'); // seat 0's last turn was skipped
   });
@@ -205,6 +217,7 @@ test('property: random games conserve tiles, follow the final round, and always 
       const full = Object.entries(BAGS[size]).flatMap(([l, k]) => Array(k).fill(l)).sort().join('');
       let s = newGame(n, size, 'default', r);
       let turnsAfterFinal = 0;
+      let predicted: number[] | null = null; // finalTurns when the final round began: exactly who then plays
       for (let i = 0; i < 2000 && s.status === 'active'; i++) {
         const seat = s.currentSeat;
         const p = s.players[seat]!;
@@ -213,12 +226,17 @@ test('property: random games conserve tiles, follow the final round, and always 
         if (roll < 10 && bagCount(s.bag) > 0 && p.rack.length) m = { type: 'swap', swap: p.rack.slice(0, 1 + r(Math.min(p.rack.length, bagCount(s.bag)))) };
         else if (roll < 95 && p.rack.length >= 2) m = randomPlay(s, p.rack, r);
         const wasFinal = s.finalRoundAfter !== null;
+        if (wasFinal) {
+          predicted ??= left(s);
+          expect(seat).toBe(predicted.shift()!);
+        }
         s = applyMove(s, seat, m, any, r).state;
         if (wasFinal) turnsAfterFinal++;
         expect(census(s)).toBe(full);
         expect(turnsAfterFinal).toBeLessThanOrEqual(n);
       }
       expect(s.status).toBe('finished');
+      expect(predicted ?? []).toEqual([]); // nobody predicted was left out
     }),
     { numRuns: 60 },
   );

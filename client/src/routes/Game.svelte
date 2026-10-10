@@ -3,7 +3,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
   import { names, plural } from '../../../shared/plural';
-  import { MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
+  import { finalTurns, MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
   import { api, ApiError } from '../lib/api';
@@ -43,6 +43,8 @@
   const storeKey = $derived(`tileroom:pending:${id}`);
   const rack = $derived(view?.myRack ?? []);
   const myTurn = $derived(view?.status === 'active' && view.currentSeat === view.mySeat);
+  /** In the final round: who still plays (each turn their last); the rest are out of turns. */
+  const finalLeft = $derived(view?.status === 'active' ? finalTurns(view.players.map((p) => p.rackCount), view.currentSeat, view.finalRoundAfter) : null);
   // Games have no names: they're called by who else is in them.
   const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
   const BOARD_NAME = { default: 'Default board', classic: 'Classic board', special: 'Special board' } as const;
@@ -641,20 +643,21 @@
       <section class="strip" aria-label="Scores, in turn order">
         {#each view.players as p (p.seat)}
           {@const here = p.here && p.seat !== view.mySeat}
-          <div class="pc" class:on={view.status === 'active' && p.seat === view.currentSeat}>
+          <div class="pc" class:on={view.status === 'active' && p.seat === view.currentSeat} class:out={finalLeft && !finalLeft.includes(p.seat)}>
             <div class="pn" style="color: var(--p{p.colorIndex % 6})">
               <span class="dot" class:here title={here ? 'In the game now' : undefined}></span>{p.seat === view.mySeat ? 'You' : p.displayName}
               {#if here}<span class="visually-hidden">, in the game now</span>{/if}
               {#if view.winnerSeats?.includes(p.seat)}<svg in:pop role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
             </div>
             <div class="sc"><Count value={p.score} /></div>
+            {#if finalLeft && p.seat === view.currentSeat}<span class="lastturn">Last turn</span>{/if}
           </div>
         {/each}
       </section>
 
       <div class="status">
         <span class="said">
-          {#if myTurn}<span class="yourturn" in:pop>Your turn</span>{/if}
+          {#if myTurn}<span class="yourturn" in:pop>{finalLeft ? 'Your last turn' : 'Your turn'}</span>{/if}
           {#key statusText}<span in:show={{ y: 4 }}>{statusText}</span>{/key}
         </span>
         {#if view.status === 'active'}
@@ -855,6 +858,8 @@
   .strip { display: flex; gap: 6px; padding: 0 8px 10px; overflow-x: auto; }
   .pc { flex: 0 0 auto; min-width: 68px; background: var(--surface); border-radius: 12px; padding: 7px 10px; display: flex; flex-direction: column; gap: 1px; }
   .pc.on { outline: 2px solid var(--p0); outline-offset: -2px; }
+  .pc.out { opacity: 0.45; } /* out of turns in the final round */
+  .lastturn { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--p0); }
   .pn { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .dot { width: 8px; height: 8px; border-radius: 4px; background: currentColor; }
   /* presence: the player's dot pulses (in their own color) while they have this game open */

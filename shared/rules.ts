@@ -152,6 +152,21 @@ function advance(s: GameState, seat: number, finalRoundJustStarted: boolean) {
   s.status = 'finished';
 }
 
+/**
+ * In the final round (SPEC §4.8, as `advance` plays it): the seats still to play, in order, starting with whoever's
+ * turn it is (each of those turns is their last); everyone else is out of turns. Null before the final round.
+ */
+export function finalTurns(rackCounts: number[], currentSeat: number, finalRoundAfter: number | null): number[] | null {
+  if (finalRoundAfter === null) return null;
+  const left: number[] = [];
+  for (let i = 0; i < rackCounts.length; i++) {
+    const seat = (currentSeat + i) % rackCounts.length;
+    if (i === 0 || rackCounts[seat]! > 0) left.push(seat); // empty racks are skipped
+    if (seat === finalRoundAfter) break; // the bag-emptier's extra turn ends it
+  }
+  return left;
+}
+
 /** Validates and applies one move. Returns a new state; `state` is not modified. */
 export function applyMove(state: GameState, seat: number, move: Move, isWord: IsWord, randomInt: RandomInt) {
   const s = structuredClone(state);
