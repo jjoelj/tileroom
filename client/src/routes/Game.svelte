@@ -714,7 +714,7 @@
               </div>
             {/each}
           {/if}
-          <button class="secondary" onclick={() => go(view?.group ? `/groups/${view.group.id}` : '/')}>Back to {view.group?.name ?? 'games'}</button>
+          <button class="secondary" onclick={() => back(view?.group ? `/groups/${view.group.id}` : '/')}>Back to {view.group?.name ?? 'games'}</button>
         </section>
       {:else}
         <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
