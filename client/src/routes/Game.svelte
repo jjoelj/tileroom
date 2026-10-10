@@ -119,7 +119,7 @@
   // Geometry and score are plain arithmetic: computed at once. Only the word lookup (worker) is async; until it
   // answers for the current words, the move isn't shown as valid and the last message stays (no flicker).
   const preview = $derived.by((): Preview | null =>
-    view && onBoard.length ? previewPlay(view.board, $state.snapshot(onBoard) as PendingTile[], () => true) : null,
+    view && placed.length ? previewPlay(view.board, $state.snapshot(placed) as PendingTile[], () => true) : null, // not a blank still being chosen
   );
   const words = $derived(preview?.ok ? preview.words.map((w) => w.word).join(' ') : '');
   let lookup = $state<{ words: string; invalid: string[] } | null>(null);
@@ -154,7 +154,9 @@
   type DragFrom = { kind: 'rack'; slot: number } | { kind: 'board'; r: number; c: number };
   let drag = $state<{ from: DragFrom; slot: number; letter: string; blank: boolean } | null>(null);
   // Tiles on the board right now: a placed tile picked up off the board doesn't count while it's held.
-  const onBoard = $derived(drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending);
+  const placed = $derived(drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending);
+  // A blank waiting for its letter sits on its square, letterless, instead of looking like it went back to the rack.
+  const onBoard = $derived(blankAt ? [...placed, { ...blankAt, letter: '', blank: true }] : placed);
   let justDragged = false; // the click that follows a drag isn't a tap
 
   const isFree = (r: number, c: number, except?: DragFrom) =>
@@ -653,7 +655,7 @@
       {:else}
         <div class="rack" aria-label="Your tiles" bind:this={rackEl}>
           {#each order as slot, i (`${deal}:${slot}`)}
-            {@const used = pending.some((p) => p.slot === slot) || drag?.slot === slot}
+            {@const used = pending.some((p) => p.slot === slot) || drag?.slot === slot || blankAt?.slot === slot}
             <div class="slot" data-slot={slot} animate:flip={{ duration: 180 }}>
             {#if used}
               <span class="rk empty" aria-hidden="true" in:show={{ duration: hush ? 0 : 160 }}></span>

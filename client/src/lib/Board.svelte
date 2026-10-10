@@ -292,7 +292,7 @@
         onclick={() => onCell(cell.r, cell.c)}
       >
         <span class="lab" aria-hidden="true">{LABEL[cell.prem]}</span>
-        {#if cell.letter}
+        {#if cell.letter || cell.pending}<!-- pending with no letter: a blank still being chosen -->
           <span class="piece tile-face {cell.piece}" in:pop={{ quiet }} out:pop={{ quiet, duration: 140 }}>
             <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
             {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}

@@ -8,6 +8,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - Leaderboards: a global one and one for each group, ranked by wins or points (ties count as wins for everyone tied). Open it from the trophy on the games list or on a group's page. Everyone's on it from the start, at 0 until they finish a game.
 - You can leave the global leaderboard (on the leaderboard or in Settings). You still see where you'd be, and you always show on your groups' boards.
 - No more "Checking for updates" screen when you open the app or come back to it. A new version just shows the "Update ready · Reload" button.
+- A blank tile stays on its square while you pick its letter, instead of jumping back to your rack.
 
 ## v0.4.1 (2026-10-09)
 
