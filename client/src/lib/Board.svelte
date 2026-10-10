@@ -425,7 +425,8 @@
   /* placed this turn: the normal tile (same bevel, same size), much paler; fades back once played */
   .piece.pending { filter: brightness(1.12) saturate(0.35); cursor: grab; }
   /* another player's tile, mid-turn: where, not what */
-  .piece.ghost { opacity: 0.45; filter: saturate(0.35); pointer-events: none; }
+  /* faintness in filter, not opacity: the pop animates opacity and would end fully solid, then jump */
+  .piece.ghost { filter: saturate(0.35) opacity(0.45); pointer-events: none; }
   .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }
