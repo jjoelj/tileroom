@@ -6,7 +6,7 @@
   import { api } from '../lib/api';
   import { show } from '../lib/motion';
   import { sayError } from '../lib/say.svelte';
-  import { go, session } from '../lib/state.svelte';
+  import { back, go, session } from '../lib/state.svelte';
 
   type Row = { userId: string; displayName: string; games: number; wins: number; points: number; best: number; listed: boolean };
   let groups = $state<{ id: string; name: string }[]>([]);
@@ -27,7 +27,7 @@
 
   function pick(id: string) {
     group = id;
-    history.replaceState(null, '', id ? `/leaderboard?group=${id}` : '/leaderboard');
+    history.replaceState(history.state, '', id ? `/leaderboard?group=${id}` : '/leaderboard');
   }
 
   const other = $derived(by === 'wins' ? 'points' : 'wins');
@@ -54,7 +54,7 @@
 <!-- One screen tall: tabs and the opt-out stay put, the list scrolls between them, and my row is sticky in it. -->
 <main class="screen page">
   <header style="height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back" onclick={() => go(from ? `/groups/${from}` : '/')}>
+    <button class="iconbtn" aria-label="Back" onclick={() => back(from ? `/groups/${from}` : '/')}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
     <h1 class="h1" style="font-size: 22px">Leaderboard</h1>

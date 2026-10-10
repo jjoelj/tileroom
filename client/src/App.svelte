@@ -12,7 +12,7 @@
   import { update } from './lib/update.svelte';
   import WhatsNew from './lib/WhatsNew.svelte';
   import WhatsNewPage from './routes/WhatsNew.svelte';
-  import { device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
+  import { backCloses, device, go, joinCodeIn, type Me, route, session, updates } from './lib/state.svelte';
   import Game from './routes/Game.svelte';
   import Group from './routes/Group.svelte';
   import GroupJoin from './routes/GroupJoin.svelte';
@@ -80,6 +80,7 @@
     markSeen();
     news = [];
   };
+  backCloses(() => news.length > 0, closeNews);
 
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(

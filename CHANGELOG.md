@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- Android's back button works throughout: it closes an open sheet, menu or dialog first, then goes back a screen. The back arrows in the app do the same.
+
 ## v0.5.0 (2026-10-09)
 
 - Leaderboards: a global one and one for each group, ranked by wins or points (ties count as wins for everyone tied). Open it from the trophy on the games list or on a group's page. Everyone's on it from the start, at 0 until they finish a game.

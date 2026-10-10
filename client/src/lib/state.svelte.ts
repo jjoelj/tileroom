@@ -23,12 +23,53 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') device.permission = readPermission();
 });
 
+// Back button (Android's, the browser's, and our own arrows) walks real history. Each entry records how many in-app
+// screens sit below it (`depth`), so an arrow knows whether going back stays in the app.
+const depth = () => (history.state as { depth?: number } | null)?.depth ?? 0;
+history.replaceState({ ...history.state, depth: depth() }, '');
+
 /** Navigates; `path` may carry a query (/new?group=ID), which stays in the URL while routing uses the path alone. */
 export function go(path: string) {
   if (path === location.pathname + location.search) return;
-  history.pushState(null, '', path);
+  entry = false; // an open overlay's entry stays buried under the new screen
+  history.pushState({ depth: depth() + 1 }, '', path);
   route.path = location.pathname;
   scrollTo(0, 0);
+}
+
+/** Our back arrows: back in history like the system button; opened straight onto this screen, go to `fallback`. */
+export function back(fallback = '/') {
+  if (depth() > 0) return history.back();
+  history.replaceState({ depth: 0 }, '', fallback);
+  route.path = location.pathname;
+  scrollTo(0, 0);
+}
+
+// Open sheets, menus and dialogs share one history entry: the back button closes the top one, not the screen.
+const overlays: (() => void)[] = [];
+let entry = false; // our overlay entry is in history above the screen's own
+const onOverlayEntry = () => !!(history.state as { overlay?: boolean } | null)?.overlay;
+
+/** For a sheet, menu or dialog: while `open()` is true, the back button closes it. Call during component setup. */
+export function backCloses(open: () => boolean, close: () => void) {
+  $effect(() => {
+    if (!open()) return;
+    overlays.push(close);
+    if (!entry) {
+      history.pushState({ depth: depth(), overlay: true }, '');
+      entry = true;
+    }
+    return () => {
+      const i = overlays.lastIndexOf(close);
+      if (i >= 0) overlays.splice(i, 1);
+      // Closed some other way: drop the entry, unless another overlay opened meanwhile (a menu item opening a dialog).
+      setTimeout(() => {
+        if (overlays.length || !entry) return;
+        entry = false;
+        if (onOverlayEntry()) history.back();
+      });
+    };
+  });
 }
 
 // An invite link (/join/CODE for a game, /groups/join/CODE for a group) survives install, sign-in and sign-up
@@ -68,5 +109,15 @@ export function forgetJoin() {
 }
 
 addEventListener('popstate', () => {
-  route.path = location.pathname;
+  if (entry && !onOverlayEntry()) {
+    // the back button popped our overlay entry: close the top overlay, keep the screen
+    entry = false;
+    overlays.pop()?.();
+    if (overlays.length) {
+      history.pushState({ depth: depth(), overlay: true }, '');
+      entry = true;
+    }
+    return;
+  }
+  if (route.path !== location.pathname) route.path = location.pathname;
 });

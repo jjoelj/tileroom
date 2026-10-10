@@ -3,7 +3,7 @@
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
-  import { go, home, type Me, route, session, signupCodeIn } from '../lib/state.svelte';
+  import { back, go, home, type Me, route, session, signupCodeIn } from '../lib/state.svelte';
 
   type Check = { valid: boolean; invitedBy: string | null };
 
@@ -49,7 +49,7 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back to sign in" onclick={() => go('/')}>
+    <button class="iconbtn" aria-label="Back to sign in" onclick={() => back()}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
   </header>

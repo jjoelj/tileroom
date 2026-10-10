@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The app's confirm/prompt sheet (see ask.svelte.ts). Escape or tapping outside cancels. -->
 <script lang="ts">
+  import { backCloses } from './state.svelte';
   import { dialog } from './ask.svelte';
   import { rise, show } from './motion';
 
@@ -17,6 +18,7 @@
   });
 
   const cancel = () => dialog.open?.done(null);
+  backCloses(() => !!dialog.open, cancel);
   function submit(e: SubmitEvent) {
     e.preventDefault();
     if (dialog.open?.input && !value.trim()) return;

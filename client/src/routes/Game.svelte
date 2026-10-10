@@ -16,7 +16,7 @@
   import { canShare, copy, shareText } from '../lib/share';
   import { live, watch } from '../lib/live.svelte';
   import { clearGameNotifications } from '../lib/push';
-  import { go, session, updates } from '../lib/state.svelte';
+  import { back, backCloses, go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
 
@@ -96,6 +96,14 @@
   $effect(() => {
     if (view) void clearGameNotifications(id);
   });
+
+  // Android back closes the open sheet or menu before leaving the game
+  backCloses(() => !!blankAt, () => (blankAt = null));
+  backCloses(() => unseenOpen, () => (unseenOpen = false));
+  backCloses(() => wordsOpen, () => (wordsOpen = false));
+  backCloses(() => swapOpen, () => (swapOpen = false));
+  backCloses(() => menuOpen, () => (menuOpen = false));
+  backCloses(() => watchersOpen, () => (watchersOpen = false));
 
   onMount(() => {
     void load();
@@ -492,7 +500,7 @@
 {:else if view}
   <main class="game">
     <header>
-      <button class="iconbtn" aria-label="Back to games" onclick={() => go('/')}>
+      <button class="iconbtn" aria-label="Back" onclick={() => back()}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <div class="title">

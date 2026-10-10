@@ -8,7 +8,7 @@
   import { confirm } from '../lib/ask.svelte';
   import { sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
-  import { go } from '../lib/state.svelte';
+  import { back, go } from '../lib/state.svelte';
 
   type Invite = { id: string; hint: string; createdAt: number; createdBy: string | null; usedAt: number | null; usedBy: { username: string; displayName: string } | null };
   type Group = {
@@ -53,7 +53,7 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back" onclick={() => go('/settings')}>
+    <button class="iconbtn" aria-label="Back" onclick={() => back('/settings')}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
     <h1 class="h1" style="font-size: 22px">Admin</h1>

@@ -6,7 +6,7 @@
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
   import { show } from '../lib/motion';
-  import { forgetJoin, go } from '../lib/state.svelte';
+  import { back, forgetJoin, go } from '../lib/state.svelte';
 
   let { code }: { code: string } = $props();
 
@@ -48,9 +48,9 @@
     }
   }
 
-  function back() {
+  function leave() {
     forgetJoin();
-    go('/');
+    back();
   }
 
   const full = $derived(!!game && game.players.length >= MAX_PLAYERS);
@@ -58,7 +58,7 @@
 
 <main class="screen" style="padding: 0">
   <header style="height: 56px; display: flex; align-items: center; padding: 0 8px">
-    <button class="iconbtn" aria-label="Back to games" onclick={back}>
+    <button class="iconbtn" aria-label="Back to games" onclick={leave}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
     </button>
   </header>
@@ -85,7 +85,7 @@
       {#if game && game.status === 'lobby' && !full && game.canJoin}
         <button class="primary" in:show disabled={busy} onclick={join}>Join game</button>
       {/if}
-      <button class="secondary" onclick={back}>Back to games</button>
+      <button class="secondary" onclick={leave}>Back to games</button>
     </div>
   </div>
 </main>

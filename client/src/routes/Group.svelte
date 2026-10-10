@@ -9,7 +9,7 @@
   import { say, sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
   import { show } from '../lib/motion';
-  import { go, session, updates } from '../lib/state.svelte';
+  import { back, go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
 
@@ -213,7 +213,7 @@
 {:else if group}
   <main class="screen" style="padding: 0 16px 32px">
     <header style="height: 56px; display: flex; align-items: center; gap: 4px; margin: 0 -8px">
-      <button class="iconbtn" aria-label="Back to games" onclick={() => go('/')}>
+      <button class="iconbtn" aria-label="Back" onclick={() => back()}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <div style="display: flex; flex-direction: column">
