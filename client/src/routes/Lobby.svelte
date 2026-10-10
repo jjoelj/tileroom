@@ -15,6 +15,7 @@
     status: 'lobby' | 'active' | 'finished';
     currentSeat: number;
     turnStartedAt: number | null;
+    finishedAt: number | null;
     mySeat: number;
     group: { id: string; name: string } | null;
     players: { seat: number; displayName: string; score: number; colorIndex: number }[];
@@ -91,17 +92,13 @@
   // Games have no names: they're called by who else is in them.
   const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
   const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
-  const result = (g: Summary) => {
-    const best = Math.max(...g.players.map((p) => p.score));
-    const winners = g.players.filter((p) => p.score === best);
-    return winners.some((p) => p.seat === g.mySeat) ? `You won with ${best}` : `${winners.map((p) => p.displayName).join(' & ')} won with ${best}`;
-  };
   /** Me first, then the others in turn order. */
   const meFirst = (g: Summary) => [...g.players].sort((a, b) => (a.seat === g.mySeat ? -1 : b.seat === g.mySeat ? 1 : a.seat - b.seat));
   const won = (g: Summary, seat: number) => g.status === 'finished' && g.players.find((p) => p.seat === seat)!.score === Math.max(...g.players.map((p) => p.score));
 </script>
 
-<!-- A game on the list: everyone's score and name (me first), then how long the turn has waited and what to do. -->
+<!-- A game on the list: everyone's score and name (me first; a crown on the winner), then how long ago its last move
+     or its end was, and what to do. -->
 {#snippet card(g: Summary)}
   {@const mine = g.status === 'active' && g.currentSeat === g.mySeat}
   <button class="card game" class:mine class:done={g.status === 'finished'} in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
@@ -116,7 +113,7 @@
       {/each}
     </span>
     <span class="foot">
-      <span class="sub">{g.group ? `${g.group.name} · ` : ''}{g.status === 'finished' ? result(g) : (g.turnStartedAt === null ? '' : ago(Date.now() - g.turnStartedAt))}</span>
+      <span class="sub">{g.group ? `${g.group.name} · ` : ''}{ago(Date.now() - (g.status === 'finished' ? g.finishedAt! : g.turnStartedAt!))}</span>
       <span class="rule"></span>
       {#if mine}<span class="play">Play</span>{:else if g.status === 'active'}<span class="sub">{turnOf(g)}'s turn</span>{/if}
     </span>
