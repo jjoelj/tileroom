@@ -50,6 +50,9 @@
   /** Applies a fresh view, keeping placed tiles while they still fit the rack and board. */
   function apply(v: GameView) {
     const rackChanged = !view || (view.myRack ?? []).join() !== (v.myRack ?? []).join();
+    // a play while the game is on screen (anyone's, mine included): show it being placed, once the board has it
+    const m = v.lastMove;
+    if (view && m?.type === 'play' && m.turn !== view.lastMove?.turn) void tick().then(() => boardRef?.placed(m.tiles, m.seat === v.mySeat));
     view = v;
     if (rackChanged) {
       deal++;

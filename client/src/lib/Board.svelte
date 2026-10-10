@@ -8,7 +8,7 @@
   import { premiumAt, SIZE } from '../../../shared/board';
   import { VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
-  import { pop, show } from './motion';
+  import { ms, pop, show } from './motion';
 
   let {
     board,
@@ -156,6 +156,41 @@
     if (s > 1.01) return;
     const step = size() / SIZE;
     eased(() => zoomAt(1.4, (c + 0.5) * step, (r + 0.5) * step));
+  }
+
+  /**
+   * A move was just played: bring its tiles into view (zooming out only as far as they need; from fully zoomed out,
+   * in a little, like placing a tile), then set them down one by one in reading order. Another player's tiles drop
+   * in; mine are already there, so they settle with a small stamp.
+   */
+  export function placed(tiles: { r: number; c: number }[], mine: boolean) {
+    if (!tiles.length) return;
+    if (!pointers.size) reveal(tiles); // never move the board out from under a finger
+    const order = [...tiles].sort((a, b) => a.r - b.r || a.c - b.c);
+    order.forEach(({ r, c }, k) => {
+      const piece = grid.children[r * SIZE + c]?.querySelector('.piece');
+      const frames = mine
+        ? [{ scale: 1 }, { scale: 1.18, offset: 0.4 }, { scale: 1 }]
+        : [{ opacity: 0, scale: 1.35, translate: '0 -45%' }, { opacity: 1, scale: 1, translate: '0 0' }];
+      piece?.animate(frames, { duration: ms(mine ? 240 : 300), delay: ms(260 + k * 90), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+    });
+  }
+
+  function reveal(tiles: { r: number; c: number }[]) {
+    const w = size();
+    const step = w / SIZE;
+    const [x0, x1] = [Math.min(...tiles.map((t) => t.c)) * step, (Math.max(...tiles.map((t) => t.c)) + 1) * step];
+    const [y0, y1] = [Math.min(...tiles.map((t) => t.r)) * step, (Math.max(...tiles.map((t) => t.r)) + 1) * step];
+    const fit = (w - 2 * step) / Math.max(x1 - x0, y1 - y0); // the scale that shows them with a cell to spare around
+    const n = Math.max(1, Math.min(s > 1.01 ? s : 1.4, fit));
+    const inView = (a: number, b: number, t: number) => a * s + t >= 0 && b * s + t <= w;
+    if (n === s && inView(x0, x1, tx) && inView(y0, y1, ty)) return;
+    eased(() => {
+      s = n;
+      tx = w / 2 - ((x0 + x1) / 2) * n;
+      ty = w / 2 - ((y0 + y1) / 2) * n;
+      clamp();
+    });
   }
 
   /** A cell's on-screen box, zoom included (for animating a tile exactly into it). */

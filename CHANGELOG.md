@@ -9,6 +9,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - Back from a game opened from a notification or a link goes to your games instead of closing the app. Back from a game you just started or joined goes to where you started it, like its group, not the New game or Join screen.
 - Notifications you've already opened or swiped away on one device clear on your others the next time Tileroom opens there. A phone that was offline gets only the latest notification for each game.
 - The swap sheet shows your tiles in the same order as your rack.
+- When a word is played while you have the game open, yours or anyone's, the board moves so you can see it and the tiles are set down one by one.
 
 ## v0.6.0 (2026-10-09)
 
