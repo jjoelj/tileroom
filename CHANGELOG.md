@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.8.0 (2026-10-09)
 
 - New games use a new default board, with bonuses out toward the edges and no word bonuses in the middle. The classic board is the other choice. Games already running keep their board.
 - The global leaderboard ranks by wins only (ties go to fewer games played). Points and best game are on group leaderboards, where they leave out games on the old board, whose bonuses ran scores high.
