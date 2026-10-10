@@ -300,6 +300,18 @@
   /** Where a released tile goes, without changing anything yet. Null: nowhere valid. */
   async function planDrop(from: DragFrom, slot: number, x: number, y: number): Promise<Plan | null> {
     const cell = boardRef?.cellAt(x, y); // exactly where it's released
+    // A placed tile dropped on another placed tile: they swap squares.
+    const other = from.kind === 'board' && cell && pending.find((p) => p.r === cell.r && p.c === cell.c && !(p.r === from.r && p.c === from.c));
+    if (other) {
+      return {
+        rect: boardRef?.cellRect(other.r, other.c),
+        onBoard: true,
+        commit: () => {
+          Object.assign(pending.find((p) => p.r === from.r && p.c === from.c)!, { r: other.r, c: other.c });
+          Object.assign(other, { r: from.r, c: from.c });
+        },
+      };
+    }
     if (cell && isFree(cell.r, cell.c, from)) {
       return {
         rect: boardRef?.cellRect(cell.r, cell.c),
