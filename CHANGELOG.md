@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.7.0 (2026-10-09)
 
 - Tapping a pop-up message about another game or group works like tapping its notification: it opens there with the latest.
 - Back from a game opened from a notification or a link goes to your games instead of closing the app. Back from a game you just started or joined goes to where you started it, like its group, not the New game or Join screen.
