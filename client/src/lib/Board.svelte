@@ -44,7 +44,7 @@
     onPendingDown: (e: PointerEvent, r: number, c: number) => void;
   } = $props();
 
-  const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '★', '+': '★' } as const;
+  const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '', '+': '' } as const; // the start square draws a star
   const NAME = { '.': '', d: 'double letter', t: 'triple letter', D: 'double word', T: 'triple word', '*': 'start', '+': 'start, double word' } as const;
   const COLS = 'ABCDEFGHIJKLMNO';
 
@@ -361,7 +361,12 @@
         data-c={cell.c}
         onclick={() => onCell(cell.r, cell.c)}
       >
-        <span class="lab" aria-hidden="true">{LABEL[cell.prem]}</span>
+        {#if cell.prem === '*' || cell.prem === '+'}
+          <!-- drawn, not the ★ character: a glyph sits on the font's baseline, never quite in the middle -->
+          <svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></svg>
+        {:else}
+          <span class="lab" aria-hidden="true">{LABEL[cell.prem]}</span>
+        {/if}
         {#if cell.letter || cell.pending}<!-- pending with no letter: a blank still being chosen -->
           <span class="piece tile-face {cell.piece}" in:enter={{ quiet, drop: cell.drop }} out:pop={{ quiet, duration: 140 }}>
             <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
@@ -414,7 +419,7 @@
   .p-t { background: var(--tl-bg); color: var(--tl-fg); }
   .p-D { background: var(--dw-bg); color: var(--dw-fg); }
   .p-T { background: var(--tw-bg); color: var(--tw-fg); }
-  .p-star .lab { font-size: calc(var(--cs) * 0.5); }
+  .star { width: calc(var(--cs) * 0.5); height: calc(var(--cs) * 0.5); fill: currentColor; }
   /* A tile is its own layer over the square, so it can animate in and out. */
   .piece { position: absolute; inset: 0; border-radius: calc(var(--cs) * 0.16); z-index: 1; transition: filter 300ms; }
   /* last move: a warm wash and a dot that fade in and out */
