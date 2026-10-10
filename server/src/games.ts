@@ -136,7 +136,7 @@ export const gameRoutes = new Hono<AppEnv>()
         finishedAt: game.finishedAt,
         mySeat,
         group: g.group,
-        players: g.seats.map((s) => ({ seat: s.seat, displayName: s.displayName, score: s.score })),
+        players: g.seats.map((s) => ({ seat: s.seat, displayName: s.displayName, score: s.score, colorIndex: s.colorIndex ?? s.seat })), // colors as in the game
       };
       if (game.status === 'lobby') out.lobby.push(summary);
       else if (game.status === 'finished') out.finished.push(summary);

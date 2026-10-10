@@ -6,6 +6,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 ## Unreleased
 
 - See a game's settings any time from the game menu, under Game settings.
+- Games on your list show each player's score and name, how long the turn has waited, and a Play button when it's yours.
 
 ## v0.8.0 (2026-10-09)
 

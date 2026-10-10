@@ -39,7 +39,7 @@ function place(c: Conn, raw: unknown) {
   const squares = Squares.safeParse(raw);
   const g = isGame(c.sub) ? loadGame(db, c.sub) : undefined;
   const seat = g?.seats.find((s) => s.userId === c.userId)?.seat;
-  if (!squares.success || !g || !g.game.livePlacing || g.game.status !== 'active' || seat !== g.game.currentSeat) return;
+  if (!squares.success || !g?.game.livePlacing || g.game.status !== 'active' || seat !== g.game.currentSeat) return;
   const p = { userId: c.userId, turn: g.game.turnNumber, squares: squares.data };
   if (p.squares.length) placing.set(g.game.id, p);
   else placing.delete(g.game.id);

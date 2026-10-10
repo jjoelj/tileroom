@@ -17,7 +17,7 @@
     turnStartedAt: number | null;
     mySeat: number;
     group: { id: string; name: string } | null;
-    players: { seat: number; displayName: string; score: number }[];
+    players: { seat: number; displayName: string; score: number; colorIndex: number }[];
   };
   type Games = { yourTurn: Summary[]; waiting: Summary[]; lobby: Summary[]; finished: Summary[] };
 
@@ -90,16 +90,38 @@
   const others = (g: Summary) => g.players.filter((p) => p.seat !== g.mySeat);
   // Games have no names: they're called by who else is in them.
   const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
-  const scoreLine = (g: Summary) =>
-    g.players.map((p) => `${p.seat === g.mySeat ? 'You' : p.displayName} ${p.score}`).join(' · ');
-  const since = (g: Summary) => (g.turnStartedAt === null ? '' : ` · ${ago(Date.now() - g.turnStartedAt)}`);
   const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
   const result = (g: Summary) => {
     const best = Math.max(...g.players.map((p) => p.score));
     const winners = g.players.filter((p) => p.score === best);
     return winners.some((p) => p.seat === g.mySeat) ? `You won with ${best}` : `${winners.map((p) => p.displayName).join(' & ')} won with ${best}`;
   };
+  /** Me first, then the others in turn order. */
+  const meFirst = (g: Summary) => [...g.players].sort((a, b) => (a.seat === g.mySeat ? -1 : b.seat === g.mySeat ? 1 : a.seat - b.seat));
+  const won = (g: Summary, seat: number) => g.status === 'finished' && g.players.find((p) => p.seat === seat)!.score === Math.max(...g.players.map((p) => p.score));
 </script>
+
+<!-- A game on the list: everyone's score and name (me first), then how long the turn has waited and what to do. -->
+{#snippet card(g: Summary)}
+  {@const mine = g.status === 'active' && g.currentSeat === g.mySeat}
+  <button class="card game" class:mine class:done={g.status === 'finished'} in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
+    <span class="players">
+      {#each meFirst(g) as p (p.seat)}
+        <span class="pl" class:turn={g.status === 'active' && p.seat === g.currentSeat && !mine} style="color: var(--p{p.colorIndex % 6})">
+          <span class="score"
+            >{p.score}{#if won(g, p.seat)}<svg class="crown" viewBox="0 0 24 24" aria-label="won"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}</span
+          >
+          <span class="pn">{p.seat === g.mySeat ? 'You' : p.displayName}</span>
+        </span>
+      {/each}
+    </span>
+    <span class="foot">
+      <span class="sub">{g.group ? `${g.group.name} · ` : ''}{g.status === 'finished' ? result(g) : (g.turnStartedAt === null ? '' : ago(Date.now() - g.turnStartedAt))}</span>
+      <span class="rule"></span>
+      {#if mine}<span class="play">Play</span>{:else if g.status === 'active'}<span class="sub">{turnOf(g)}'s turn</span>{/if}
+    </span>
+  </button>
+{/snippet}
 
 <main class="screen" style="padding: 0 16px 32px">
   <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; ">
@@ -138,12 +160,7 @@
   {#if games}
     {#if games.yourTurn.length}
       <h2 class="label section">Your turn</h2>
-      {#each games.yourTurn as g (g.id)}
-        <button class="card game mine" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="row"><span class="name">{title(g)}</span><span class="pill">Play</span></span>
-          <span class="sub">{tag(g)}{scoreLine(g)}{since(g)}</span>
-        </button>
-      {/each}
+      {#each games.yourTurn as g (g.id)}{@render card(g)}{/each}
     {/if}
 
     <div class="row section">
@@ -173,12 +190,7 @@
 
     {#if games.waiting.length}
       <h2 class="label section">Waiting on others</h2>
-      {#each games.waiting as g (g.id)}
-        <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{title(g)}</span>
-          <span class="sub">{tag(g)}{turnOf(g)}'s turn · {scoreLine(g)}{since(g)}</span>
-        </button>
-      {/each}
+      {#each games.waiting as g (g.id)}{@render card(g)}{/each}
     {/if}
 
     {#if games.lobby.length}
@@ -193,12 +205,7 @@
 
     {#if games.finished.length}
       <h2 class="label section">Finished</h2>
-      {#each games.finished as g (g.id)}
-        <button class="game done" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{title(g)}</span>
-          <span class="sub">{tag(g)}{result(g)}</span>
-        </button>
-      {/each}
+      {#each games.finished as g (g.id)}{@render card(g)}{/each}
     {/if}
 
     {#if !games.yourTurn.length && !games.waiting.length && !games.lobby.length && !games.finished.length}
@@ -217,8 +224,18 @@
   .outline { border: 1.5px solid var(--ink); background: transparent; white-space: nowrap; padding: 0 12px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-  .game.mine { padding: 16px; gap: 10px; outline: 2px solid var(--p0); }
+  .game.mine { outline: 2px solid var(--p0); }
   .game.done { background: transparent; border: 1.5px solid var(--line); border-radius: 16px; }
+  .players { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+  .pl { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  .score { display: flex; align-items: center; gap: 4px; font-family: var(--display); font-weight: 800; font-size: 20px; }
+  .crown { width: 16px; height: 16px; fill: var(--gold); }
+  .pn { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
+  .pl.turn .pn { text-decoration: underline 2px; text-underline-offset: 3px; } /* whose turn it is */
+  .foot { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .foot .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rule { flex: 1; min-width: 12px; height: 1px; background: var(--line); }
+  .play { flex: none; font-size: 14px; font-weight: 800; color: var(--on-color); background: var(--p0-bg); padding: 8px 22px; border-radius: 999px; }
   .row { display: flex; justify-content: space-between; align-items: center; }
   .name { font-family: var(--display); font-weight: 800; font-size: 20px; }
   .name.small { font-family: var(--ui); font-size: 16px; }
