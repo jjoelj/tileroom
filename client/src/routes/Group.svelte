@@ -178,21 +178,21 @@
     if (name && name !== group.name) void act(`/groups/${id}/settings`, 'PATCH', { name });
   }
 
-  /** Switching the voting rule settles open votes under the new one, so say how many first. */
-  async function setMajority(e: Event & { currentTarget: HTMLInputElement }) {
-    if (!group) return;
-    const on = e.currentTarget.checked;
-    e.currentTarget.checked = group.majorityVotes; // stays put until the server says otherwise
-    const settled = group.proposals.filter((p) => {
-      const yes = p.votes.filter((v) => v.vote === 'yes').length;
-      const no = p.votes.filter((v) => v.vote === 'no').length;
-      return tally(p.votes.length, yes, no, on) === (on ? 'passed' : 'rejected');
-    }).length;
-    const n = plural(settled, 'open vote', 'open votes');
-    const ok = on
-      ? await confirm({ title: 'Pass words on a majority?', body: `A word passes once more than half the group says yes. ${settled ? `${n} will pass right away.` : 'No open votes pass yet.'}`, action: 'Use majority' })
-      : await confirm({ title: 'Need everyone to agree?', body: `A word passes only if everyone says yes. ${settled ? `${n} with a no will be rejected right away.` : 'Open votes stay open.'}`, action: 'Need everyone', danger: settled > 0 });
-    if (ok) void act(`/groups/${id}/settings`, 'PATCH', { majorityVotes: on });
+  /** Switching the voting rule settles open votes under the new one; ask first only if that passes any. */
+  async function setMajority(on: boolean) {
+    if (!group || on === group.majorityVotes) return;
+    const passing = on
+      ? group.proposals.filter((p) => tally(p.votes.length, p.votes.filter((v) => v.vote === 'yes').length, p.votes.filter((v) => v.vote === 'no').length, true) === 'passed').length
+      : 0;
+    if (passing) {
+      const ok = await confirm({
+        title: 'Switch to majority?',
+        body: `${plural(passing, 'open vote already has', 'open votes already have')} more than half saying yes, so ${passing === 1 ? 'it passes' : 'they pass'} right away.`,
+        action: 'Switch',
+      });
+      if (!ok) return;
+    }
+    void act(`/groups/${id}/settings`, 'PATCH', { majorityVotes: on });
   }
 
   async function newCode() {
@@ -453,17 +453,17 @@
           onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
         />
       </label>
-      <label class="card item toggle" class:readonly={!admin}>
+      <div class="card item">
         <span class="grow">
-          <span class="strong">Majority vote</span>
-          <span class="hint">
-            {group.majorityVotes
-              ? 'A word passes once more than half the group says yes.'
-              : 'A word passes only if everyone says yes. Turning this on lets more than half decide.'}
-          </span>
+          <span class="strong">House word votes</span>
+          <span class="hint">{group.majorityVotes ? 'Pass when more than half say yes' : 'Pass only when everyone says yes'}</span>
         </span>
-        <input type="checkbox" checked={group.majorityVotes} disabled={busy || !admin} onchange={setMajority} />
-      </label>
+        <div class="segment" role="radiogroup" aria-label="House word votes">
+          {#each [[false, 'Unanimous'], [true, 'Majority']] as const as [on, name] (name)}
+            <button role="radio" aria-checked={group.majorityVotes === on} class:on={group.majorityVotes === on} disabled={busy || !admin} onclick={() => setMajority(on)}>{name}</button>
+          {/each}
+        </div>
+      </div>
       {#if admin}
         <div class="card item">
           <span class="grow"><span class="strong">Group code</span><span class="hint">A new code stops the old one working. Members stay.</span></span>
@@ -478,6 +478,10 @@
 {/if}
 
 <style>
+  .segment { display: flex; flex-shrink: 0; background: var(--well); border-radius: 12px; padding: 3px; }
+  .segment button { height: 38px; padding: 0 12px; border-radius: 9px; border: none; background: transparent; font-weight: 700; font-size: 14px; }
+  .segment button.on { background: var(--surface); }
+  .segment button:disabled:not(.on) { opacity: 0.5; }
   .section { margin: 24px 0 8px; }
   .item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 8px; min-height: 60px; }
   .grow { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }

@@ -5,7 +5,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
-- Groups can choose to pass house words on a majority vote instead of needing everyone (Settings, admins). Before you switch, it tells you how many open votes that settles.
+- Groups can pass house words by majority instead of unanimously (Settings, admins). If switching would pass open votes right away, it asks first and says how many.
 
 ## v0.9.0 (2026-10-10)
 
