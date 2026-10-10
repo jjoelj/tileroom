@@ -352,6 +352,15 @@
       <span class="hint">No house words yet. Games here use the standard list until a proposal passes.</span>
     {/if}
 
+    {#if group.history.length}
+      <details class="fold">
+        <summary class="label">Past votes</summary>
+        {#each group.history.slice(0, 8) as p (p.id)}
+          <span class="hint past">{VERB[p.action]} {p.word} {outcome(p)}</span>
+        {/each}
+      </details>
+    {/if}
+
     {#if past.length}
       <details class="fold">
         <summary class="label">Past games</summary>
@@ -417,12 +426,6 @@
           <span class="grow"><span class="strong">Group code</span><span class="hint">A new code stops the old one working. Members stay.</span></span>
           <button class="pill quiet" disabled={busy} onclick={newCode}>New code</button>
         </div>
-      {/if}
-      {#if group.history.length}
-        <span class="sub">Past votes</span>
-        {#each group.history.slice(0, 8) as p (p.id)}
-          <span class="hint past">{VERB[p.action]} {p.word} {outcome(p)}</span>
-        {/each}
       {/if}
       <button class="textbtn leave" onclick={leave}>Leave {group.name}</button>
       <!-- a group's games show its name, so only a group with none can go -->
