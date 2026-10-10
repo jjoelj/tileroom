@@ -3,6 +3,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ago, names, plural } from '../../../shared/plural';
+  import { tally } from '../../../shared/votes';
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
@@ -29,6 +30,7 @@
     name: string;
     joinCode: string;
     spectatorsSeeRacks: boolean;
+    majorityVotes: boolean;
     myRole: 'admin' | 'member';
     members: { userId: string; displayName: string; colorIndex: number; role: 'admin' | 'member' }[];
     words: { add: string[]; ban: string[] };
@@ -102,10 +104,10 @@
   // ---- proposing: type a word and the one proposal that fits it appears (each word has one way in, one way out) ----
   const ING: Record<Action, string> = { add: 'adding', ban: 'banning', remove: 'removing', unban: 'unbanning' };
   const WHY: Record<Action, string> = {
-    add: "It isn't in the word list. If everyone agrees, it counts in this group's games.",
-    ban: "It's a valid word. If everyone agrees, it won't count in this group's games.",
-    remove: "It's one of this group's added words. If everyone agrees, it stops counting.",
-    unban: "It's banned in this group. If everyone agrees, it counts again.",
+    add: "It isn't in the word list. If the vote passes, it counts in this group's games.",
+    ban: "It's a valid word. If the vote passes, it won't count in this group's games.",
+    remove: "It's one of this group's added words. If the vote passes, it stops counting.",
+    unban: "It's banned in this group. If the vote passes, it counts again.",
   };
   const actionFor = (s: Standing): Action | null =>
     s.openProposal ? null : s.approved === 'add' ? 'remove' : s.approved === 'ban' ? 'unban' : s.inBase ? 'ban' : 'add';
@@ -174,6 +176,23 @@
     if (!group) return;
     const name = await prompt({ title: 'Rename group', action: 'Rename', input: { label: 'Group name', value: group.name, maxlength: 30 } });
     if (name && name !== group.name) void act(`/groups/${id}/settings`, 'PATCH', { name });
+  }
+
+  /** Switching the voting rule settles open votes under the new one, so say how many first. */
+  async function setMajority(e: Event & { currentTarget: HTMLInputElement }) {
+    if (!group) return;
+    const on = e.currentTarget.checked;
+    e.currentTarget.checked = group.majorityVotes; // stays put until the server says otherwise
+    const settled = group.proposals.filter((p) => {
+      const yes = p.votes.filter((v) => v.vote === 'yes').length;
+      const no = p.votes.filter((v) => v.vote === 'no').length;
+      return tally(p.votes.length, yes, no, on) === (on ? 'passed' : 'rejected');
+    }).length;
+    const n = plural(settled, 'open vote', 'open votes');
+    const ok = on
+      ? await confirm({ title: 'Pass words on a majority?', body: `A word passes once more than half the group says yes. ${settled ? `${n} will pass right away.` : 'No open votes pass yet.'}`, action: 'Use majority' })
+      : await confirm({ title: 'Need everyone to agree?', body: `A word passes only if everyone says yes. ${settled ? `${n} with a no will be rejected right away.` : 'Open votes stay open.'}`, action: 'Need everyone', danger: settled > 0 });
+    if (ok) void act(`/groups/${id}/settings`, 'PATCH', { majorityVotes: on });
   }
 
   async function newCode() {
@@ -313,7 +332,7 @@
         {@const mine = p.votes.find((v) => v.userId === me)?.vote}
         <div class="card proposal" in:show={{ y: 6 }}>
           <span class="strong">{VERB[p.action]} {p.word}</span>
-          <span class="hint">{p.proposedBy} proposed it · {plural(daysLeft(p), 'day', 'days')} left · passes only if everyone says yes</span>
+          <span class="hint">{p.proposedBy} proposed it · {plural(daysLeft(p), 'day', 'days')} left · {group.majorityVotes ? 'passes if more than half say yes' : 'passes only if everyone says yes'}</span>
           <div class="votes">
             {#each p.votes as v (v.userId)}
               <span class="vote" class:yes={v.vote === 'yes'} class:no={v.vote === 'no'}>
@@ -349,7 +368,7 @@
         {:else if typed && !wellFormed}
           Words are 2 to 15 letters, A to Z.
         {:else}
-          Everyone in the group votes. It needs a yes from all of you.
+          Everyone in the group votes. It needs a yes from {group.majorityVotes ? 'more than half' : 'all'} of you.
         {/if}
       </span>
     </form>
@@ -433,6 +452,17 @@
           disabled={busy || !admin}
           onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
         />
+      </label>
+      <label class="card item toggle" class:readonly={!admin}>
+        <span class="grow">
+          <span class="strong">Majority vote</span>
+          <span class="hint">
+            {group.majorityVotes
+              ? 'A word passes once more than half the group says yes.'
+              : 'A word passes only if everyone says yes. Turning this on lets more than half decide.'}
+          </span>
+        </span>
+        <input type="checkbox" checked={group.majorityVotes} disabled={busy || !admin} onchange={setMajority} />
       </label>
       {#if admin}
         <div class="card item">

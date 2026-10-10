@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- Groups can choose to pass house words on a majority vote instead of needing everyone (Settings, admins). Before you switch, it tells you how many open votes that settles.
+
 ## v0.9.0 (2026-10-10)
 
 - See a game's settings any time from the game menu, under Game settings.

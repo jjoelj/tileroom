@@ -58,6 +58,7 @@ export const groups = sqliteTable('groups', {
   createdBy: text('created_by').notNull().references(() => users.id),
   joinCode: text('join_code').notNull().unique(),
   spectatorsSeeRacks: bool('spectators_see_racks').notNull().default(false),
+  majorityVotes: bool('majority_votes').notNull().default(false), // house words pass on a majority, not unanimously
   createdAt: ms('created_at').notNull().default(now()),
 });
 

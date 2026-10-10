@@ -1,0 +1,1 @@
+ALTER TABLE `groups` ADD `majority_votes` integer DEFAULT false NOT NULL;

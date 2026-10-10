@@ -228,7 +228,29 @@ describe('house words (unanimous)', () => {
     const d = await detail(id, a);
     expect(d.json.proposals).toHaveLength(0);
     expect(d.json.history[0]).toMatchObject({ word: 'QXZP', status: 'expired' });
-    expect(pushesTo(b).at(-1)).toBe("Adding QXZP didn't get every vote in 7 days");
+    expect(pushesTo(b).at(-1)).toBe("Adding QXZP didn't pass in 7 days");
+  });
+
+  test('majority setting: admins only; switching settles open votes under the new rule', async () => {
+    const { id, members } = await groupOf(5);
+    const [a, b, c] = members as [TestUser, TestUser, TestUser];
+    const settings = (u: TestUser, majorityVotes: boolean) => call(`/groups/${id}/settings`, { method: 'PATCH', cookie: u.cookie, body: { majorityVotes } });
+    const p1 = (await propose(id, a, 'QXZA', 'add')).json.proposals[0].id;
+    await vote(p1, b, 'yes');
+    await vote(p1, c, 'yes'); // 3 of 5: not unanimous yet
+    expect((await settings(b, true)).status).toBe(403);
+    const p4 = (await propose(id, c, 'QXZD', 'add')).json.proposals.find((p: { word: string }) => p.word === 'QXZD').id;
+    const on = await settings(a, true);
+    expect(on.json.majorityVotes).toBe(true);
+    expect(on.json.words.add).toEqual(['QXZA']); // p1 passed on switching
+    expect(pushesTo(b).at(-1)).toBe('QXZA is now a house word');
+
+    // under majority, one no out of five leaves it open; switching back to unanimous rejects it
+    await vote(p4, a, 'no');
+    expect((await detail(id, a)).json.proposals.map((p: { id: string }) => p.id)).toEqual([p4]);
+    const off = await settings(a, false);
+    expect(off.json.proposals).toHaveLength(0);
+    expect(off.json.history.find((p: { id: string }) => p.id === p4).status).toBe('rejected');
   });
 });
 

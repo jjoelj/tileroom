@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Groups and house words (SPEC §4.10). Words change only through proposals that every current member votes yes on.
+// Groups and house words (SPEC §4.10). Words change only through proposals that every current member (or, if the group
+// says so, a majority) votes yes on.
 import { and, asc, count, desc, eq, inArray, like, lt, ne, or, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { WORD_RE } from '../../shared/dictionary';
+import { tally } from '../../shared/votes';
 import type { AppEnv } from './auth';
 import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
@@ -74,16 +76,16 @@ function checkAction(q: Q, groupId: string, word: string, action: Action) {
 
 type Outcome = { id: string; groupId: string; word: string; action: Action; status: 'passed' | 'rejected' | 'expired' };
 
-/** Settles one open proposal if its votes decide it: any no rejects; yes from every current member passes. */
+/** Settles one open proposal if its current members' votes decide it under the group's rule (`tally`). */
 function resolve(tx: Tx, proposalId: string, now = Date.now()): Outcome | null {
   const p = tx.select().from(proposals).where(eq(proposals.id, proposalId)).get();
   if (p?.status !== 'open') return null;
   const members = new Set(memberIds(tx, p.groupId));
   const votes = tx.select().from(proposalVotes).where(eq(proposalVotes.proposalId, p.id)).all().filter((v) => members.has(v.userId));
-  const no = votes.some((v) => v.vote === 'no');
-  const allYes = members.size > 0 && [...members].every((m) => votes.some((v) => v.userId === m && v.vote === 'yes'));
-  if (!no && !allYes) return null;
-  const status = no ? 'rejected' : 'passed';
+  const { majorityVotes } = tx.select({ majorityVotes: groups.majorityVotes }).from(groups).where(eq(groups.id, p.groupId)).get()!;
+  const yes = votes.filter((v) => v.vote === 'yes').length;
+  const status = tally(members.size, yes, votes.length - yes, majorityVotes);
+  if (!status) return null;
   tx.update(proposals).set({ status, resolvedAt: now }).where(eq(proposals.id, p.id)).run();
   if (status === 'passed') {
     const where = and(eq(groupWords.groupId, p.groupId), eq(groupWords.word, p.word));
@@ -93,7 +95,7 @@ function resolve(tx: Tx, proposalId: string, now = Date.now()): Outcome | null {
   return { id: p.id, groupId: p.groupId, word: p.word, action: p.action, status };
 }
 
-/** Membership changed: a joiner now has to vote too; a leaver's missing vote no longer blocks anything. */
+/** Membership or the voting rule changed: a joiner now has to vote too; a leaver's missing vote no longer blocks anything. */
 function reevaluate(tx: Tx, groupId: string) {
   const open = tx.select({ id: proposals.id }).from(proposals).where(and(eq(proposals.groupId, groupId), eq(proposals.status, 'open'))).all();
   return open.map((p) => resolve(tx, p.id)).filter((o): o is Outcome => !!o);
@@ -120,7 +122,7 @@ export function announce(outcomes: Outcome[]) {
     const body =
       o.status === 'passed'
         ? { add: `${o.word} is now a house word`, ban: `${o.word} is now banned`, remove: `${o.word} is no longer a house word`, unban: `${o.word} is allowed again` }[o.action]
-        : `${VERB[o.action][0]!.toUpperCase()}${VERB[o.action].slice(1)} ${o.word} ${o.status === 'expired' ? "didn't get every vote in 7 days" : 'was voted down'}`;
+        : `${VERB[o.action][0]!.toUpperCase()}${VERB[o.action].slice(1)} ${o.word} ${o.status === 'expired' ? "didn't pass in 7 days" : 'was voted down'}`;
     notifyGroup(o.groupId, memberIds(db, o.groupId), body);
   }
 }
@@ -192,6 +194,7 @@ function groupDetail(groupId: string, userId: string) {
     name: group.name,
     joinCode: formatGroupCode(group.joinCode),
     spectatorsSeeRacks: group.spectatorsSeeRacks,
+    majorityVotes: group.majorityVotes,
     myRole: role,
     members: members.map((m) => ({ userId: m.userId, displayName: m.displayName, colorIndex: m.colorIndex ?? 0, role: m.role })),
     words: approvedWords(db, groupId),
@@ -317,15 +320,19 @@ export const groupRoutes = new Hono<AppEnv>()
   .patch('/groups/:id/settings', async (c) => {
     const { group, role } = myGroup(db, c.req.param('id'), c.var.user.id);
     requireAdmin(role);
-    const b = await body(c, z.object({ spectatorsSeeRacks: z.boolean().optional(), name: GroupName.optional() }));
+    const b = await body(c, z.object({ spectatorsSeeRacks: z.boolean().optional(), majorityVotes: z.boolean().optional(), name: GroupName.optional() }));
+    const outcomes: Outcome[] = [];
     const running = db.transaction((tx) => {
       tx.update(groups).set(b).where(eq(groups.id, group.id)).run();
+      // a new voting rule applies to open proposals too: some may pass (majority) or fail (unanimous) at once
+      if (b.majorityVotes !== undefined) outcomes.push(...reevaluate(tx, group.id));
       const ids = tx.select({ id: games.id }).from(games).where(and(eq(games.groupId, group.id), ne(games.status, 'finished'))).all().map((g) => g.id);
       // Turning trays off applies at once (trays only ever become more private); turning on only to later games (SPEC §4.11).
       if (b.spectatorsSeeRacks === false && ids.length) tx.update(games).set({ spectatorRacks: false }).where(inArray(games.id, ids)).run();
       return ids;
     });
     for (const id of running) changed(id); // fresh views: tray visibility, the group's name
+    announce(outcomes);
     groupChanged(group.id);
     return c.json(groupDetail(group.id, c.var.user.id));
   })
