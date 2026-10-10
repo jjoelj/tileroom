@@ -44,7 +44,7 @@
   const rack = $derived(view?.myRack ?? []);
   const myTurn = $derived(view?.status === 'active' && view.currentSeat === view.mySeat);
   /** In the final round: who still plays (each turn their last); the rest are out of turns. */
-  const finalLeft = $derived(view?.status === 'active' ? finalTurns(view.players.map((p) => p.rackCount), view.currentSeat, view.finalRoundAfter) : null);
+  const finalLeft = $derived(view?.status === 'active' ? finalTurns(view.players.length, view.currentSeat, view.finalRoundAfter) : null);
   // Games have no names: they're called by who else is in them.
   const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
   const BOARD_NAME = { default: 'Default board', classic: 'Classic board', special: 'Special board' } as const;

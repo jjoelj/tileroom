@@ -131,39 +131,23 @@ function takeFromRack(rack: string[], letters: string[]) {
 }
 
 /**
- * Hands the turn on after `seat` moved. Ends the game when the final round is over (SPEC §4.8):
- * the seat that emptied the bag gets one more turn, and empty racks are skipped during the final round.
+ * Hands the turn on after `seat` moved. Ends the game when the final round is over (SPEC §4.8): everyone gets one
+ * more turn after the bag empties, the seat that emptied it last. (Nobody can be out of tiles before their turn: every
+ * play refills while the bag lasts, the emptier draws the last tiles, and in the final round each plays only once.)
  */
 function advance(s: GameState, seat: number, finalRoundJustStarted: boolean) {
-  if (s.finalRoundAfter === seat && !finalRoundJustStarted) {
-    s.status = 'finished';
-    return;
-  }
-  const n = s.players.length;
-  for (let i = 1; i <= n; i++) {
-    const next = (seat + i) % n;
-    const p = s.players[next]!;
-    if (s.finalRoundAfter === null || p.rack.length > 0) {
-      s.currentSeat = next;
-      return;
-    }
-    if (next === s.finalRoundAfter) break; // their last turn is skipped, so the round is over
-  }
-  s.status = 'finished';
+  if (s.finalRoundAfter === seat && !finalRoundJustStarted) s.status = 'finished';
+  else s.currentSeat = (seat + 1) % s.players.length;
 }
 
 /**
- * In the final round (SPEC §4.8, as `advance` plays it): the seats still to play, in order, starting with whoever's
- * turn it is (each of those turns is their last); everyone else is out of turns. Null before the final round.
+ * In the final round (SPEC §4.8, as `advance` plays it): the seats still to play, in order, from whoever's turn it is
+ * round to the bag-emptier (each of those turns is their last); everyone else is out of turns. Null before it.
  */
-export function finalTurns(rackCounts: number[], currentSeat: number, finalRoundAfter: number | null): number[] | null {
+export function finalTurns(playerCount: number, currentSeat: number, finalRoundAfter: number | null): number[] | null {
   if (finalRoundAfter === null) return null;
-  const left: number[] = [];
-  for (let i = 0; i < rackCounts.length; i++) {
-    const seat = (currentSeat + i) % rackCounts.length;
-    if (i === 0 || rackCounts[seat]! > 0) left.push(seat); // empty racks are skipped
-    if (seat === finalRoundAfter) break; // the bag-emptier's extra turn ends it
-  }
+  const left = [currentSeat];
+  while (left.at(-1) !== finalRoundAfter) left.push((left.at(-1)! + 1) % playerCount);
   return left;
 }
 

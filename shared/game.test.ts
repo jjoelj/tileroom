@@ -28,7 +28,7 @@ function game(racks: string[], bag: Bag = {}): GameState {
 
 const play = (letter: string, r: number, c: number, blank = false): Move => ({ type: 'play', tiles: [{ r, c, letter, blank }] });
 const pass: Move = { type: 'pass' };
-const left = (s: GameState) => finalTurns(s.players.map((p) => p.rack.length), s.currentSeat, s.finalRoundAfter)!;
+const left = (s: GameState) => finalTurns(s.players.length, s.currentSeat, s.finalRoundAfter)!;
 const move = (s: GameState, seat: number, m: Move) => applyMove(s, seat, m, any, first).state;
 const err = (f: () => unknown) => {
   try {
@@ -157,27 +157,11 @@ describe('game end', () => {
     expect(predicted).toEqual(turns);
   });
 
-  test('finalTurns: none before the final round; then who still plays, in order, skipping empty racks', () => {
-    expect(finalTurns([7, 7, 7], 1, null)).toBeNull();
-    expect(finalTurns([7, 7, 7], 1, 0)).toEqual([1, 2, 0]); // seat 0 emptied the bag: 1 and 2, then 0 once more
-    expect(finalTurns([7, 7, 7], 0, 0)).toEqual([0]); // the emptier's extra turn is the last
-    expect(finalTurns([7, 0, 7, 7], 3, 1)).toEqual([3, 0]); // seat 1 has no tiles: its turn is skipped
-    expect(finalTurns([0, 7], 1, 0)).toEqual([1]);
-  });
-
-  test('empty racks are skipped in the final round, including the one that ends it', () => {
-    let s = game(['B', 'C', 'D'], { E: 0 });
-    s.bag = { E: 1 };
-    s.players[0]!.rack = ['B']; // seat 0 plays B, draws the last E
-    s = move(s, 0, play('B', 7, 8));
-    s.players[1]!.rack = [];
-    expect(s.currentSeat).toBe(1); // skip happens on the next advance
-    s = move(s, 1, pass);
-    expect(s.currentSeat).toBe(2);
-    s.players[0]!.rack = [];
-    expect(left(s)).toEqual([2]); // seat 0's turn will be skipped
-    s = move(s, 2, pass);
-    expect(s.status).toBe('finished'); // seat 0's last turn was skipped
+  test('finalTurns: none before the final round; then who still plays, in order, the bag-emptier last', () => {
+    expect(finalTurns(3, 1, null)).toBeNull();
+    expect(finalTurns(3, 1, 0)).toEqual([1, 2, 0]); // seat 0 emptied the bag: 1 and 2, then 0 once more
+    expect(finalTurns(3, 0, 0)).toEqual([0]); // the emptier's extra turn is the last
+    expect(finalTurns(4, 3, 1)).toEqual([3, 0, 1]);
   });
 
   test("the final round ends right after the bag-emptier's extra turn", () => {
