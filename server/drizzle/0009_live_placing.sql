@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `live_placing` integer DEFAULT true NOT NULL;

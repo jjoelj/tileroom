@@ -15,7 +15,7 @@
   import { confirm } from '../lib/ask.svelte';
   import { say, sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
-  import { live, watch } from '../lib/live.svelte';
+  import { live, tellPlacing, watch } from '../lib/live.svelte';
   import { clearNotifications } from '../lib/push';
   import { back, backCloses, go, session, updates } from '../lib/state.svelte';
 
@@ -180,6 +180,16 @@
   const placed = $derived(drag?.from.kind === 'board' ? pending.filter((p) => p.slot !== drag!.slot) : pending);
   // A blank waiting for its letter sits on its square, letterless, instead of looking like it went back to the rack.
   const onBoard = $derived(blankAt ? [...placed, { ...blankAt, letter: '', blank: true }] : placed);
+
+  // My turn, if the game shows tiles being placed: the others see where mine are (squares, never letters). Sent when
+  // the set of squares changes.
+  const mySquares = $derived(myTurn && view?.livePlacing ? onBoard.map((p) => [p.r, p.c] as [number, number]).sort((a, b) => a[0] - b[0] || a[1] - b[1]) : []);
+  const squaresKey = $derived(JSON.stringify(mySquares));
+  $effect(() => {
+    if (myTurn && view?.livePlacing) tellPlacing(JSON.parse(squaresKey));
+  });
+  // Someone else's turn: where their tiles are right now, until they move.
+  const theirs = $derived(live.placing?.id === id && live.placing.turn === view?.turnNumber && !myTurn ? live.placing.squares : []);
   let justDragged = false; // the click that follows a drag isn't a tap
 
   const isFree = (r: number, c: number, except?: DragFrom) =>
@@ -659,6 +669,7 @@
           pending={onBoard}
           quiet={hush}
           {dropping}
+          ghosts={theirs}
           lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
           {outlines}
           {bubble}

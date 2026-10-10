@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Realtime (SPEC §7): notify-only. Clients say what's on screen; after a change, every socket watching that
 // game gets its own user's view (player or spectator), and players on the games list get a nudge to refetch.
-// All writes stay REST.
+// The one thing a client sends besides what's on screen: the squares it has tiles on during its own turn, passed on to
+// the others with that game open as letterless tiles, never stored. All writes stay REST.
 import { and, eq, ne } from 'drizzle-orm';
+import { z } from 'zod';
+import { SIZE } from '../../shared/board';
+import { RACK_SIZE } from '../../shared/tiles';
 import { requestUser } from './auth';
 import { gamePlayers, games, groupMembers } from './db/schema';
 import { db } from './runtime/db';
@@ -19,6 +23,39 @@ const GROUP = 'group:';
 const isGame = (sub: string) => sub !== '' && sub !== 'lobby' && !sub.startsWith(GROUP);
 const looking = (c: Conn, sub: string) => c.focused && c.sub === sub;
 
+/** Squares the player whose turn it is has tiles on right now, by game. In memory: it's only ever a live glimpse. */
+type Placing = { userId: string; turn: number; squares: [number, number][] };
+const placing = new Map<string, Placing>();
+const Squares = z.array(z.tuple([z.int().min(0).max(SIZE - 1), z.int().min(0).max(SIZE - 1)])).max(RACK_SIZE);
+
+/** Everyone else with the game open who may see it: the other players and, for group games, members watching. */
+function others(g: LoadedGame, userId: string) {
+  return [...live].filter(([, c]) => c.sub === g.game.id && c.userId !== userId && (g.seats.some((s) => s.userId === c.userId) || canSpectate(db, g, c.userId)));
+}
+const placingMessage = (gameId: string, p: Placing) => JSON.stringify({ t: 'placing', id: gameId, turn: p.turn, squares: p.squares });
+
+/** The mover's squares changed (or they left the game screen: none). Only theirs, only on their turn. */
+function place(c: Conn, raw: unknown) {
+  const squares = Squares.safeParse(raw);
+  const g = isGame(c.sub) ? loadGame(db, c.sub) : undefined;
+  const seat = g?.seats.find((s) => s.userId === c.userId)?.seat;
+  if (!squares.success || !g || !g.game.livePlacing || g.game.status !== 'active' || seat !== g.game.currentSeat) return;
+  const p = { userId: c.userId, turn: g.game.turnNumber, squares: squares.data };
+  if (p.squares.length) placing.set(g.game.id, p);
+  else placing.delete(g.game.id);
+  for (const [ws] of others(g, c.userId)) ws.send(placingMessage(g.game.id, p));
+}
+
+/** The mover stopped looking at the game (left it, or their app closed): their tiles vanish for everyone else. */
+function stopPlacing(c: Conn, gameId: string) {
+  if (placing.get(gameId)?.userId !== c.userId) return;
+  if ([...live.values()].some((o) => o !== c && o.userId === c.userId && o.sub === gameId)) return; // still open elsewhere
+  const p = placing.get(gameId)!;
+  placing.delete(gameId);
+  const g = loadGame(db, gameId);
+  if (g) for (const [ws] of others(g, c.userId)) ws.send(placingMessage(gameId, { ...p, squares: [] }));
+}
+
 export const sockets: Sockets<Conn> = {
   path: '/ws',
   accept(req) {
@@ -32,11 +69,13 @@ export const sockets: Sockets<Conn> = {
     // {"sub": "<gameId>" | "group:<groupId>" | "lobby" | "", "focused": boolean}; sub "" while the app is hidden
     let sub: unknown;
     let focused: unknown;
+    let squares: unknown;
     try {
-      ({ sub, focused = true } = JSON.parse(text)); // an app from before `focused` sends "" when not in front
+      ({ sub, focused = true, placing: squares } = JSON.parse(text)); // an app from before `focused` sends "" when not in front
     } catch {
       return ws.close(1003, 'bad message');
     }
+    if (squares !== undefined) return place(c, squares); // {"placing": [[r, c], …]}
     if (typeof sub !== 'string' || sub.length > 64 || typeof focused !== 'boolean') return;
     if (sub === c.sub && focused === c.focused) return;
     const before = c.sub;
@@ -44,12 +83,18 @@ export const sockets: Sockets<Conn> = {
     c.sub = sub;
     for (const id of new Set([before, sub])) if (isGame(id)) changed(id, { lobby: false }); // who's here or watching changed
     if (sub === before) return;
+    if (isGame(before)) stopPlacing(c, before);
+    // just opened a game someone is placing on: show where, if allowed
+    const p = isGame(sub) && placing.get(sub);
+    const g = p && loadGame(db, sub);
+    if (p && g && others(g, p.userId).some(([s]) => s === ws)) ws.send(placingMessage(sub, p));
     // back on screen (e.g. refocused): refetch whatever changed while it was unsubscribed, like games get a fresh view
     if (sub === 'lobby') ws.send(JSON.stringify({ t: 'lobby' }));
     else if (sub.startsWith(GROUP) && isMember(db, sub.slice(GROUP.length), c.userId)) ws.send(JSON.stringify({ t: 'group' }));
   },
   close(ws, c) {
     live.delete(ws);
+    if (isGame(c.sub)) stopPlacing(c, c.sub);
     if (isGame(c.sub)) changed(c.sub, { lobby: false });
   },
 };
@@ -78,7 +123,8 @@ export function viewOf(g: LoadedGame, userId: string) {
 /** Call after any committed change to a game (or to who's watching it). */
 export function changed(gameId: string, { lobby = true } = {}) {
   const g = loadGame(db, gameId);
-  if (!g) return;
+  if (!g) return void placing.delete(gameId);
+  if (placing.get(gameId)?.turn !== g.game.turnNumber) placing.delete(gameId); // they moved: the tiles are real now
   const last = lastMove(db, gameId);
   const watching = watchersOf(g);
   const here = hereIn(g);

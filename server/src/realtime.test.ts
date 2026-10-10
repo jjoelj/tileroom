@@ -13,7 +13,13 @@ function connect(u: TestUser, origin = ORIGIN) {
   const ws: Socket = { send: (s) => void got.push(JSON.parse(s)), close() {} };
   const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin, cookie: u.cookie } }));
   if (w) sockets.open(ws, w);
-  return { got, ok: !!w, sub: (sub: string, focused = true) => w && sockets.message(ws, w, JSON.stringify({ sub, focused })), close: () => w && sockets.close(ws, w) };
+  return {
+    got,
+    ok: !!w,
+    sub: (sub: string, focused = true) => w && sockets.message(ws, w, JSON.stringify({ sub, focused })),
+    place: (squares: unknown) => w && sockets.message(ws, w, JSON.stringify({ placing: squares })),
+    close: () => w && sockets.close(ws, w),
+  };
 }
 
 test('watchers of a game get their own view; players on the lobby get a nudge; nobody else hears anything', async () => {
@@ -164,4 +170,51 @@ test('a canceled lobby: players with it open see it gone, players on their games
   expect(so.got.at(-1)).toEqual({ t: 'lobby' });
   expect(ss.got.some((m) => m.t === 'gone')).toBe(false);
   for (const s of [sg, so, ss]) s.close();
+});
+
+test('tiles being placed: only the mover, only on their turn, squares only, to the others with it open; gone after the move', async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { randomOrder: false } })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: a.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: b.cookie });
+  await call(`/games/${id}/start`, { method: 'POST', cookie: a.cookie });
+  const [sa, sb] = [connect(a), connect(b)];
+  sa.sub(id);
+  sb.sub(id);
+  const placings = (s: typeof sa) => s.got.filter((m) => m.t === 'placing') as unknown as { squares: number[][] }[];
+
+  sb.place([[7, 7]]); // not b's turn: ignored
+  expect(placings(sa)).toHaveLength(0);
+  sa.place([[7, 6], [7, 7], 'Q']); // malformed: ignored
+  sa.place([[7, 6], [7, 7]]);
+  expect(placings(sb).at(-1)).toEqual({ t: 'placing', id, turn: 0, squares: [[7, 6], [7, 7]] } as never); // where, never what
+  expect(placings(sa)).toHaveLength(0); // not echoed back
+
+  const late = connect(b); // b opens it on another device: sees it at once
+  late.sub(id);
+  expect(placings(late).at(-1)?.squares).toEqual([[7, 6], [7, 7]]);
+  sa.sub('lobby'); // a leaves the game screen: their tiles vanish for everyone
+  expect(placings(sb).at(-1)?.squares).toEqual([]);
+
+  sa.sub(id);
+  sa.place([[7, 6]]);
+  await call(`/games/${id}/moves`, { method: 'POST', cookie: a.cookie, body: { turnNumber: 0, type: 'pass' } });
+  const after = connect(b); // after the move: nothing stale
+  after.sub(id);
+  expect(placings(after)).toHaveLength(0);
+  for (const s of [sa, sb, late, after]) s.close();
+});
+
+test('tiles being placed: off when the game has it off', async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { randomOrder: false, livePlacing: false } })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: a.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: b.cookie });
+  await call(`/games/${id}/start`, { method: 'POST', cookie: a.cookie });
+  const [sa, sb] = [connect(a), connect(b)];
+  sa.sub(id);
+  sb.sub(id);
+  sa.place([[7, 7]]);
+  expect(sb.got.some((m) => m.t === 'placing')).toBe(false);
+  for (const s of [sa, sb]) s.close();
 });

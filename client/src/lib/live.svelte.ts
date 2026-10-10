@@ -8,7 +8,18 @@ import { checkQuietly } from './update.svelte';
  * The latest pushed view of the watched game (or its id once it's `gone`: canceled or timed out), and counters bumped
  * when the games list or the open group changed.
  */
-export const live = $state<{ view: GameView | null; gone: string | null; lobby: number; group: number }>({ view: null, gone: null, lobby: 0, group: 0 });
+export const live = $state<{ view: GameView | null; gone: string | null; placing: Placing | null; lobby: number; group: number }>({
+  view: null,
+  gone: null,
+  placing: null,
+  lobby: 0,
+  group: 0,
+});
+/** Where the player whose turn it is has tiles right now (squares only), in the watched game. */
+export type Placing = { id: string; turn: number; squares: [number, number][] };
+
+/** On my turn: the squares my tiles are on, for the others watching (realtime.ts `place`). */
+export const tellPlacing = (squares: [number, number][]) => ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ placing: squares }));
 
 let ws: WebSocket | null = null;
 let sub = '';
@@ -32,9 +43,10 @@ function connect() {
     tell();
   };
   ws.onmessage = (e) => {
-    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'gone'; id: string } | { t: 'lobby' } | { t: 'group' };
+    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'gone'; id: string } | ({ t: 'placing' } & Placing) | { t: 'lobby' } | { t: 'group' };
     if (m.t === 'game') live.view = m.view;
     else if (m.t === 'gone') live.gone = m.id;
+    else if (m.t === 'placing') live.placing = { id: m.id, turn: m.turn, squares: m.squares };
     else if (m.t === 'group') live.group++;
     else live.lobby++;
   };
@@ -50,6 +62,7 @@ export function watch(what: string) {
   sub = what;
   live.view = null;
   live.gone = null;
+  live.placing = null;
   if (ws) tell();
   else connect();
   return () => {

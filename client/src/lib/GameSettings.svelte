@@ -3,7 +3,7 @@
 <script lang="ts" module>
   import type { Layout } from '../../../shared/board';
 
-  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; layout: Layout };
+  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; livePlacing: boolean; layout: Layout };
 </script>
 
 <script lang="ts">
@@ -39,6 +39,13 @@
       <span class="hint">{value.randomOrder ? 'Shuffled at start' : 'Order joined, host first'}</span>
     </span>
     <input type="checkbox" checked={value.randomOrder} {disabled} onchange={(e) => onchange({ randomOrder: e.currentTarget.checked })} />
+  </label>
+  <label class="line toggle">
+    <span class="stack" style="gap: 1px">
+      <span>Show tiles being placed</span>
+      <span class="hint">{value.livePlacing ? 'Others see where, not which letters' : 'Only finished moves show'}</span>
+    </span>
+    <input type="checkbox" checked={value.livePlacing} {disabled} onchange={(e) => onchange({ livePlacing: e.currentTarget.checked })} />
   </label>
   <label class="line toggle">
     <span class="stack" style="gap: 1px">

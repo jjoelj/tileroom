@@ -69,6 +69,8 @@ export type GameView = {
   joinCode: string | null;
   bagSize: 100 | 150;
   randomOrder: boolean;
+  /** Others see where the mover's tiles are during their turn (squares only). */
+  livePlacing: boolean;
   layout: Layout;
   /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
   expandedWords: boolean;

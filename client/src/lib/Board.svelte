@@ -19,6 +19,7 @@
     bubble,
     quiet,
     dropping = [],
+    ghosts = [],
     zoomed = $bindable(false),
     onCell,
     onPendingDown,
@@ -35,6 +36,8 @@
     quiet: boolean;
     /** Another player's play arriving now: its tiles drop in one by one. */
     dropping?: { r: number; c: number }[];
+    /** Squares another player has tiles on during their turn: letterless, faint. */
+    ghosts?: [number, number][];
     zoomed?: boolean;
     onCell: (r: number, c: number) => void;
     /** Pointer down on a placed-this-turn tile: the parent may start dragging it. */
@@ -48,6 +51,7 @@
   /** Tiles in the order they're set down: reading order. */
   const readingOrder = (tiles: { r: number; c: number }[]) => [...tiles].sort((a, b) => a.r - b.r || a.c - b.c);
   const dropAt = $derived(new Map(readingOrder(dropping).map((t, k) => [t.r * SIZE + t.c, k])));
+  const ghostAt = $derived(new Set(ghosts.map(([r, c]) => r * SIZE + c)));
 
   // 225 cells, keyed by position: Svelte only touches cells whose content changed (SPEC §9.3).
   const cells = $derived.by(() => {
@@ -65,6 +69,7 @@
         c,
         prem,
         drop: dropAt.get(i),
+        ghost: !t && !p && ghostAt.has(i),
         pending: !!p,
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
@@ -362,6 +367,8 @@
             <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
             {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}
           </span>
+        {:else if cell.ghost}
+          <span class="piece tile-face ghost" aria-hidden="true" transition:pop={{ duration: 140 }}></span>
         {/if}
       </button>
     {/each}
@@ -417,6 +424,8 @@
   .piece.last::after { opacity: 1; }
   /* placed this turn: the normal tile (same bevel, same size), much paler; fades back once played */
   .piece.pending { filter: brightness(1.12) saturate(0.35); cursor: grab; }
+  /* another player's tile, mid-turn: where, not what */
+  .piece.ghost { opacity: 0.45; filter: saturate(0.35); pointer-events: none; }
   .ch { position: relative; font-size: calc(var(--cs) * 0.6); line-height: 1; transform: translateY(-4%); }
   .ch.blank { opacity: 0.5; }
   .pt { position: absolute; right: calc(var(--cs) * 0.08); bottom: calc(var(--cs) * 0.04); font-family: var(--ui); font-size: calc(var(--cs) * 0.26); font-weight: 700; opacity: 0.8; }

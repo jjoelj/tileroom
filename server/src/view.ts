@@ -54,6 +54,7 @@ export function toView(
     bagSize: game.bagSize,
     randomOrder: game.randomOrder,
     expandedWords: game.expandedWords,
+    livePlacing: game.livePlacing,
     layout: game.layout,
     turnNumber: game.turnNumber,
     currentSeat: game.currentSeat,

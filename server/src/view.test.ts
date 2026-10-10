@@ -48,6 +48,7 @@ function loaded(s: GameState): LoadedGame {
       hostId: 'u0',
       status: s.status,
       layout: s.layout,
+      livePlacing: true,
       bagSize: 100,
       randomOrder: false,
       expandedWords: false,
