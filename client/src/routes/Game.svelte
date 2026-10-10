@@ -650,7 +650,8 @@
               {#if view.winnerSeats?.includes(p.seat)}<svg in:pop role="img" aria-label="winner" width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}
             </div>
             <div class="sc"><Count value={p.score} /></div>
-            {#if finalLeft && p.seat === view.currentSeat}<span class="lastturn">Last turn</span>{/if}
+            {#if finalLeft && p.seat === view.currentSeat}<span class="lastturn">Last turn</span>
+            {:else if finalLeft && !finalLeft.includes(p.seat)}<span class="lastturn done">Done</span>{/if}
           </div>
         {/each}
       </section>
@@ -860,6 +861,7 @@
   .pc.on { outline: 2px solid var(--p0); outline-offset: -2px; }
   .pc.out { opacity: 0.45; } /* out of turns in the final round */
   .lastturn { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--p0); }
+  .lastturn.done { color: var(--muted); }
   .pn { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .dot { width: 8px; height: 8px; border-radius: 4px; background: currentColor; }
   /* presence: the player's dot pulses (in their own color) while they have this game open */
