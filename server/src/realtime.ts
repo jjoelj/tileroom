@@ -10,34 +10,40 @@ import type { Socket, Sockets } from './runtime/serve';
 import { canSpectate, isMember, lastMove, type LoadedGame, loadGame } from './store';
 import { toView, type Watcher } from './view';
 
-type Conn = { userId: string; displayName: string; sub: string };
+/** `sub`: what's on screen (live updates go there). `focused`: in front too, so the user is really looking: only then are
+ * they "here" or watching, and spared a push. */
+type Conn = { userId: string; displayName: string; sub: string; focused: boolean };
 const live = new Map<Socket, Conn>();
 
 const GROUP = 'group:';
 const isGame = (sub: string) => sub !== '' && sub !== 'lobby' && !sub.startsWith(GROUP);
+const looking = (c: Conn, sub: string) => c.focused && c.sub === sub;
 
 export const sockets: Sockets<Conn> = {
   path: '/ws',
   accept(req) {
     const user = requestUser(req);
-    return user ? { userId: user.id, displayName: user.displayName, sub: '' } : null;
+    return user ? { userId: user.id, displayName: user.displayName, sub: '', focused: false } : null;
   },
   open(ws, c) {
     live.set(ws, c);
   },
   message(ws, c, text) {
-    // {"sub": "<gameId>" | "group:<groupId>" | "lobby" | ""}; "" while the app is hidden, so it isn't counted as watching
+    // {"sub": "<gameId>" | "group:<groupId>" | "lobby" | "", "focused": boolean}; sub "" while the app is hidden
     let sub: unknown;
+    let focused: unknown;
     try {
-      sub = JSON.parse(text).sub;
+      ({ sub, focused = true } = JSON.parse(text)); // an app from before `focused` sends "" when not in front
     } catch {
       return ws.close(1003, 'bad message');
     }
-    if (typeof sub !== 'string' || sub.length > 64 || sub === c.sub) return;
+    if (typeof sub !== 'string' || sub.length > 64 || typeof focused !== 'boolean') return;
+    if (sub === c.sub && focused === c.focused) return;
     const before = c.sub;
+    c.focused = focused;
     c.sub = sub;
-    // someone arrived or left: the watcher lists on both games change
-    for (const id of [before, sub]) if (isGame(id)) changed(id, { lobby: false });
+    for (const id of new Set([before, sub])) if (isGame(id)) changed(id, { lobby: false }); // who's here or watching changed
+    if (sub === before) return;
     // back on screen (e.g. refocused): refetch whatever changed while it was unsubscribed, like games get a fresh view
     if (sub === 'lobby') ws.send(JSON.stringify({ t: 'lobby' }));
     else if (sub.startsWith(GROUP) && isMember(db, sub.slice(GROUP.length), c.userId)) ws.send(JSON.stringify({ t: 'group' }));
@@ -53,14 +59,14 @@ function watchersOf(g: LoadedGame): Watcher[] {
   if (!g.group) return [];
   const seen = new Map<string, Watcher>();
   for (const c of live.values()) {
-    if (c.sub === g.game.id && !seen.has(c.userId) && canSpectate(db, g, c.userId)) seen.set(c.userId, { userId: c.userId, displayName: c.displayName });
+    if (looking(c, g.game.id) && !seen.has(c.userId) && canSpectate(db, g, c.userId)) seen.set(c.userId, { userId: c.userId, displayName: c.displayName });
   }
   return [...seen.values()];
 }
 
 /** Seated players with this game open and in front right now (a hidden or unfocused app subscribes to nothing). */
 const hereIn = (g: LoadedGame) =>
-  new Set([...live.values()].filter((c) => c.sub === g.game.id && g.seats.some((s) => s.userId === c.userId)).map((c) => c.userId));
+  new Set([...live.values()].filter((c) => looking(c, g.game.id) && g.seats.some((s) => s.userId === c.userId)).map((c) => c.userId));
 
 /** The view a user gets of a game: player view if seated, spectator view if allowed, else nothing. */
 export function viewOf(g: LoadedGame, userId: string) {
@@ -116,10 +122,10 @@ export function renamed(userId: string, displayName: string) {
 }
 
 /** Whether the user has this group's page open on screen right now (they see changes live; no push needed). */
-export const watchingGroup = (userId: string, groupId: string) => [...live.values()].some((c) => c.userId === userId && c.sub === `${GROUP}${groupId}`);
+export const watchingGroup = (userId: string, groupId: string) => [...live.values()].some((c) => c.userId === userId && looking(c, `${GROUP}${groupId}`));
 
 /** Whether the user has this game open on screen right now (they don't need a push about it). */
-export const watching = (userId: string, gameId: string) => [...live.values()].some((c) => c.userId === userId && c.sub === gameId);
+export const watching = (userId: string, gameId: string) => [...live.values()].some((c) => c.userId === userId && looking(c, gameId));
 
 /** Closes every socket a user has open (their account is gone; sockets were authenticated once, at connect). */
 export function disconnect(userId: string) {

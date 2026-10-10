@@ -13,10 +13,10 @@ let tries = 0;
 let retry = 0;
 let dropped = false;
 
-// Only a visible, focused window counts as watching; otherwise the server sends pushes as usual.
-// (A desktop window behind another one is still "visible", so focus matters too.)
-const current = () => (document.visibilityState === 'visible' && document.hasFocus() ? sub : '');
-const tell = () => ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ sub: current() }));
+// A visible window gets live updates. Only a focused one counts as looking (here, watching, no push needed):
+// a desktop window behind another one is still visible.
+const tell = () =>
+  ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ sub: document.visibilityState === 'visible' ? sub : '', focused: document.hasFocus() }));
 
 function connect() {
   clearTimeout(retry);

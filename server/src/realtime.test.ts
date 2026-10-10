@@ -13,7 +13,7 @@ function connect(u: TestUser, origin = ORIGIN) {
   const ws: Socket = { send: (s) => void got.push(JSON.parse(s)), close() {} };
   const w = sockets.accept(new Request(`${ORIGIN}/ws`, { headers: { origin, cookie: u.cookie } }));
   if (w) sockets.open(ws, w);
-  return { got, ok: !!w, sub: (sub: string) => w && sockets.message(ws, w, JSON.stringify({ sub })), close: () => w && sockets.close(ws, w) };
+  return { got, ok: !!w, sub: (sub: string, focused = true) => w && sockets.message(ws, w, JSON.stringify({ sub, focused })), close: () => w && sockets.close(ws, w) };
 }
 
 test('watchers of a game get their own view; players on the lobby get a nudge; nobody else hears anything', async () => {
@@ -117,4 +117,34 @@ test('deleting an account closes its sockets: it hears nothing more and is no lo
   await call(`/games/${id}/moves`, { method: 'POST', cookie: a.cookie, body: { turnNumber: 0, type: 'pass' } });
   expect(sb.got.length).toBe(heard);
   sa.close();
+});
+
+test('someone leaving a lobby: the host, watching it, gets the new seats live', async () => {
+  const [host, guest] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: host.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: guest.cookie });
+  const sh = connect(host);
+  sh.sub(id);
+  await call(`/games/${id}/players/me`, { method: 'DELETE', cookie: guest.cookie });
+  expect(sh.got.at(-1)!.view!.players).toHaveLength(1);
+  sh.close();
+});
+
+test('a visible window that is not in front still gets live updates, but is not "here" and still gets pushes', async () => {
+  const [host, guest] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: host.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: guest.cookie });
+  const [sh, sg] = [connect(host), connect(guest)];
+  sh.sub(id);
+  sg.sub(id, false); // beside the host's window, not focused
+  await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { layout: 'special' } });
+  expect((sg.got.at(-1)!.view as unknown as { layout: string }).layout).toBe('special'); // the setting arrives live
+  const here = (sh.got.at(-1)!.view!.players as { userId: string; here: boolean }[]).find((p) => p.userId === guest.id)!.here;
+  expect(here).toBe(false);
+  expect(watching(guest.id, id)).toBe(false); // so they'd still get a push
+  sg.sub(id, true); // they click into it
+  expect((sh.got.at(-1)!.view!.players as { userId: string; here: boolean }[]).find((p) => p.userId === guest.id)!.here).toBe(true);
+  for (const s of [sh, sg]) s.close();
 });
