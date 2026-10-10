@@ -7,18 +7,22 @@
 </script>
 
 <script lang="ts">
-  let { value, disabled = false, onchange }: { value: Settings; disabled?: boolean; onchange: (change: Partial<Settings>) => void } = $props();
+  // no `onchange`: read-only (a game under way)
+  let { value, onchange }: { value: Settings; onchange?: (change: Partial<Settings>) => void } = $props();
+  const disabled = $derived(!onchange);
+  // Special can't be picked any more, but a game played on it still says so
+  const boards = $derived([['default', 'Default'], ['classic', 'Classic'], ...(value.layout === 'special' ? [['special', 'Special']] : [])] as [Layout, string][]);
 </script>
 
 <div class="card">
   <div class="line">
     <div class="stack" style="gap: 1px">
       <span class="strong">Board</span>
-      <span class="hint">{value.layout === 'classic' ? 'Word bonuses near the middle' : 'Bonuses out toward the edges'}</span>
+      <span class="hint">{value.layout === 'classic' ? 'Word bonuses near the middle' : value.layout === 'special' ? "Tileroom's first board" : 'Bonuses out toward the edges'}</span>
     </div>
     <div class="segment" role="radiogroup" aria-label="Board">
-      {#each [['default', 'Default'], ['classic', 'Classic']] as const as [layout, name] (layout)}
-        <button role="radio" aria-checked={value.layout === layout} class:on={value.layout === layout} {disabled} onclick={() => onchange({ layout })}>{name}</button>
+      {#each boards as [layout, name] (layout)}
+        <button role="radio" aria-checked={value.layout === layout} class:on={value.layout === layout} {disabled} onclick={() => onchange?.({ layout })}>{name}</button>
       {/each}
     </div>
   </div>
@@ -29,7 +33,7 @@
     </div>
     <div class="segment" role="radiogroup" aria-label="Tile bag">
       {#each [100, 150] as const as bagSize (bagSize)}
-        <button role="radio" aria-checked={value.bagSize === bagSize} class:on={value.bagSize === bagSize} {disabled} onclick={() => onchange({ bagSize })}>{bagSize}</button>
+        <button role="radio" aria-checked={value.bagSize === bagSize} class:on={value.bagSize === bagSize} {disabled} onclick={() => onchange?.({ bagSize })}>{bagSize}</button>
       {/each}
     </div>
   </div>
@@ -38,21 +42,21 @@
       <span>Random turn order</span>
       <span class="hint">{value.randomOrder ? 'Shuffled at start' : 'Order joined, host first'}</span>
     </span>
-    <input type="checkbox" checked={value.randomOrder} {disabled} onchange={(e) => onchange({ randomOrder: e.currentTarget.checked })} />
+    <input type="checkbox" checked={value.randomOrder} {disabled} onchange={(e) => onchange?.({ randomOrder: e.currentTarget.checked })} />
   </label>
   <label class="line toggle">
     <span class="stack" style="gap: 1px">
       <span>Show tiles being placed</span>
       <span class="hint">{value.livePlacing ? 'Others see where, not which letters' : 'Only finished moves show'}</span>
     </span>
-    <input type="checkbox" checked={value.livePlacing} {disabled} onchange={(e) => onchange({ livePlacing: e.currentTarget.checked })} />
+    <input type="checkbox" checked={value.livePlacing} {disabled} onchange={(e) => onchange?.({ livePlacing: e.currentTarget.checked })} />
   </label>
   <label class="line toggle">
     <span class="stack" style="gap: 1px">
       <span>Use expanded word list</span>
       <span class="hint">{value.expandedWords ? 'Abbreviations like FAQ allowed' : 'Standard words only'}</span>
     </span>
-    <input type="checkbox" checked={value.expandedWords} {disabled} onchange={(e) => onchange({ expandedWords: e.currentTarget.checked })} />
+    <input type="checkbox" checked={value.expandedWords} {disabled} onchange={(e) => onchange?.({ expandedWords: e.currentTarget.checked })} />
   </label>
 </div>
 

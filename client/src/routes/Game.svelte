@@ -33,6 +33,7 @@
   let menuOpen = $state(false);
   let watchersOpen = $state(false);
   let wordsOpen = $state(false);
+  let settingsOpen = $state(false);
   let boardRef = $state<Board>();
   let rackEl = $state<HTMLDivElement>();
   let ghost = $state<HTMLDivElement>();
@@ -116,6 +117,7 @@
   backCloses(() => !!blankAt, () => (blankAt = null));
   backCloses(() => unseenOpen, () => (unseenOpen = false));
   backCloses(() => wordsOpen, () => (wordsOpen = false));
+  backCloses(() => settingsOpen, () => (settingsOpen = false));
   backCloses(() => swapOpen, () => (swapOpen = false));
   backCloses(() => menuOpen, () => (menuOpen = false));
   backCloses(() => watchersOpen, () => (watchersOpen = false));
@@ -581,6 +583,7 @@
           {#if view.group}
             <button class="secondary" role="menuitem" onclick={() => ((wordsOpen = true), (menuOpen = false))}>House words</button>
           {/if}
+          <button class="secondary" role="menuitem" onclick={() => ((settingsOpen = true), (menuOpen = false))}>Game settings</button>
         </div>
       {/if}
       {#if watchersOpen}
@@ -613,7 +616,7 @@
             </div>
           {/each}
         </div>
-        <GameSettings value={view} disabled={view.hostUserId !== session.me?.id} onchange={changeSettings} />
+        <GameSettings value={view} onchange={view.hostUserId === session.me?.id ? changeSettings : undefined} />
         {#if view.hostUserId === session.me?.id}
           <button class="primary" disabled={busy || view.players.length < 2} onclick={start}>
             Start with {plural(view.players.length, 'player', 'players')}
@@ -785,6 +788,16 @@
         {/each}
       </div>
       <button class="secondary" onclick={() => (unseenOpen = false)}>Close</button>
+    </div>
+  {/if}
+
+  {#if settingsOpen}
+    <div class="sheet-bg" transition:show role="presentation" onclick={() => (settingsOpen = false)}></div>
+    <div class="sheet" transition:rise role="dialog" aria-label="Game settings">
+      <span class="label">Game settings</span>
+      <span class="hint">Set before the game started. They can't change now.</span>
+      <GameSettings value={view} />
+      <button class="secondary" onclick={() => (settingsOpen = false)}>Close</button>
     </div>
   {/if}
 

@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- See a game's settings any time from the game menu, under Game settings.
+
 ## v0.8.0 (2026-10-09)
 
 - New games use a new default board, with bonuses out toward the edges and no word bonuses in the middle. The classic board is the other choice. Games already running keep their board.
