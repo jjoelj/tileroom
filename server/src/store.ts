@@ -10,7 +10,13 @@ import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
 export type MoveRow = typeof moves.$inferSelect;
-export type Seat = typeof gamePlayers.$inferSelect & { displayName: string; colorIndex: number | null };
+export type Seat = typeof gamePlayers.$inferSelect & { displayName: string; colorIndex: number | null; deleted: boolean };
+
+/** Deleted accounts keep their seats under a username no real one can have (usernames are [a-z0-9_]). */
+export const DELETED_PREFIX = 'deleted-';
+/** Only deleted accounts carry this mark: display names can't contain it, so a real player can't pose as one. */
+export const DELETED_MARK = '⊘';
+export const DELETED_NAME = `${DELETED_MARK} Deleted`; // mark first: a cut-off name still shows it
 export type HouseWords = { add: string[]; ban: string[] };
 /** A game with its players, its group (if any) and its frozen house words. */
 export type LoadedGame = { game: GameRow; seats: Seat[]; group: { id: string; name: string } | null; house: HouseWords };
@@ -27,7 +33,7 @@ export function loadGame(q: Q, id: string): LoadedGame | undefined {
     .where(eq(gamePlayers.gameId, id))
     .orderBy(asc(gamePlayers.seat))
     .all()
-    .map((r) => ({ ...r.game_players, displayName: r.users.displayName, colorIndex: r.users.colorIndex }));
+    .map((r) => ({ ...r.game_players, displayName: r.users.displayName, colorIndex: r.users.colorIndex, deleted: r.users.username.startsWith(DELETED_PREFIX) }));
   const group = game.groupId ? (q.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.id, game.groupId)).get() ?? null) : null;
   return { game, seats, group, house: houseWordsOf(q, id) };
 }

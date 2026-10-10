@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ms, show } from '../lib/motion';
-  import { names, plural } from '../../../shared/plural';
+  import { ago, names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
@@ -14,6 +14,8 @@
     id: string;
     status: 'lobby' | 'active' | 'finished';
     currentSeat: number;
+    turnNumber: number;
+    turnStartedAt: number | null;
     mySeat: number;
     group: { id: string; name: string } | null;
     players: { seat: number; displayName: string; score: number }[];
@@ -85,6 +87,8 @@
   const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
   const scoreLine = (g: Summary) =>
     g.players.map((p) => `${p.seat === g.mySeat ? 'You' : p.displayName} ${p.score}`).join(' · ');
+  // the turn started at the last move (or the start, before anyone has moved)
+  const since = (g: Summary) => (g.turnStartedAt === null ? '' : ` · ${g.turnNumber ? 'last move' : 'started'} ${ago(Date.now() - g.turnStartedAt)}`);
   const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
   const result = (g: Summary) => {
     const best = Math.max(...g.players.map((p) => p.score));
@@ -133,7 +137,7 @@
       {#each games.yourTurn as g (g.id)}
         <button class="card game mine" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="row"><span class="name">{title(g)}</span><span class="pill">Play</span></span>
-          <span class="sub">{tag(g)}{scoreLine(g)}</span>
+          <span class="sub">{tag(g)}{scoreLine(g)}{since(g)}</span>
         </button>
       {/each}
     {/if}
@@ -168,7 +172,7 @@
       {#each games.waiting as g (g.id)}
         <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
           <span class="name small">{title(g)}</span>
-          <span class="sub">{tag(g)}{turnOf(g)}'s turn · {scoreLine(g)}</span>
+          <span class="sub">{tag(g)}{turnOf(g)}'s turn · {scoreLine(g)}{since(g)}</span>
         </button>
       {/each}
     {/if}

@@ -68,7 +68,7 @@
   async function deleteAccount() {
     const ok = await confirm({
       title: 'Delete your account?',
-      body: "You'll be signed out everywhere and removed from your groups. Games you haven't started yet are cancelled or left; past games show you as Deleted player. This can't be undone.",
+      body: "You'll be signed out everywhere and removed from your groups. Games you haven't started yet are cancelled or left; your past games stay for the other players. This can't be undone.",
       action: 'Continue',
       danger: true,
     });

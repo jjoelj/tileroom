@@ -12,6 +12,7 @@ import { renamed } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { hashPassword, needsRehash, verifyPassword } from './runtime/hash';
 import { clientIp } from './runtime/ip';
+import { DELETED_MARK } from './store';
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
@@ -23,7 +24,7 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 // Only passwords that pass the length rule can matter, so the bundled list keeps just those (SecLists 10k, MIT).
 const COMMON = new Set(readFileSync(new URL('./common-passwords.txt', import.meta.url), 'utf8').split(/\r?\n/));
 
-const DisplayName = z.string().trim().min(1).max(24);
+const DisplayName = z.string().trim().min(1).max(24).refine((n) => !n.includes(DELETED_MARK), `Names can't contain ${DELETED_MARK}`);
 export const Username =z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,20}$/, 'Usernames are 3–20 letters, digits or _');
 const Password = z.string().min(10, 'Use at least 10 characters').max(128, 'Use at most 128 characters');
 

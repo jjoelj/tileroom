@@ -2,7 +2,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { flip } from 'svelte/animate';
-  import { names, plural } from '../../../shared/plural';
+  import { ago, names, plural } from '../../../shared/plural';
   import { MAX_PLAYERS, type Preview, previewPlay } from '../../../shared/rules';
   import { BAGS, VALUES } from '../../../shared/tiles';
   import type { GameView, PublicMove } from '../../../shared/types';
@@ -405,21 +405,14 @@
     }
   }
 
-  // Before the start, a player can leave; the last one out cancels the game.
+  // Before the start, a player can leave; the host leaving (or the last one out) cancels the game.
   async function leaveGame() {
     if (!view) return;
-    const alone = view.players.length === 1;
-    const next = view.players.find((p) => p.userId !== session.me?.id);
-    const host = view.hostUserId === session.me?.id;
+    const cancels = view.players.length === 1 || view.hostUserId === session.me?.id;
     const ok = await confirm(
-      alone
-        ? { title: 'Cancel this game?', body: "Nobody else has joined, so it's deleted.", action: 'Cancel game', danger: true }
-        : {
-            title: 'Leave this game?',
-            body: host && next ? `${next.displayName} becomes the host. You can rejoin with the code until it starts.` : 'You can rejoin with the code until it starts.',
-            action: 'Leave',
-            danger: true,
-          },
+      cancels
+        ? { title: 'Cancel this game?', body: "It's deleted for everyone who joined.", action: 'Cancel game', danger: true }
+        : { title: 'Leave this game?', body: 'You can rejoin with the code until it starts.', action: 'Leave', danger: true },
     );
     if (!ok) return;
     try {
@@ -479,7 +472,7 @@
       ? ''
       : view.status === 'finished'
         ? 'Game over'
-        : `${view.lastMove ? `${describe(view.lastMove)} · ` : ''}${myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}`,
+        : `${view.lastMove ? `${describe(view.lastMove)}, ${ago(Date.now() - (view.turnStartedAt ?? Date.now()))} · ` : ''}${myTurn ? 'Your turn' : `${nameOf(view.currentSeat)} is next`}`,
   );
   const line = $derived(
     message ||
@@ -494,7 +487,7 @@
 
 {#if missing}
   <main class="screen">
-    <p class="lead" style="margin-top: 64px">This game isn't available. It may have been cancelled after 7 days without a move.</p>
+    <p class="lead" style="margin-top: 64px">This game doesn't exist.</p>
     <button class="primary" style="margin-top: 24px" onclick={() => go('/')}>Back to games</button>
   </main>
 {:else if view}
@@ -532,7 +525,7 @@
           {#if view.role === 'player' && view.status === 'active'}
             {#if myTurn}
               <button class="secondary" role="menuitem" disabled={busy} onclick={pass}>Pass this turn</button>
-            {:else}
+            {:else if !view.players.find((p) => p.seat === view?.currentSeat)?.deleted}
               <button class="secondary" role="menuitem" onclick={nudge}>Nudge {nameOf(view.currentSeat)}</button>
             {/if}
           {/if}
@@ -588,7 +581,7 @@
           <span class="hint" style="text-align: center">Waiting for the host to start</span>
         {/if}
         {#if view.role === 'player'}
-          <button class="textbtn leave" onclick={leaveGame}>{view.players.length === 1 ? 'Cancel game' : 'Leave game'}</button>
+          <button class="textbtn leave" onclick={leaveGame}>{view.players.length === 1 || view.hostUserId === session.me?.id ? 'Cancel game' : 'Leave game'}</button>
         {/if}
       </section>
     {:else}

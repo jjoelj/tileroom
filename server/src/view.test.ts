@@ -71,6 +71,7 @@ function loaded(s: GameState): LoadedGame {
       userId: `u${seat}`,
       displayName: `P${seat}`,
       colorIndex: null,
+      deleted: false,
       rack: p.rack,
       score: p.score,
       joinedAt: 0,

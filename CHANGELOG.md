@@ -9,7 +9,10 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - A tidier group page: the group code sits near the top and stays hidden until you tap Show, New game shrinks to a small button when games are running, Propose sits beside the word box, and Members and Settings (now with Rename) fold away.
 - Pop-up messages match your light or dark theme.
 - A group's finished games are on its page under Past games, with who won. Tap View to see the final board, and Show more for older ones.
-- You can delete your account in Settings (it asks for your password). Your past games stay for the other players, shown as Deleted player.
+- You can delete your account in Settings (it asks for your password). Your past games stay for the other players, shown as ⊘ Deleted (nobody else can put ⊘ in their name). A deleted player can't be nudged; their running games end after 7 days without a move.
+- If the host of a game that hasn't started leaves, the game is canceled for everyone. A game that's gone now just says it doesn't exist.
+- Games show how long ago the last move was, on your games list, on group pages and in the game.
+- When someone joins a game you started, you get a notification.
 
 ## v0.5.0 (2026-10-09)
 

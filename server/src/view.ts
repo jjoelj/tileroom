@@ -68,6 +68,7 @@ export function toView(
       score: s.score,
       rackCount: s.rack.length,
       here: here.has(s.userId),
+      deleted: s.deleted, // a deleted account: can't be nudged
     })),
     role: spectator ? 'spectator' : 'player',
     mySeat: me ? me.seat : null,

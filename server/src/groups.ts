@@ -442,6 +442,8 @@ function withSeats(rows: (typeof games.$inferSelect)[], userId: string) {
       id: g.id,
       status: g.status,
       currentSeat: g.currentSeat,
+      turnNumber: g.turnNumber,
+      turnStartedAt: g.turnStartedAt,
       finishedAt: g.finishedAt,
       players: seats,
       mine: seats.some((s) => s.userId === userId),

@@ -5,7 +5,7 @@ import { gamePlayers } from './db/schema';
 import { sockets, watching } from './realtime';
 import { db } from './runtime/db';
 import type { Socket } from './runtime/serve';
-import { call, newUser, ORIGIN, pushesTo, type TestUser } from './test-utils';
+import { call, newUser, ORIGIN, PASSWORD, pushesTo, type TestUser } from './test-utils';
 
 /** A fake socket, opened as `u` from `origin`, recording what it's sent. */
 function connect(u: TestUser, origin = ORIGIN) {
@@ -99,5 +99,22 @@ test('presence: players see who else has the game open right now, live', async (
   sb.close(); // b's connection drops
   expect(bHere()).toBe(false);
   expect((await call(`/games/${id}`, { cookie: a.cookie })).json.players.find((p: P) => p.userId === b.id).here).toBe(false); // REST views agree
+  sa.close();
+});
+
+test('deleting an account closes its sockets: it hears nothing more and is no longer "here"', async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false } })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: a.cookie })).json.joinCode;
+  await call(`/join/${code}`, { method: 'POST', cookie: b.cookie });
+  await call(`/games/${id}/start`, { method: 'POST', cookie: a.cookie });
+  const [sa, sb] = [connect(a), connect(b)];
+  sa.sub(id);
+  sb.sub(id);
+  await call('/me', { method: 'DELETE', cookie: b.cookie, body: { password: PASSWORD } });
+  const heard = sb.got.length;
+  expect((sa.got.at(-1)!.view!.players as { userId: string; here: boolean }[]).find((p) => p.userId === b.id)!.here).toBe(false);
+  await call(`/games/${id}/moves`, { method: 'POST', cookie: a.cookie, body: { turnNumber: 0, type: 'pass' } });
+  expect(sb.got.length).toBe(heard);
   sa.close();
 });

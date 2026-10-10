@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { invites, pushSubs, users } from './db/schema';
 import { db } from './runtime/db';
-import { createInvite } from './store';
+import { createInvite, DELETED_MARK, DELETED_NAME } from './store';
 import { call, newUser, PASSWORD, type TestUser } from './test-utils';
 
 const del = (u: TestUser, password = PASSWORD) => call('/me', { method: 'DELETE', cookie: u.cookie, body: { password } });
@@ -32,7 +32,7 @@ test('deleting an account: anonymized, out of lobbies and groups, running games 
   expect((await call('/me', { cookie: gone.cookie })).status).toBe(401); // signed out everywhere
   expect((await call('/auth/login', { method: 'POST', body: { username: gone.username, password: PASSWORD } })).status).toBe(401);
   const row = db.select().from(users).where(eq(users.id, gone.id)).get()!;
-  expect(row).toMatchObject({ displayName: 'Deleted player', showOnGlobal: false });
+  expect(row).toMatchObject({ displayName: DELETED_NAME, showOnGlobal: false });
   expect(row.username).toStartWith('deleted-');
   expect(db.select().from(pushSubs).where(eq(pushSubs.userId, gone.id)).all()).toEqual([]);
   expect(db.select().from(invites).where(eq(invites.createdBy, gone.id)).all()).toEqual([]);
@@ -41,10 +41,21 @@ test('deleting an account: anonymized, out of lobbies and groups, running games 
   const left = (await call(`/games/${joined.id}`, { cookie: ben.cookie })).json;
   expect(left.players.map((p: { userId: string }) => p.userId)).toEqual([ben.id]);
   const still = (await call(`/games/${running.id}`, { cookie: sam.cookie })).json;
-  expect(still.players.find((p: { userId: string }) => p.userId === gone.id).displayName).toBe('Deleted player');
+  expect(still.players.find((p: { userId: string }) => p.userId === gone.id).displayName).toBe(DELETED_NAME);
+
+  // their turn in the running game: can't be nudged (it expires after 7 days instead)
+  expect(still.players.find((p: { userId: string }) => p.userId === gone.id).deleted).toBe(true);
+  await call(`/games/${running.id}/moves`, { method: 'POST', cookie: sam.cookie, body: { turnNumber: 0, type: 'pass' } });
+  expect((await call(`/games/${running.id}/nudge`, { method: 'POST', cookie: sam.cookie })).json.error).toBe('player_deleted');
 
   const group = (await call(`/groups/${g.id}`, { cookie: sam.cookie })).json;
   expect(group.members).toEqual([expect.objectContaining({ userId: sam.id, role: 'admin' })]); // sam took over
+});
+
+test('only deleted accounts carry the deleted mark in their name', async () => {
+  const u = await newUser();
+  expect((await call('/me/settings', { method: 'PATCH', cookie: u.cookie, body: { displayName: `${DELETED_MARK} Deleted` } })).status).toBe(400);
+  expect((await call('/me/settings', { method: 'PATCH', cookie: u.cookie, body: { displayName: 'Deleted' } })).status).toBe(200); // the words alone prove nothing
 });
 
 test("admins can't delete their account", async () => {

@@ -43,13 +43,13 @@ function visibleGame(id: string, userId: string) {
 }
 
 /**
- * Takes a player out of a game that hasn't started: seats close up and hosting passes on; the last one out cancels
- * it. Returns true if the game is gone.
+ * Takes a player out of a game that hasn't started: seats close up. The host leaving (or the last one out) cancels it,
+ * and the others find it gone. Returns true if the game is gone.
  */
 export function leaveLobby(tx: Tx, gameId: string, uid: string) {
   const fresh = loadGame(tx, gameId)!;
   const rest = fresh.seats.filter((s) => s.userId !== uid);
-  if (!rest.length) {
+  if (!rest.length || fresh.game.hostId === uid) {
     voidGame(tx, gameId);
     return true;
   }
@@ -57,7 +57,6 @@ export function leaveLobby(tx: Tx, gameId: string, uid: string) {
   tx.insert(gamePlayers)
     .values(rest.map((s, seat) => ({ gameId, seat, userId: s.userId, joinedAt: s.joinedAt })))
     .run();
-  if (fresh.game.hostId === uid) tx.update(games).set({ hostId: rest[0]!.userId }).where(eq(games.id, gameId)).run();
   return false;
 }
 
@@ -115,6 +114,7 @@ export const gameRoutes = new Hono<AppEnv>()
         status: game.status,
         currentSeat: game.currentSeat,
         turnStartedAt: game.turnStartedAt,
+        turnNumber: game.turnNumber,
         finishedAt: game.finishedAt,
         mySeat,
         group: g.group,
@@ -180,6 +180,7 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.insert(gamePlayers).values({ gameId: g.game.id, seat: fresh.seats.length, userId: uid }).run();
     });
     changed(g.game.id);
+    notifyGame(loadGame(db, g.game.id)!, [g.game.hostId], `${c.var.user.displayName} joined your game`);
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
@@ -195,8 +196,8 @@ export const gameRoutes = new Hono<AppEnv>()
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
-  // Leave a game before it starts. Seats close up (they're join order); the host role passes to the next to join;
-  // the last one out deletes the game.
+  // Leave a game before it starts. Seats close up (they're join order); the host leaving cancels it, and so does
+  // the last one out.
   .delete('/games/:id/players/me', (c) => {
     const { g } = myGame(c.req.param('id'), c.var.user.id);
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', "The game has started, so it can't be left");
@@ -337,6 +338,7 @@ export const gameRoutes = new Hono<AppEnv>()
     const { g, seat } = myGame(c.req.param('id'), c.var.user.id);
     if (g.game.status !== 'active') throw new ApiError(409, 'game_not_active');
     if (g.game.currentSeat === seat) throw new ApiError(409, 'your_turn', "It's your turn");
+    if (g.seats[g.game.currentSeat]!.deleted) throw new ApiError(409, 'player_deleted', 'That account was deleted. The game ends after 7 days without a move.');
     const me = g.seats[seat]!;
     const now = Date.now();
     // once a day per turn per game: a nudge from an earlier turn doesn't count

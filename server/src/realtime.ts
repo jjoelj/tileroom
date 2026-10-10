@@ -120,3 +120,13 @@ export const watchingGroup = (userId: string, groupId: string) => [...live.value
 
 /** Whether the user has this game open on screen right now (they don't need a push about it). */
 export const watching = (userId: string, gameId: string) => [...live.values()].some((c) => c.userId === userId && c.sub === gameId);
+
+/** Closes every socket a user has open (their account is gone; sockets were authenticated once, at connect). */
+export function disconnect(userId: string) {
+  for (const [ws, c] of live) {
+    if (c.userId !== userId) continue;
+    live.delete(ws); // now, not when the close lands: no view reaches it in between
+    ws.close(1008, 'signed out');
+    if (isGame(c.sub)) changed(c.sub, { lobby: false }); // no longer "here"
+  }
+}
