@@ -12,10 +12,16 @@ export function pop(_node: Element, { quiet = false, delay = 0, duration = 180 }
   return { delay: quiet ? 0 : delay, duration: quiet ? 0 : ms(duration), easing: cubicOut, css: (t: number) => `scale: ${0.6 + 0.4 * t}; opacity: ${t}` }; // `scale`, not `transform`: keeps the node's own transform
 }
 
-/** A tile another player just played: set down from just above. Hidden until its `delay` is up. */
+/**
+ * A tile another player just played: set down from just above. Hidden until its `delay` is up. The fall is `inset`,
+ * not `translate`: inside the zoomed board a composited move snaps to whole pixels when it ends.
+ */
 export function drop(_node: Element, { delay = 0, duration = 300 } = {}) {
-  return { delay: ms(delay), duration: ms(duration), easing: cubicOut, css: (t: number) => `scale: ${1.35 - 0.35 * t}; translate: 0 ${(1 - t) * -45}%; opacity: ${t}` };
+  return { delay: ms(delay), duration: ms(duration), easing: cubicOut, css: (t: number) => `scale: ${1.35 - 0.35 * t}; inset: ${(t - 1) * 45}% 0 ${(1 - t) * 45}%; opacity: ${t}` };
 }
+
+/** Rounds a screen coordinate to a device pixel, where a painted (not composited) element ends up. */
+export const devicePixel = (x: number) => Math.round(x * devicePixelRatio) / devicePixelRatio;
 
 /** Sheets: slide up from the bottom edge. */
 export function rise(_node: Element, { duration = 240 } = {}) {

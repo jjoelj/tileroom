@@ -9,7 +9,7 @@
   import { api, ApiError } from '../lib/api';
   import Board, { type PendingTile } from '../lib/Board.svelte';
   import Count from '../lib/Count.svelte';
-  import { grow, pop, rise, show } from '../lib/motion';
+  import { devicePixel, grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
   import { confirm } from '../lib/ask.svelte';
   import { say, sayError } from '../lib/say.svelte';
@@ -247,8 +247,9 @@
   function glide(rect: DOMRect | undefined, onBoard: boolean, ms = 120) {
     if (!ghost || !rect) return Promise.resolve();
     landing = onBoard;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
+    // aim at whole device pixels, where the tile it hands over to is drawn: no shift when the ghost goes
+    const cx = devicePixel(rect.left) + rect.width / 2;
+    const cy = devicePixel(rect.top) + rect.height / 2;
     // The shape eases too (height, radius, ring, text), not just the transform: one small out-of-flow element.
     const ease = `${ms}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
     ghost.style.setProperty('--ease', ease);

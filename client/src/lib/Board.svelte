@@ -8,7 +8,7 @@
   import { premiumAt, SIZE } from '../../../shared/board';
   import { VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
-  import { drop, ms, pop, show } from './motion';
+  import { devicePixel, drop, ms, pop, show } from './motion';
 
   let {
     board,
@@ -152,6 +152,10 @@
   function eased(fn: () => void) {
     easing = true;
     fn();
+    // the board ends on whole device pixels on screen, so it doesn't shift when the eased (composited) move hands back
+    const v = viewport.getBoundingClientRect();
+    tx = devicePixel(v.left + PAD + tx) - v.left - PAD;
+    ty = devicePixel(v.top + PAD + ty) - v.top - PAD;
     clearTimeout(easeTimer);
     easeTimer = window.setTimeout(() => (easing = false), 260);
   }
