@@ -5,7 +5,7 @@
   import { say } from '../lib/say.svelte';
   import { api } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
-  import { confirm, prompt } from '../lib/ask.svelte';
+  import { askPassword, confirm, prompt } from '../lib/ask.svelte';
   import { back, go, session } from '../lib/state.svelte';
   import { getTheme, setTheme, type Theme } from '../lib/theme';
 
@@ -62,6 +62,26 @@
     const me = session.me;
     if (!me) return;
     await api('/me/settings', { method: 'PATCH', body: { showOnGlobal: on } }).then(() => (me.showOnGlobal = on), sayError);
+  }
+
+  // Deleting: confirm, then the password. Admins can't (the server refuses; no button for them).
+  async function deleteAccount() {
+    const ok = await confirm({
+      title: 'Delete your account?',
+      body: "You'll be signed out everywhere and removed from your groups. Games you haven't started yet are cancelled or left; past games show you as Deleted player. This can't be undone.",
+      action: 'Continue',
+      danger: true,
+    });
+    if (!ok) return;
+    const password = await askPassword({ title: 'Enter your password', body: 'To confirm it is you.', action: 'Delete my account', danger: true });
+    if (!password) return;
+    try {
+      await api('/me', { method: 'DELETE', body: { password } });
+      session.me = null;
+      go('/');
+    } catch (err) {
+      sayError(err);
+    }
   }
 
   async function signOut() {
@@ -134,6 +154,7 @@
     {#if session.me?.isAdmin}<button class="secondary" onclick={() => go('/admin')}>Admin</button>{/if}
 
     <button class="secondary signout" onclick={signOut}>Sign out</button>
+    {#if !session.me?.isAdmin}<button class="textbtn danger-text" onclick={deleteAccount}>Delete account</button>{/if}
   </div>
 </main>
 
@@ -142,6 +163,7 @@
   .grow { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .toggle { display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 44px; }
   .toggle input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--primary); }
+  .danger-text { color: var(--bad); align-self: center; }
   .signout { color: var(--bad); border-color: var(--bad); margin-top: 12px; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }
   .themes button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }

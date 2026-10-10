@@ -12,7 +12,7 @@ import { ApiError, body, rateLimit } from './http';
 import { approvedWords, deleteEmptyOrphans, expireProposals, gameOpened } from './groups';
 import { notify } from './push';
 import { changed, groupChanged, viewOf, watching } from './realtime';
-import { db } from './runtime/db';
+import { db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { dictionary, isExpired, isMember, loadGame, type LoadedGame, stateOf, voidGame } from './store';
 import { toLogMove } from './view';
@@ -40,6 +40,25 @@ function visibleGame(id: string, userId: string) {
   const view = g && !isExpired(g.game) ? viewOf(g, userId) : null;
   if (!g || !view) throw new ApiError(404, 'not_found');
   return { g, view };
+}
+
+/**
+ * Takes a player out of a game that hasn't started: seats close up and hosting passes on; the last one out cancels
+ * it. Returns true if the game is gone.
+ */
+export function leaveLobby(tx: Tx, gameId: string, uid: string) {
+  const fresh = loadGame(tx, gameId)!;
+  const rest = fresh.seats.filter((s) => s.userId !== uid);
+  if (!rest.length) {
+    voidGame(tx, gameId);
+    return true;
+  }
+  tx.delete(gamePlayers).where(eq(gamePlayers.gameId, gameId)).run();
+  tx.insert(gamePlayers)
+    .values(rest.map((s, seat) => ({ gameId, seat, userId: s.userId, joinedAt: s.joinedAt })))
+    .run();
+  if (fresh.game.hostId === uid) tx.update(games).set({ hostId: rest[0]!.userId }).where(eq(games.id, gameId)).run();
+  return false;
 }
 
 /** A fresh view of the game for this user, with who's watching. */
@@ -181,21 +200,7 @@ export const gameRoutes = new Hono<AppEnv>()
   .delete('/games/:id/players/me', (c) => {
     const { g } = myGame(c.req.param('id'), c.var.user.id);
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started', "The game has started, so it can't be left");
-    const uid = c.var.user.id;
-    const gone = db.transaction((tx) => {
-      const fresh = loadGame(tx, g.game.id)!;
-      const rest = fresh.seats.filter((s) => s.userId !== uid);
-      if (!rest.length) {
-        voidGame(tx, g.game.id);
-        return true;
-      }
-      tx.delete(gamePlayers).where(eq(gamePlayers.gameId, g.game.id)).run();
-      tx.insert(gamePlayers)
-        .values(rest.map((s, seat) => ({ gameId: g.game.id, seat, userId: s.userId, joinedAt: s.joinedAt })))
-        .run();
-      if (fresh.game.hostId === uid) tx.update(games).set({ hostId: rest[0]!.userId }).where(eq(games.id, g.game.id)).run();
-      return false;
-    });
+    const gone = db.transaction((tx) => leaveLobby(tx, g.game.id, c.var.user.id));
     if (!gone) changed(g.game.id);
     if (g.group) groupChanged(g.group.id);
     return c.json({ ok: true });

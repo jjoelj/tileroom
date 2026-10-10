@@ -38,7 +38,7 @@
     {#if d.input}
       <label class="stack">
         <span class="label">{d.input.label}</span>
-        <input class="field" bind:this={field} bind:value maxlength={d.input.maxlength} autocomplete="off" />
+        <input class="field" bind:this={field} bind:value type={d.input.password ? 'password' : 'text'} maxlength={d.input.maxlength} autocomplete={d.input.password ? 'current-password' : 'off'} />
       </label>
     {/if}
     <div class="buttons">

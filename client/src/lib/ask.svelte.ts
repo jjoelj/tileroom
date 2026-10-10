@@ -9,7 +9,7 @@ type Ask = {
   /** Destructive: the confirm button is red. */
   danger?: boolean;
   /** Present for a prompt: the field's label, start value and length cap. */
-  input?: { label: string; value: string; maxlength?: number };
+  input?: { label: string; value: string; maxlength?: number; password?: boolean };
 };
 
 export const dialog = $state<{ open: (Ask & { done: (value: string | null) => void }) | null }>({ open: null });
@@ -29,6 +29,9 @@ function ask(a: Ask) {
 
 /** Resolves true if the user confirms. */
 export const confirm = async (a: Omit<Ask, 'input'>) => (await ask(a)) !== null;
+
+/** Resolves a password exactly as typed (hidden, not trimmed), or null if cancelled. */
+export const askPassword = (a: Omit<Ask, 'input'>) => ask({ ...a, input: { label: 'Password', value: '', password: true } });
 
 /** Resolves the entered text (trimmed), or null if cancelled. */
 export const prompt = async (a: Ask & { input: NonNullable<Ask['input']> }) => (await ask(a))?.trim() ?? null;

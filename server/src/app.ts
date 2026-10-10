@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Hono } from 'hono';
+import { accountRoutes } from './account';
 import { adminRoutes, requireAdmin } from './admin';
 import { type AppEnv, auth, checkOrigin, loadSession, requireUser } from './auth';
 import { gameRoutes } from './games';
@@ -15,6 +16,7 @@ const api = new Hono<AppEnv>()
   .use(checkOrigin, loadSession)
   .use((c, next) => (PUBLIC.has(`${c.req.method} ${c.req.path}`) ? next() : requireUser(c, next)))
   .route('/', auth)
+  .route('/', accountRoutes)
   .route('/', push)
   .use('/games/*', requirePush)
   .use('/games', requirePush)

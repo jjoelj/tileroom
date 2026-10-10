@@ -115,7 +115,7 @@ export function gameOpened(groupId: string, host: { id: string; displayName: str
 const groupName = (groupId: string) => db.select({ name: groups.name }).from(groups).where(eq(groups.id, groupId)).get()?.name ?? 'Tileroom';
 
 /** Tell every member how a proposal ended. */
-function announce(outcomes: Outcome[]) {
+export function announce(outcomes: Outcome[]) {
   for (const o of outcomes) {
     const body =
       o.status === 'passed'
@@ -207,6 +207,22 @@ function joinTarget(code: string, ip: string) {
   const g = c.length === 8 && db.select().from(groups).where(eq(groups.joinCode, c)).get();
   if (!g) throw new ApiError(404, 'not_found', 'No group with that code');
   return g;
+}
+
+/** Takes a member out of a group; returns how any open votes ended now that they're gone (for `announce`). */
+export function leaveGroup(tx: Tx, groupId: string, uid: string) {
+  tx.delete(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, uid))).run();
+  // the group always keeps an admin: the longest-standing member takes over
+  const hasAdmin = tx.select({ n: count() }).from(groupMembers).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.role, 'admin'))).get()!.n;
+  if (!hasAdmin) {
+    const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, groupId)).orderBy(...joinOrder).limit(1).get();
+    if (next) tx.update(groupMembers).set({ role: 'admin' }).where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, next.userId))).run();
+    // Nobody left: delete it, or if games still point at it (for the group's name), orphan it. Joins only
+    // accept 8-character codes, so the orphan token can never be typed.
+    else if (!hasGames(tx, groupId)) deleteGroup(tx, groupId);
+    else tx.update(groups).set({ joinCode: `${ORPHAN}${randomId()}` }).where(eq(groups.id, groupId)).run();
+  }
+  return reevaluate(tx, groupId);
 }
 
 export const groupRoutes = new Hono<AppEnv>()
@@ -327,21 +343,7 @@ export const groupRoutes = new Hono<AppEnv>()
 
   .delete('/groups/:id/members/me', (c) => {
     const { group } = myGroup(db, c.req.param('id'), c.var.user.id);
-    const uid = c.var.user.id;
-    const outcomes = db.transaction((tx) => {
-      tx.delete(groupMembers).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, uid))).run();
-      // the group always keeps an admin: the longest-standing member takes over
-      const hasAdmin = tx.select({ n: count() }).from(groupMembers).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.role, 'admin'))).get()!.n;
-      if (!hasAdmin) {
-        const next = tx.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, group.id)).orderBy(...joinOrder).limit(1).get();
-        if (next) tx.update(groupMembers).set({ role: 'admin' }).where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, next.userId))).run();
-        // Nobody left: delete it, or if games still point at it (for the group's name), orphan it. Joins only
-        // accept 8-character codes, so the orphan token can never be typed.
-        else if (!hasGames(tx, group.id)) deleteGroup(tx, group.id);
-        else tx.update(groups).set({ joinCode: `${ORPHAN}${randomId()}` }).where(eq(groups.id, group.id)).run();
-      }
-      return reevaluate(tx, group.id);
-    });
+    const outcomes = db.transaction((tx) => leaveGroup(tx, group.id, c.var.user.id));
     announce(outcomes);
     groupChanged(group.id); // the members who stay
     return c.json({ ok: true });

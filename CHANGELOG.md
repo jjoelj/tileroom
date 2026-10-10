@@ -9,6 +9,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - A tidier group page: the group code sits near the top and stays hidden until you tap Show, New game shrinks to a small button when games are running, Propose sits beside the word box, and Members and Settings (now with Rename) fold away.
 - Pop-up messages match your light or dark theme.
 - A group's finished games are on its page under Past games, with who won. Tap View to see the final board, and Show more for older ones.
+- You can delete your account in Settings (it asks for your password). Your past games stay for the other players, shown as Deleted player.
 
 ## v0.5.0 (2026-10-09)
 

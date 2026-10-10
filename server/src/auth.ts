@@ -17,7 +17,7 @@ export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type AppEnv = { Variables: { user: User; session: Session } };
 
-const COOKIE = 'th_session';
+export const COOKIE = 'th_session';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Only passwords that pass the length rule can matter, so the bundled list keeps just those (SecLists 10k, MIT).
