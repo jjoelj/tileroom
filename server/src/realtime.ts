@@ -123,10 +123,12 @@ export const watching = (userId: string, gameId: string) => [...live.values()].s
 
 /** Closes every socket a user has open (their account is gone; sockets were authenticated once, at connect). */
 export function disconnect(userId: string) {
+  const games = new Set<string>();
   for (const [ws, c] of live) {
     if (c.userId !== userId) continue;
     live.delete(ws); // now, not when the close lands: no view reaches it in between
     ws.close(1008, 'signed out');
-    if (isGame(c.sub)) changed(c.sub, { lobby: false }); // no longer "here"
+    if (isGame(c.sub)) games.add(c.sub);
   }
+  for (const id of games) changed(id, { lobby: false }); // no longer "here"
 }

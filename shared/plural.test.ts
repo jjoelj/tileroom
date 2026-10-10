@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { expect, test } from 'bun:test';
-import { ago, names, plural } from './plural';
+import { ago, names, plural, turnAge } from './plural';
 
 test('plural', () => {
   expect(plural(1, 'win', 'wins')).toBe('1 win');
@@ -26,4 +26,9 @@ test('ago', () => {
   expect(ago(23 * 60 * MIN + 59 * MIN)).toBe('23 hours ago');
   expect(ago(24 * 60 * MIN)).toBe('1 day ago');
   expect(ago(6.9 * 24 * 60 * MIN)).toBe('6 days ago');
+});
+
+test('turnAge', () => {
+  expect(turnAge(0, 0, 2 * 3_600_000)).toBe('started 2 hours ago');
+  expect(turnAge(5, 0, 60_000)).toBe('last move 1 minute ago');
 });

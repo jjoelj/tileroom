@@ -17,7 +17,7 @@
     outlines,
     bubble,
     quiet,
-    dropping = new Map(),
+    dropping = [],
     zoomed = $bindable(false),
     onCell,
     onPendingDown,
@@ -31,8 +31,8 @@
     bubble: { r: number; c: number; score: number; valid: boolean } | null;
     /** Tiles appear and leave instantly: a drag is already showing the movement. */
     quiet: boolean;
-    /** Another player's play arriving now: cell index (r × 15 + c) → its place in the order they're set down. */
-    dropping?: Map<number, number>;
+    /** Another player's play arriving now: its tiles drop in one by one. */
+    dropping?: { r: number; c: number }[];
     zoomed?: boolean;
     onCell: (r: number, c: number) => void;
     /** Pointer down on a placed-this-turn tile: the parent may start dragging it. */
@@ -42,6 +42,10 @@
   const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '★' } as const;
   const NAME = { '.': '', d: 'double letter', t: 'triple letter', D: 'double word', T: 'triple word', '*': 'start' } as const;
   const COLS = 'ABCDEFGHIJKLMNO';
+
+  /** Tiles in the order they're set down: reading order. */
+  const readingOrder = (tiles: { r: number; c: number }[]) => [...tiles].sort((a, b) => a.r - b.r || a.c - b.c);
+  const dropAt = $derived(new Map(readingOrder(dropping).map((t, k) => [t.r * SIZE + t.c, k])));
 
   // 225 cells, keyed by position: Svelte only touches cells whose content changed (SPEC §9.3).
   const cells = $derived.by(() => {
@@ -58,7 +62,7 @@
         r,
         c,
         prem,
-        drop: dropping.get(i),
+        drop: dropAt.get(i),
         pending: !!p,
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
@@ -178,9 +182,7 @@
     if (!tiles.length) return;
     if (!pointers.size) reveal(tiles); // never move the board out from under a finger
     if (!mine) return;
-    [...tiles]
-      .sort((a, b) => a.r - b.r || a.c - b.c)
-      .forEach(({ r, c }, k) =>
+    readingOrder(tiles).forEach(({ r, c }, k) =>
         grid.children[r * SIZE + c]
           ?.querySelector('.piece')
           ?.animate([{ scale: 1 }, { scale: 1.18, offset: 0.4 }, { scale: 1 }], { duration: ms(240), delay: ms(dropDelay(k)), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }),
@@ -190,8 +192,9 @@
   function reveal(tiles: { r: number; c: number }[]) {
     const w = size();
     const step = w / SIZE;
-    const [x0, x1] = [Math.min(...tiles.map((t) => t.c)) * step, (Math.max(...tiles.map((t) => t.c)) + 1) * step];
-    const [y0, y1] = [Math.min(...tiles.map((t) => t.r)) * step, (Math.max(...tiles.map((t) => t.r)) + 1) * step];
+    const [rs, cs] = [tiles.map((t) => t.r), tiles.map((t) => t.c)];
+    const [x0, x1] = [Math.min(...cs) * step, (Math.max(...cs) + 1) * step];
+    const [y0, y1] = [Math.min(...rs) * step, (Math.max(...rs) + 1) * step];
     const fit = (w - 2 * step) / Math.max(x1 - x0, y1 - y0); // the scale that shows them with a cell to spare around
     const n = Math.max(1, Math.min(s > 1.01 ? s : 1.4, fit));
     const inView = (a: number, b: number, t: number) => a * s + t >= 0 && b * s + t <= w;

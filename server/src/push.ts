@@ -19,14 +19,13 @@ export type PushPayload = { title: string; body: string; url?: string; tag?: str
 // What each user has seen, by notification tag ("game-ID", "group-ID"): opened in the app on any device, or a
 // notification swiped away. Other devices close their notifications sent before that when Tileroom next opens
 // there (a clear push would have to show nothing, which iOS and Chrome punish).
-// ponytail: in memory; a restart only means an old notification stays up until that game or group is opened again
+// ponytail: in memory, never pruned (one entry per game or group a user opens). A restart only means an old
+// notification stays up until that game or group is opened again.
 const seen = new Map<string, Map<string, number>>();
-const WEEK = 7 * 86_400_000;
 
-export function markSeen(userId: string, tag: string, now = Date.now()) {
+export function markSeen(userId: string, tag: string) {
   const mine = seen.get(userId) ?? new Map<string, number>();
-  for (const [t, at] of mine) if (now - at > WEEK) mine.delete(t); // notifications don't last longer than that
-  seen.set(userId, mine.set(tag, now));
+  seen.set(userId, mine.set(tag, Date.now()));
 }
 
 /** Sends to every device of each user. */

@@ -2,7 +2,7 @@
 <!-- A group (SPEC §4.10): its games, open votes on house words, the word list, members and settings. -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ago, names, plural } from '../../../shared/plural';
+  import { names, plural, turnAge } from '../../../shared/plural';
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
@@ -208,7 +208,7 @@
       ? `Starting soon · ${plural(g.players.length, 'player', 'players')}`
       : g.status === 'finished'
         ? 'Finished'
-        : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn${g.turnStartedAt === null ? '' : ` · ${g.turnNumber ? 'last move' : 'started'} ${ago(Date.now() - g.turnStartedAt)}`}`;
+        : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn${g.turnStartedAt === null ? '' : ` · ${turnAge(g.turnNumber, g.turnStartedAt, Date.now())}`}`;
   const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
   // Past games: the group screen brings the latest few; Show more pages back from the last one shown.
   type GameRow = Detail['games'][number];
