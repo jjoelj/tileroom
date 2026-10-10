@@ -4,8 +4,11 @@
 import type { GameView } from '../../../shared/types';
 import { checkQuietly } from './update.svelte';
 
-/** The latest pushed view of the watched game, and counters bumped when the games list or the open group changed. */
-export const live = $state<{ view: GameView | null; lobby: number; group: number }>({ view: null, lobby: 0, group: 0 });
+/**
+ * The latest pushed view of the watched game (or its id once it's `gone`: canceled or timed out), and counters bumped
+ * when the games list or the open group changed.
+ */
+export const live = $state<{ view: GameView | null; gone: string | null; lobby: number; group: number }>({ view: null, gone: null, lobby: 0, group: 0 });
 
 let ws: WebSocket | null = null;
 let sub = '';
@@ -29,8 +32,9 @@ function connect() {
     tell();
   };
   ws.onmessage = (e) => {
-    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'lobby' } | { t: 'group' };
+    const m = JSON.parse(e.data) as { t: 'game'; view: GameView } | { t: 'gone'; id: string } | { t: 'lobby' } | { t: 'group' };
     if (m.t === 'game') live.view = m.view;
+    else if (m.t === 'gone') live.gone = m.id;
     else if (m.t === 'group') live.group++;
     else live.lobby++;
   };
@@ -45,6 +49,7 @@ function connect() {
 export function watch(what: string) {
   sub = what;
   live.view = null;
+  live.gone = null;
   if (ws) tell();
   else connect();
   return () => {

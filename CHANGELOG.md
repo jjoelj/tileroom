@@ -8,6 +8,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - New games use the classic board by default, with fewer bonus squares and a double-word start. The old board is still there as Special. Games already running keep their board.
 - New game opens your game straight away. Its settings (board, tile bag, turn order, word list) are in the lobby, where you can change them until you start. Everyone waiting sees them.
 - A game or group open in a window beside another one now updates live, without clicking into it first.
+- When a game is canceled or times out, everyone with it open sees right away that it's gone, and it drops off your games list and the group page.
 
 ## v0.7.1 (2026-10-09)
 

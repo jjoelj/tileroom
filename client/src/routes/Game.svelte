@@ -101,6 +101,10 @@
     const v = live.view;
     if (v?.id === id) untrack(() => apply(v));
   });
+  // Canceled (the host left) or timed out while open: say so, like opening a game that's gone.
+  $effect(() => {
+    if (live.gone === id) missing = true;
+  });
   // Once this game is on screen, its notifications have been seen (no more come while it's open: realtime `watching`).
   const shown = $derived(!!view);
   $effect(() => {

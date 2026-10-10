@@ -12,8 +12,8 @@ import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema
 import { ApiError, body, rateLimit } from './http';
 import { approvedWords, deleteEmptyOrphans, expireProposals, gameOpened } from './groups';
 import { markSeen, notify } from './push';
-import { changed, groupChanged, viewOf, watching } from './realtime';
-import { db, type Tx } from './runtime/db';
+import { changed, gone, groupChanged, viewOf, watching } from './realtime';
+import { db, type Db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
 import { dictionary, isExpired, isMember, loadGame, type LoadedGame, stateOf, voidGame } from './store';
 import { toLogMove } from './view';
@@ -22,13 +22,22 @@ const DAY = 86_400_000;
 
 const seatOf = (g: LoadedGame, userId: string) => g.seats.find((s) => s.userId === userId)?.seat;
 
+/**
+ * Deletes a game (canceled, or voided by the turn timeout) and, once the transaction it's in has finished, tells
+ * whoever has it open or listed (realtime `gone`).
+ */
+function cancel(q: Db | Tx, g: LoadedGame) {
+  voidGame(q, g.game.id);
+  queueMicrotask(() => gone(g)); // after the (synchronous) transaction commits
+}
+
 /** The game, if the user is seated in it. Anyone else gets 404, admins included (SPEC §6.1). Voids it if expired. */
 function myGame(id: string, userId: string) {
   const g = loadGame(db, id);
   const seat = g && seatOf(g, userId);
   if (!g || seat === undefined) throw new ApiError(404, 'not_found');
   if (isExpired(g.game)) {
-    voidGame(db, id);
+    cancel(db, g);
     throw new ApiError(404, 'not_found');
   }
   return { g, seat };
@@ -37,7 +46,7 @@ function myGame(id: string, userId: string) {
 /** The game as this user may see it: seated players and, for group games, members watching. 404 for anyone else. */
 function visibleGame(id: string, userId: string) {
   const g = loadGame(db, id);
-  if (g && isExpired(g.game)) voidGame(db, id);
+  if (g && isExpired(g.game)) cancel(db, g);
   const view = g && !isExpired(g.game) ? viewOf(g, userId) : null;
   if (!g || !view) throw new ApiError(404, 'not_found');
   return { g, view };
@@ -51,7 +60,7 @@ export function leaveLobby(tx: Tx, gameId: string, uid: string) {
   const fresh = loadGame(tx, gameId)!;
   const rest = fresh.seats.filter((s) => s.userId !== uid);
   if (!rest.length || fresh.game.hostId === uid) {
-    voidGame(tx, gameId);
+    cancel(tx, fresh);
     return true;
   }
   tx.delete(gamePlayers).where(eq(gamePlayers.gameId, gameId)).run();
@@ -113,7 +122,7 @@ export const gameRoutes = new Hono<AppEnv>()
     for (const { id } of mine) {
       const g = loadGame(db, id)!;
       if (isExpired(g.game)) {
-        voidGame(db, id);
+        cancel(db, g);
         continue;
       }
       const mySeat = seatOf(g, uid)!;
@@ -280,7 +289,7 @@ export const gameRoutes = new Hono<AppEnv>()
       if (!g || seat === undefined) throw new ApiError(404, 'not_found');
       if (g.game.status !== 'active') throw new ApiError(409, 'game_not_active');
       if (isExpired(g.game)) {
-        voidGame(tx, id); // committed: the game is gone either way
+        cancel(tx, g); // committed: the game is gone either way
         return null;
       }
       if (turnNumber !== g.game.turnNumber) throw new ApiError(409, 'stale_turn', 'The game moved on. Reload to see the latest.');
@@ -371,7 +380,7 @@ export async function runJobs(now = Date.now()) {
   const active = db.select().from(games).where(eq(games.status, 'active')).orderBy(asc(games.turnStartedAt)).all();
   for (const game of active) {
     if (isExpired(game, now)) {
-      voidGame(db, game.id);
+      cancel(db, loadGame(db, game.id)!);
       continue;
     }
     if (game.reminderSent || game.turnStartedAt === null || now - game.turnStartedAt < TURN_TIMEOUT_MS - DAY) continue;

@@ -148,3 +148,20 @@ test('a visible window that is not in front still gets live updates, but is not 
   expect((sh.got.at(-1)!.view!.players as { userId: string; here: boolean }[]).find((p) => p.userId === guest.id)!.here).toBe(true);
   for (const s of [sh, sg]) s.close();
 });
+
+test('a canceled lobby: players with it open see it gone, players on their games list refetch, strangers hear nothing', async () => {
+  const [host, guest, other, stranger] = [await newUser(), await newUser(), await newUser(), await newUser()];
+  const id = (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json.id;
+  const code = (await call(`/games/${id}`, { cookie: host.cookie })).json.joinCode;
+  for (const u of [guest, other]) await call(`/join/${code}`, { method: 'POST', cookie: u.cookie });
+  const [sg, so, ss] = [connect(guest), connect(other), connect(stranger)];
+  sg.sub(id);
+  so.sub('lobby');
+  ss.sub(id); // guessing the id
+  await call(`/games/${id}/players/me`, { method: 'DELETE', cookie: host.cookie }); // the host leaving cancels it
+  await Promise.resolve(); // the notice goes out once the transaction is done
+  expect(sg.got.at(-1)).toMatchObject({ t: 'gone', id });
+  expect(so.got.at(-1)).toEqual({ t: 'lobby' });
+  expect(ss.got.some((m) => m.t === 'gone')).toBe(false);
+  for (const s of [sg, so, ss]) s.close();
+});

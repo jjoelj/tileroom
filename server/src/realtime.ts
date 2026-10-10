@@ -138,3 +138,16 @@ export function disconnect(userId: string) {
   }
   for (const id of games) changed(id, { lobby: false }); // no longer "here"
 }
+
+/**
+ * A game was deleted (canceled, or voided by the turn timeout): whoever has it open and may see it is told it's gone,
+ * its players' games lists refetch, and so does its group's page.
+ */
+export function gone(g: LoadedGame) {
+  const seated = (userId: string) => g.seats.some((s) => s.userId === userId);
+  for (const [ws, c] of live) {
+    if (c.sub === g.game.id && (seated(c.userId) || canSpectate(db, g, c.userId))) ws.send(JSON.stringify({ t: 'gone', id: g.game.id }));
+    else if (c.sub === 'lobby' && seated(c.userId)) ws.send(JSON.stringify({ t: 'lobby' }));
+  }
+  if (g.group) groupChanged(g.group.id);
+}
