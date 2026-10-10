@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## v0.10.1 (2026-10-10)
+## v0.11.0 (2026-10-10)
 
 - A group game's lobby has a House words button, so you can see the group's words before the game starts.
 
