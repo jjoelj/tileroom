@@ -145,7 +145,8 @@ describe('words and scoring', () => {
   });
 });
 
-test('classic board: the start square doubles the first word', () => {
+test('only the classic start square doubles the first word', () => {
   expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'classic')).toMatchObject({ score: (3 + 1 + 1) * 2 });
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'default')).toMatchObject({ score: 3 + 1 + 1 });
   expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'special')).toMatchObject({ score: 3 + 1 + 1 });
 });

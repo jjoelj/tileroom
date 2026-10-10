@@ -23,6 +23,16 @@ test('both layouts are symmetric on both axes', () => {
   expect(premiumAt('special', 0, 3)).toBe('T');
 });
 
+test('default layout: its counts, a plain start, and no word bonus in the 7×7 middle', () => {
+  const count: Record<string, number> = {};
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) count[premiumAt('default', r, c)] = (count[premiumAt('default', r, c)] ?? 0) + 1;
+  expect(count).toMatchObject({ T: 8, D: 8, '*': 1, t: 20, d: 20 });
+  for (let r = 4; r <= 10; r++) for (let c = 4; c <= 10; c++) expect(premiumAt('default', r, c)).not.toMatch(/[DT+]/);
+  expect(premiumAt('default', 0, 0)).toBe('t');
+  expect(premiumAt('default', 0, 3)).toBe('T');
+  expect(premiumAt('default', 7, 3)).toBe('D');
+});
+
 test('classic layout: the standard counts, and a double-word start square', () => {
   const count: Record<string, number> = {};
   for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) count[premiumAt('classic', r, c)] = (count[premiumAt('classic', r, c)] ?? 0) + 1;

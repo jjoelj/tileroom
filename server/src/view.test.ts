@@ -13,7 +13,7 @@ const any = () => true;
 
 /** A random active game, as the DB would hold it. */
 function randomGame(n: number, steps: number, r: (max: number) => number) {
-  let s: GameState = newGame(n, 100, 'classic', r);
+  let s: GameState = newGame(n, 100, 'default', r);
   const rows: MoveRow[] = [];
   for (let i = 0; i < steps && s.status === 'active'; i++) {
     const seat = s.currentSeat;

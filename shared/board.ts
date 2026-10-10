@@ -6,7 +6,25 @@ export const CENTER = 7;
 
 // . normal  d double letter  t triple letter  D double word  T triple word  * start (no bonus)  + start (double word)
 const BOARDS = {
-  // the standard layout: few premiums, a double-word start
+  // the default: bonuses out toward the edges, none on words in the 7×7 middle, a plain start
+  default: [
+    't..T...d...T..t',
+    '.D....t.t....D.',
+    '....d.....d....',
+    'T..d...D...d..T',
+    '..d..t...t..d..',
+    '....t..d..t....',
+    '.t...........t.',
+    'd..D.d.*.d.D..d',
+    '.t...........t.',
+    '....t..d..t....',
+    '..d..t...t..d..',
+    'T..d...D...d..T',
+    '....d.....d....',
+    '.D....t.t....D.',
+    't..T...d...T..t',
+  ],
+  // the long-standing standard: word bonuses near the middle, a double-word start
   classic: [
     'T..d...T...d..T',
     '.D...t...t...D.',
@@ -24,7 +42,7 @@ const BOARDS = {
     '.D...t...t...D.',
     'T..d...T...d..T',
   ],
-  // more premiums, closer together
+  // Tileroom's first board: only for games started on it (New game no longer offers it)
   special: [
     '...T..d.d..T...',
     '.D...t...t...D.',
@@ -44,9 +62,11 @@ const BOARDS = {
   ],
 } as const;
 
-/** Which premium layout a game is played on, chosen at New game (classic by default). */
+/** Which premium layout a game is played on, set in its lobby (default unless changed). */
 export type Layout = keyof typeof BOARDS;
 export const LAYOUTS = Object.keys(BOARDS) as Layout[];
+/** The layouts a new game can pick. */
+export const CHOICES = ['default', 'classic'] as const satisfies readonly Layout[];
 
 export type Premium = '.' | 'd' | 't' | 'D' | 'T' | '*' | '+';
 

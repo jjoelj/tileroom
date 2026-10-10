@@ -4,7 +4,7 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { names } from '../../shared/plural';
-import { LAYOUTS } from '../../shared/board';
+import { CHOICES } from '../../shared/board';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
@@ -88,7 +88,7 @@ const Settings = z.object({
   bagSize: z.union([z.literal(100), z.literal(150)]),
   randomOrder: z.boolean(),
   expandedWords: z.boolean(),
-  layout: z.enum(LAYOUTS),
+  layout: z.enum(CHOICES), // not special: that's only for games started on it
 });
 
 const Turn = z.int().nonnegative();
@@ -153,7 +153,7 @@ export const gameRoutes = new Hono<AppEnv>()
         bagSize: Settings.shape.bagSize.default(100),
         randomOrder: z.boolean().default(true),
         expandedWords: z.boolean().default(false),
-        layout: z.enum(LAYOUTS).default('classic'),
+        layout: z.enum(CHOICES).default('default'),
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),
     );

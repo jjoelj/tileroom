@@ -216,7 +216,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'classic'"
+          "default": "'default'"
         },
         "group_id": {
           "name": "group_id",

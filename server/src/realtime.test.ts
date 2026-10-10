@@ -139,8 +139,8 @@ test('a visible window that is not in front still gets live updates, but is not 
   const [sh, sg] = [connect(host), connect(guest)];
   sh.sub(id);
   sg.sub(id, false); // beside the host's window, not focused
-  await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { layout: 'special' } });
-  expect((sg.got.at(-1)!.view as unknown as { layout: string }).layout).toBe('special'); // the setting arrives live
+  await call(`/games/${id}`, { method: 'PATCH', cookie: host.cookie, body: { layout: 'classic' } });
+  expect((sg.got.at(-1)!.view as unknown as { layout: string }).layout).toBe('classic'); // the setting arrives live
   const here = (sh.got.at(-1)!.view!.players as { userId: string; here: boolean }[]).find((p) => p.userId === guest.id)!.here;
   expect(here).toBe(false);
   expect(watching(guest.id, id)).toBe(false); // so they'd still get a push

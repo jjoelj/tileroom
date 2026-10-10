@@ -44,6 +44,7 @@
   const myTurn = $derived(view?.status === 'active' && view.currentSeat === view.mySeat);
   // Games have no names: they're called by who else is in them.
   const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
+  const BOARD_NAME = { default: 'Default board', classic: 'Classic board', special: 'Special board' } as const;
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
   let dropping = $state<{ r: number; c: number }[]>([]); // another player's tiles arriving now (Board `dropping`)
@@ -536,8 +537,8 @@
       </button>
       <div class="title">
         <h1>{title}</h1>
-        {#if view.group || view.expandedWords || view.layout === 'special'}
-          <span>{[view.group?.name, view.layout === 'special' && 'Special board', view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
+        {#if view.group || view.expandedWords || view.layout !== 'default'}
+          <span>{[view.group?.name, view.layout !== 'default' && BOARD_NAME[view.layout], view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
         {/if}
       </div>
       <!-- Players always know they're watched (SPEC §4.11): an eye and a count, hidden at 0. -->

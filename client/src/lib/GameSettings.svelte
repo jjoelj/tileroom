@@ -14,10 +14,10 @@
   <div class="line">
     <div class="stack" style="gap: 1px">
       <span class="strong">Board</span>
-      <span class="hint">{value.layout === 'special' ? 'More bonus squares' : 'Standard bonus squares'}</span>
+      <span class="hint">{value.layout === 'classic' ? 'Word bonuses near the middle' : 'Bonuses out toward the edges'}</span>
     </div>
     <div class="segment" role="radiogroup" aria-label="Board">
-      {#each [['classic', 'Classic'], ['special', 'Special']] as const as [layout, name] (layout)}
+      {#each [['default', 'Default'], ['classic', 'Classic']] as const as [layout, name] (layout)}
         <button role="radio" aria-checked={value.layout === layout} class:on={value.layout === layout} {disabled} onclick={() => onchange({ layout })}>{name}</button>
       {/each}
     </div>

@@ -120,7 +120,7 @@ export const games = sqliteTable('games', {
   bagSize: integer('bag_size').$type<100 | 150>().notNull(),
   randomOrder: bool('random_order').notNull(),
   expandedWords: bool('expanded_words').notNull().default(false), // also accept SCOWL abbreviations (SPEC §4.9)
-  layout: text('layout', { enum: ['classic', 'special'] }).notNull().default('classic'), // premium squares (shared/board.ts)
+  layout: text('layout', { enum: ['default', 'classic', 'special'] }).notNull().default('default'), // premium squares (shared/board.ts)
   groupId: text('group_id').references(() => groups.id), // null = open game: base words only, no spectators
   spectatorRacks: bool('spectator_racks').notNull().default(false), // copied from the group at start; only true → false
   joinCode: text('join_code').notNull().unique(),
