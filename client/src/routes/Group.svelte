@@ -453,7 +453,7 @@
           onchange={(e) => act(`/groups/${id}/settings`, 'PATCH', { spectatorsSeeRacks: e.currentTarget.checked })}
         />
       </label>
-      <div class="card item">
+      <div class="card item" class:readonly={!admin}>
         <span class="grow">
           <span class="strong">House word votes</span>
           <span class="hint">{group.majorityVotes ? 'Pass when more than half say yes' : 'Pass only when everyone says yes'}</span>
@@ -513,7 +513,7 @@
   .av { width: 34px; height: 34px; border-radius: 17px; color: var(--on-color); font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .code { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: 0.08em; }
   .toggle input { width: 22px; height: 22px; accent-color: var(--ink); flex-shrink: 0; }
-  .toggle.readonly { opacity: 0.45; } /* the whole setting, not just the switch: it can't be changed here */
+  .readonly { opacity: 0.45; } /* the whole setting, not just the switch: it can't be changed here */
   .past { display: block; margin-top: 4px; }
   .leave { color: var(--bad); margin-top: 16px; display: block; }
   .fold { margin-top: 24px; }
