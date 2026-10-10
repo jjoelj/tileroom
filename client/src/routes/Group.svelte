@@ -33,7 +33,7 @@
     words: { add: string[]; ban: string[] };
     proposals: Proposal[];
     history: Proposal[];
-    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; players: { userId: string; displayName: string; seat: number }[]; mine: boolean; joinCode: string | null }[];
+    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
   };
   /** Where a word stands in this group (the lookup behind the propose button). */
   type Standing = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
@@ -203,6 +203,13 @@
         ? 'Finished'
         : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn`;
   const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
+  const past = $derived(group?.games.filter((g) => g.status === 'finished') ?? []);
+  /** "You won with 312", "Sam & Ben won with 280" (ties share it). */
+  const result = (g: Detail['games'][number]) => {
+    const best = Math.max(...g.players.map((p) => p.score));
+    const top = g.players.filter((p) => p.score === best);
+    return top.some((p) => p.userId === me) ? `You won with ${best}` : `${names(top.map((p) => p.displayName))} won with ${best}`;
+  };
   const outcome = (p: Proposal) => (p.status === 'passed' ? 'passed' : p.status === 'expired' ? 'ran out of time' : 'was voted down');
   const daysLeft = (p: Proposal) => Math.max(1, Math.ceil((p.closesAt - Date.now()) / DAY));
 </script>
@@ -318,6 +325,21 @@
     {/if}
     {#if !group.words.add.length && !group.words.ban.length}
       <span class="hint">No house words yet. Games here use the standard list until a proposal passes.</span>
+    {/if}
+
+    {#if past.length}
+      <details class="fold">
+        <summary class="label">Past games ({past.length})</summary>
+        {#each past as g (g.id)}
+          <div class="card item">
+            <span class="grow">
+              <span class="strong">{names(g.players.map((p) => (p.userId === me ? 'You' : p.displayName)))}</span>
+              <span class="hint">{result(g)}</span>
+            </span>
+            <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>View</button>
+          </div>
+        {/each}
+      </details>
     {/if}
 
     <details class="fold">
