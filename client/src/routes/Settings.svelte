@@ -58,6 +58,12 @@
     }
   }
 
+  async function setGlobal(on: boolean) {
+    const me = session.me;
+    if (!me) return;
+    await api('/me/settings', { method: 'PATCH', body: { showOnGlobal: on } }).then(() => (me.showOnGlobal = on), sayError);
+  }
+
   async function signOut() {
     if (!(await confirm({ title: 'Sign out?', body: "You'll need your username and password to sign back in.", action: 'Sign out', danger: true }))) return;
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
@@ -118,6 +124,11 @@
       </div>
     </div>
 
+    <label class="card toggle">
+      <span class="grow"><span style="font-weight: 700">Show me on the global leaderboard</span><span class="hint">Group leaderboards always show their members.</span></span>
+      <input type="checkbox" checked={session.me?.showOnGlobal} onchange={(e) => setGlobal(e.currentTarget.checked)} />
+    </label>
+
     <button class="secondary" onclick={testPush}>{tested || 'Send test notification'}</button>
     <button class="secondary" onclick={() => go('/whats-new')}>What's new</button>
     {#if session.me?.isAdmin}<button class="secondary" onclick={() => go('/admin')}>Admin</button>{/if}
@@ -129,6 +140,8 @@
 <style>
   .item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
   .grow { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .toggle { display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 44px; }
+  .toggle input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--primary); }
   .signout { color: var(--bad); border-color: var(--bad); margin-top: 12px; }
   .themes { display: flex; background: var(--well); border-radius: 12px; padding: 3px; margin-top: 8px; }
   .themes button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }

@@ -24,6 +24,7 @@
   import SignIn from './routes/SignIn.svelte';
   import Settings from './routes/Settings.svelte';
   import Admin from './routes/Admin.svelte';
+  import Leaderboard from './routes/Leaderboard.svelte';
   import SignUp from './routes/SignUp.svelte';
 
   // Gates (SPEC §9.6), in order: signed in → installed → notifications. Anyone can sign in or sign up in a browser;
@@ -98,7 +99,7 @@
                   ? `group:${groupId}`
                   : joinCode
                 ? `join:${joinCode}`
-                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : route.path === '/whats-new' ? 'whats-new' : route.path === '/admin' && session.me?.isAdmin ? 'admin' : 'lobby',
+                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : route.path === '/whats-new' ? 'whats-new' : route.path === '/leaderboard' ? 'leaderboard' : route.path === '/admin' && session.me?.isAdmin ? 'admin' : 'lobby',
   );
 </script>
 
@@ -133,6 +134,8 @@
   <Settings />
 {:else if route.path === '/admin' && session.me.isAdmin}
   <Admin />
+{:else if route.path === '/leaderboard'}
+  <Leaderboard />
 {:else if route.path === '/whats-new'}
   <WhatsNewPage />
 {:else}

@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { adminRoutes, requireAdmin } from './admin';
 import { type AppEnv, auth, checkOrigin, loadSession, requireUser } from './auth';
 import { gameRoutes } from './games';
+import { leaderboardRoutes } from './leaderboard';
 import { groupRoutes } from './groups';
 import { ApiError } from './http';
 import { push, requirePush } from './push';
@@ -20,6 +21,7 @@ const api = new Hono<AppEnv>()
   .use('/join/*', requirePush)
   .route('/', gameRoutes)
   .route('/', groupRoutes)
+  .route('/', leaderboardRoutes)
   .use('/admin/*', requireAdmin)
   .route('/', adminRoutes);
 

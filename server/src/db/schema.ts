@@ -17,6 +17,7 @@ export const users = sqliteTable('users', {
   isAdmin: bool('is_admin').notNull().default(false),
   invitedBy: text('invited_by'),
   remindTurn: bool('remind_turn').notNull().default(true),
+  showOnGlobal: bool('show_on_global').notNull().default(true), // group boards always show members (SPEC §4.12)
   createdAt: ms('created_at').notNull().default(now()),
   passwordChangedAt: ms('password_changed_at').notNull().default(now()),
 });

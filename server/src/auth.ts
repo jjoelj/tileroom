@@ -175,6 +175,7 @@ export const auth = new Hono<AppEnv>()
       displayName: u.displayName,
       isAdmin: u.isAdmin,
       remindTurn: u.remindTurn,
+      showOnGlobal: u.showOnGlobal,
       pushReady: c.var.session.pushSubId !== null,
     });
   })
@@ -195,9 +196,10 @@ export const auth = new Hono<AppEnv>()
   })
 
   .patch('/me/settings', async (c) => {
-    const b = await body(c, z.object({ remindTurn: z.boolean().optional(), displayName: DisplayName.optional() }));
+    const b = await body(c, z.object({ remindTurn: z.boolean().optional(), showOnGlobal: z.boolean().optional(), displayName: DisplayName.optional() }));
     const uid = c.var.user.id;
     if (b.remindTurn !== undefined) db.update(users).set({ remindTurn: b.remindTurn }).where(eq(users.id, uid)).run();
+    if (b.showOnGlobal !== undefined) db.update(users).set({ showOnGlobal: b.showOnGlobal }).where(eq(users.id, uid)).run();
     if (b.displayName !== undefined && b.displayName !== c.var.user.displayName) {
       db.update(users).set({ displayName: b.displayName }).where(eq(users.id, uid)).run();
       renamed(uid, b.displayName); // open games and groups show the new name now

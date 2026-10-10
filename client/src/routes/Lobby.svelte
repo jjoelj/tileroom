@@ -99,9 +99,14 @@
       <div class="mini-brand" aria-hidden="true"><span class="tile-face">T</span><span class="tile-face">R</span></div>
       <h1 class="h1" style="font-size: 34px">Tileroom</h1>
     </div>
-    <button class="avatar" aria-label="Settings" onclick={() => go('/settings')}>
-      {session.me?.displayName[0]?.toUpperCase()}
-    </button>
+    <div style="display: flex; gap: 8px; align-items: center">
+      <button class="iconbtn" aria-label="Leaderboard" title="Leaderboard" onclick={() => go('/leaderboard')}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4" /></svg>
+      </button>
+      <button class="avatar" aria-label="Settings" onclick={() => go('/settings')}>
+        {session.me?.displayName[0]?.toUpperCase()}
+      </button>
+    </div>
   </header>
 
   <div style="display: flex; gap: 8px">

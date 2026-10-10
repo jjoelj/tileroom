@@ -3,6 +3,11 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- Leaderboards: a global one and one for each group, ranked by wins or points (ties count as wins for everyone tied). Open it from the trophy on the games list or on a group's page.
+- Settings has a switch to leave the global leaderboard. You always show on your groups' boards.
+
 ## v0.4.1 (2026-10-09)
 
 - The board has a little room around its edge, so the outline around words on the edge shows, and tiles dropped just past an edge square land on it.
