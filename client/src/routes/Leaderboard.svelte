@@ -51,7 +51,8 @@
   const unit = (r: Row) => (by === 'wins' ? (r.wins === 1 ? 'win' : 'wins') : 'pts');
 </script>
 
-<main class="screen" style="padding: 0">
+<!-- One screen tall: tabs and the opt-out stay put, the list scrolls between them, and my row is sticky in it. -->
+<main class="screen page">
   <header style="height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 8px">
     <button class="iconbtn" aria-label="Back" onclick={() => go(from ? `/groups/${from}` : '/')}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
@@ -59,7 +60,7 @@
     <h1 class="h1" style="font-size: 22px">Leaderboard</h1>
   </header>
 
-  <div style="padding: 4px 16px 32px; display: flex; flex-direction: column; gap: 14px">
+  <div class="body">
     <div class="chips" role="tablist" aria-label="Which leaderboard">
       <button role="tab" aria-selected={!group} class:on={!group} onclick={() => pick('')}>Global</button>
       {#each groups as g (g.id)}
@@ -101,11 +102,14 @@
   .segment { display: flex; background: var(--well); border-radius: 12px; padding: 3px; }
   .segment button { flex: 1; height: 38px; border: none; border-radius: 9px; background: transparent; font-weight: 700; font-size: 14px; }
   .segment button.on { background: var(--surface); }
-  ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .page { padding: 0; height: calc(100dvh - var(--foot) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: 0; }
+  .body { flex: 1; min-height: 0; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+  ol { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0 -4px; padding: 2px 4px; display: flex; flex-direction: column; gap: 8px; }
+  ol > :global(*) { flex-shrink: 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
   .toggle { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
   .toggle input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--primary); }
-  .row.mine { outline: 2px solid var(--p0); outline-offset: -2px; }
+  .row.mine { outline: 2px solid var(--p0); outline-offset: -2px; position: sticky; top: 0; bottom: 0; z-index: 1; box-shadow: 0 0 0 4px var(--ground); }
   .rank { width: 24px; font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--muted); text-align: center; }
   .who { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
