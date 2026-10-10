@@ -619,6 +619,11 @@
           {/each}
         </div>
         <GameSettings value={view} onchange={view.hostUserId === session.me?.id ? changeSettings : undefined} />
+        {#if view.group}
+          <button class="secondary" onclick={() => (wordsOpen = true)}>
+            House words{view.houseWords.add.length + view.houseWords.ban.length ? ` (${view.houseWords.add.length + view.houseWords.ban.length})` : ''}
+          </button>
+        {/if}
         {#if view.hostUserId === session.me?.id}
           <button class="primary" disabled={busy || view.players.length < 2} onclick={start}>
             Start with {plural(view.players.length, 'player', 'players')}
@@ -809,7 +814,9 @@
     <div class="sheet-bg" transition:show role="presentation" onclick={() => (wordsOpen = false)}></div>
     <div class="sheet" transition:rise role="dialog" aria-label="House words">
       <span class="label">{view.group.name} house words</span>
-      <span class="hint">Frozen when this game started. Changes are voted on in the group, never in a game.</span>
+      <span class="hint">
+        {view.status === 'lobby' ? 'The group’s words right now. They’re copied when the game starts' : 'Frozen when this game started'}. Changes are voted on in the group, never in a game.
+      </span>
       {#if view.houseWords.add.length}
         <span style="font-weight: 800">Added</span>
         <span class="wordlist">{view.houseWords.add.join(' · ')}</span>
