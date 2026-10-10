@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.7.1 (2026-10-09)
 
 - Back no longer closes the app after an update, or after opening a game from a notification and tapping around.
 
