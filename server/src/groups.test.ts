@@ -283,7 +283,9 @@ describe('group games', () => {
     await pass('QXZJ', 'add');
     const g = await call('/games', { method: 'POST', cookie: a.cookie, body: { bagSize: 100, randomOrder: false, groupId: id } });
     await call(`/join/${g.json.joinCode}`, { method: 'POST', cookie: b.cookie });
-    await pass('CAT', 'ban'); // while the game waits in its lobby: it counts, since the list is copied at start
+    expect((await call(`/games/${g.json.id}`, { cookie: b.cookie })).json.houseWords).toEqual({ add: ['QXZJ'], ban: [] });
+    await pass('CAT', 'ban'); // while the game waits in its lobby: the lobby shows it, and it counts
+    expect((await call(`/games/${g.json.id}`, { cookie: b.cookie })).json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
     const started = await call(`/games/${g.json.id}/start`, { method: 'POST', cookie: a.cookie });
     expect(started.json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
     await pass('DOG', 'ban'); // after the start: not in this game

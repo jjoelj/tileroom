@@ -5,7 +5,7 @@ import { effectiveDictionary, parseWordList, type IsWord } from '../../shared/di
 import { turnExpired } from '../../shared/rules';
 import type { GameState } from '../../shared/types';
 import { newInviteCode, normalizeCode, sha256 } from './codes';
-import { gamePlayers, games, gameWords, groupMembers, groups, invites, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groupMembers, groups, groupWords, invites, moves, users } from './db/schema';
 import type { Db, Tx } from './runtime/db';
 
 export type GameRow = typeof games.$inferSelect;
@@ -18,7 +18,7 @@ export const DELETED_PREFIX = 'deleted-';
 export const DELETED_MARK = '⊘';
 export const DELETED_NAME = `${DELETED_MARK} Deleted`; // mark first: a cut-off name still shows it
 export type HouseWords = { add: string[]; ban: string[] };
-/** A game with its players, its group (if any) and its frozen house words. */
+/** A game with its players, its group (if any) and its house words (frozen at start; the group's current ones in a lobby). */
 export type LoadedGame = { game: GameRow; seats: Seat[]; group: { id: string; name: string } | null; house: HouseWords };
 
 type Q = Db | Tx;
@@ -35,7 +35,7 @@ export function loadGame(q: Q, id: string): LoadedGame | undefined {
     .all()
     .map((r) => ({ ...r.game_players, displayName: r.users.displayName, colorIndex: r.users.colorIndex, deleted: r.users.username.startsWith(DELETED_PREFIX) }));
   const group = game.groupId ? (q.select({ id: groups.id, name: groups.name }).from(groups).where(eq(groups.id, game.groupId)).get() ?? null) : null;
-  return { game, seats, group, house: houseWordsOf(q, id) };
+  return { game, seats, group, house: houseWordsOf(q, game) };
 }
 
 /** The rules-engine state of a started game. */
@@ -90,9 +90,12 @@ export const canSpectate = (q: Q, g: LoadedGame, userId: string) =>
 /** The base word list (no abbreviations): what group proposals are checked against. */
 export const baseWords = () => load('words');
 
-/** A game's frozen house words (empty for open games and lobbies). */
-export function houseWordsOf(q: Q, gameId: string): HouseWords {
-  const rows = q.select().from(gameWords).where(eq(gameWords.gameId, gameId)).all();
+/** A game's frozen house words; a group lobby shows the group's current ones, since start copies them (SPEC §4.10). */
+export function houseWordsOf(q: Q, game: Pick<GameRow, 'id' | 'status' | 'groupId'>): HouseWords {
+  const rows =
+    game.status === 'lobby' && game.groupId
+      ? q.select().from(groupWords).where(eq(groupWords.groupId, game.groupId)).all()
+      : q.select().from(gameWords).where(eq(gameWords.gameId, game.id)).all();
   const pick = (kind: 'add' | 'ban') => rows.filter((r) => r.kind === kind).map((r) => r.word).sort();
   return { add: pick('add'), ban: pick('ban') };
 }

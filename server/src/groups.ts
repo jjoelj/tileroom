@@ -116,8 +116,11 @@ export function gameOpened(groupId: string, host: { id: string; displayName: str
 
 const groupName = (groupId: string) => db.select({ name: groups.name }).from(groups).where(eq(groups.id, groupId)).get()?.name ?? 'Tileroom';
 
-/** Tell every member how a proposal ended. */
+/** Tell every member how a proposal ended; open lobbies in the group show the new words. */
 export function announce(outcomes: Outcome[]) {
+  for (const groupId of new Set(outcomes.filter((o) => o.status === 'passed').map((o) => o.groupId))) {
+    for (const { id } of db.select({ id: games.id }).from(games).where(and(eq(games.groupId, groupId), eq(games.status, 'lobby'))).all()) changed(id);
+  }
   for (const o of outcomes) {
     const body =
       o.status === 'passed'
