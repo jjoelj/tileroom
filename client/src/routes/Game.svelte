@@ -703,7 +703,7 @@
           <!-- One spot: Recall while tiles are on the board, Swap once they're all back in the rack. -->
           {#if pending.length}
             <button class="tool" onclick={recall}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 010 12h-3" /></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /><!-- down into the rack --></svg>
               <span>Recall</span>
             </button>
           {:else}
