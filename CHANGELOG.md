@@ -3,12 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
-
-- A group game's word list stays up to date with the group's votes until the game starts.
-
 ## v0.10.0 (2026-10-10)
 
+- A group game's word list stays up to date with the group's votes until the game starts.
+- While watching a game, Back to the group takes you back the way the back button does.
 - Groups can pass house words by majority instead of unanimously (Settings, admins). If switching would pass open votes right away, it asks first and says how many.
 
 ## v0.9.0 (2026-10-10)
