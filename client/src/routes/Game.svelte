@@ -307,8 +307,10 @@
         rect: boardRef?.cellRect(other.r, other.c),
         onBoard: true,
         commit: () => {
-          Object.assign(pending.find((p) => p.r === from.r && p.c === from.c)!, { r: other.r, c: other.c });
+          const was = { r: other.r, c: other.c };
+          Object.assign(pending.find((p) => p.r === from.r && p.c === from.c)!, was);
           Object.assign(other, { r: from.r, c: from.c });
+          void tick().then(() => boardRef?.slideFrom(from.r, from.c, was));
         },
       };
     }
