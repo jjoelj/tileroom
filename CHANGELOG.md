@@ -3,11 +3,11 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.9.0 (2026-10-10)
 
 - See a game's settings any time from the game menu, under Game settings.
 - Once the bag runs out, the scores show whose turn is their last, and mark players with no turns left as Done.
-- Games on your list show each player's score and name, how long the turn has waited, and a Play button when it's yours.
+- Games on your list show each player's score and name, how long the turn has waited (or since a finished game ended, with a crown on the winner), and a Play button when it's yours.
 
 ## v0.8.0 (2026-10-09)
 
