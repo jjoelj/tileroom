@@ -19,7 +19,6 @@
   import Install from './routes/Install.svelte';
   import Join from './routes/Join.svelte';
   import Lobby from './routes/Lobby.svelte';
-  import NewGame from './routes/NewGame.svelte';
   import Notify from './routes/Notify.svelte';
   import SignIn from './routes/SignIn.svelte';
   import Settings from './routes/Settings.svelte';
@@ -105,7 +104,7 @@
                   ? `group:${groupId}`
                   : joinCode
                 ? `join:${joinCode}`
-                : route.path === '/new' ? 'new' : route.path === '/settings' ? 'settings' : route.path === '/whats-new' ? 'whats-new' : route.path === '/leaderboard' ? 'leaderboard' : route.path === '/admin' && session.me?.isAdmin ? 'admin' : 'lobby',
+                : route.path === '/settings' ? 'settings' : route.path === '/whats-new' ? 'whats-new' : route.path === '/leaderboard' ? 'leaderboard' : route.path === '/admin' && session.me?.isAdmin ? 'admin' : 'lobby',
   );
 </script>
 
@@ -127,8 +126,6 @@
   {#key groupId}<Group id={groupId} />{/key}
 {:else if joinCode}
   {#key joinCode}<Join code={joinCode} />{/key}
-{:else if route.path === '/new'}
-  <NewGame />
 {:else if route.path === '/settings'}
   <Settings />
 {:else if route.path === '/admin' && session.me.isAdmin}

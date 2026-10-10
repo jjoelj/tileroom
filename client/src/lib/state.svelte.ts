@@ -46,7 +46,7 @@ if ((history.state as { depth?: number } | null)?.depth === undefined && locatio
 } else history.replaceState({ ...history.state, depth: depth() }, '');
 
 /**
- * Navigates; `path` may carry a query (/new?group=ID), which stays in the URL while routing uses the path alone.
+ * Navigates; `path` may carry a query (/leaderboard?group=ID), which stays in the URL while routing uses the path alone.
  * `replace`: this screen takes the current one's place, so back skips it (a finished New game or Join screen).
  */
 export function go(path: string, { replace = false } = {}) {

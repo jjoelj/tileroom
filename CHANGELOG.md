@@ -5,8 +5,8 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 ## Unreleased
 
-- New games use the classic board by default, with fewer bonus squares and a double-word start. The old board is still there as Special when you start a game. Games already running keep their board.
-- The host can change a game's settings (board, tile bag, turn order, word list) in the lobby until it starts. Everyone waiting sees them.
+- New games use the classic board by default, with fewer bonus squares and a double-word start. The old board is still there as Special. Games already running keep their board.
+- New game opens your game straight away. Its settings (board, tile bag, turn order, word list) are in the lobby, where you can change them until you start. Everyone waiting sees them.
 
 ## v0.7.1 (2026-10-09)
 

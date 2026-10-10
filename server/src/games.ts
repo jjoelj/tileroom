@@ -139,7 +139,10 @@ export const gameRoutes = new Hono<AppEnv>()
   .post('/games', async (c) => {
     const b = await body(
       c,
+      // the defaults: a game starts with them and the host changes any in the lobby
       Settings.extend({
+        bagSize: Settings.shape.bagSize.default(100),
+        randomOrder: z.boolean().default(true),
         expandedWords: z.boolean().default(false),
         layout: z.enum(LAYOUTS).default('classic'),
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only

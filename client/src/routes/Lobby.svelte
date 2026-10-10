@@ -37,6 +37,12 @@
     }
   }
   let joining = $state(false);
+  // A new game opens straight into its lobby with the default settings; the host changes them there.
+  let starting = $state(false);
+  const newGame = () => {
+    starting = true;
+    api<{ id: string }>('/games', { method: 'POST', body: {} }).then((v) => go(`/games/${v.id}`), (e) => ((starting = false), sayError(e)));
+  };
   let code = $state('');
 
   const load = () =>
@@ -112,7 +118,7 @@
   </header>
 
   <div style="display: flex; gap: 8px">
-    <button class="big dark" onclick={() => go('/new')}>
+    <button class="big dark" disabled={starting} onclick={newGame}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
       New game
     </button>

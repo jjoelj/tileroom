@@ -306,10 +306,10 @@ test("seen: opening a game or swiping a notification away marks it, for the user
   expect((await call('/push/seen', { method: 'POST', cookie: b.cookie, body: { tag: 'anything else' } })).status).toBe(400);
 });
 
-test('settings: classic unless asked; the host can change any of them until the start, then they are fixed', async () => {
+test('settings: defaults unless asked; the host can change any of them until the start, then they are fixed', async () => {
   const [host, guest] = [await newUser(), await newUser()];
   const make = async (body: object) => (await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder: false, ...body } })).json;
-  expect((await make({})).layout).toBe('classic');
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json).toMatchObject({ layout: 'classic', bagSize: 100, randomOrder: true, expandedWords: false });
   expect((await make({ layout: 'special' })).layout).toBe('special');
   expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder: false, layout: 'other' } })).status).toBe(400);
 

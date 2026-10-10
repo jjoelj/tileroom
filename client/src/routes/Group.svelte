@@ -149,6 +149,13 @@
     if (ok) await propose(w, action);
   }
 
+  // A new group game opens straight into its lobby with the default settings; the host changes them there.
+  let starting = $state(false);
+  const newGame = () => {
+    starting = true;
+    api<{ id: string }>('/games', { method: 'POST', body: { groupId: id } }).then((v) => go(`/games/${v.id}`), (e) => ((starting = false), sayError(e)));
+  };
+
   async function joinGame(code: string) {
     busy = true;
     try {
@@ -281,9 +288,9 @@
 
     <div class="row section">
       <h2 class="label" style="margin: 0">Games</h2>
-      {#if current.length}<button class="pill" onclick={() => go(`/new?group=${group?.id}`)}>+ New game</button>{/if}
+      {#if current.length}<button class="pill" disabled={starting} onclick={newGame}>+ New game</button>{/if}
     </div>
-    {#if !current.length}<button class="primary" onclick={() => go(`/new?group=${group?.id}`)}>New {group.name} game</button>{/if}
+    {#if !current.length}<button class="primary" disabled={starting} onclick={newGame}>New {group.name} game</button>{/if}
     {#each current as g (g.id)}
       <div class="card item">
         <span class="grow">
