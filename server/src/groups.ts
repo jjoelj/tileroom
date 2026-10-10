@@ -8,7 +8,7 @@ import type { AppEnv } from './auth';
 import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
-import { notify } from './push';
+import { markSeen, notify } from './push';
 import { changed, groupChanged, watchingGroup } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
@@ -290,7 +290,11 @@ export const groupRoutes = new Hono<AppEnv>()
     return c.json(groupDetail(g.id, uid));
   })
 
-  .get('/groups/:id', (c) => c.json(groupDetail(c.req.param('id'), c.var.user.id)))
+  .get('/groups/:id', (c) => {
+    const detail = groupDetail(c.req.param('id'), c.var.user.id);
+    markSeen(c.var.user.id, `group-${c.req.param('id')}`);
+    return c.json(detail);
+  })
 
   .get('/groups/:id/past', (c) => {
     const { group } = myGroup(db, c.req.param('id'), c.var.user.id);

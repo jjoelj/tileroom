@@ -26,13 +26,23 @@ document.addEventListener('visibilitychange', () => {
 // Back button (Android's, the browser's, and our own arrows) walks real history. Each entry records how many in-app
 // screens sit below it (`depth`), so an arrow knows whether going back stays in the app.
 const depth = () => (history.state as { depth?: number } | null)?.depth ?? 0;
-history.replaceState({ ...history.state, depth: depth() }, '');
+if ((history.state as { depth?: number } | null)?.depth === undefined && location.pathname !== '/') {
+  // Opened straight onto a screen (a notification, a link): put the games list under it, so back goes home
+  // instead of closing the app. A reload keeps its state, so this runs once per fresh start.
+  const here = location.pathname + location.search;
+  history.replaceState({ depth: 0 }, '', '/');
+  history.pushState({ depth: 1 }, '', here);
+} else history.replaceState({ ...history.state, depth: depth() }, '');
 
-/** Navigates; `path` may carry a query (/new?group=ID), which stays in the URL while routing uses the path alone. */
-export function go(path: string) {
+/**
+ * Navigates; `path` may carry a query (/new?group=ID), which stays in the URL while routing uses the path alone.
+ * `replace`: this screen takes the current one's place, so back skips it (a finished New game or Join screen).
+ */
+export function go(path: string, { replace = false } = {}) {
   if (path === location.pathname + location.search) return;
   entry = false; // an open overlay's entry stays buried under the new screen
-  history.pushState({ depth: depth() + 1 }, '', path);
+  if (replace) history.replaceState({ depth: depth() }, '', path);
+  else history.pushState({ depth: depth() + 1 }, '', path);
   route.path = location.pathname;
   scrollTo(0, 0);
 }

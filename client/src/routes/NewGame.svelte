@@ -41,7 +41,7 @@
     busy = true;
     try {
       const view = await api<{ id: string }>('/games', { method: 'POST', body: { bagSize, randomOrder, expandedWords, ...(groupId && { groupId }) } });
-      go(`/games/${view.id}`);
+      go(`/games/${view.id}`, { replace: true }); // back goes where New game was opened from
     } catch (err) {
       sayError(err);
       busy = false;

@@ -25,7 +25,7 @@
 
   function open(id: string) {
     forgetJoin();
-    go(`/groups/${id}`);
+    go(`/groups/${id}`, { replace: true });
   }
 
   function leave() {

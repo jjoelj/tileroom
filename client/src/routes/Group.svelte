@@ -6,6 +6,7 @@
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
   import { live, watch } from '../lib/live.svelte';
+  import { clearNotifications } from '../lib/push';
   import { say, sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
   import { show } from '../lib/motion';
@@ -67,8 +68,13 @@
 
   onMount(() => {
     void load();
+    void clearNotifications(`group-${id}`);
     const unwatch = watch(`group:${id}`);
-    const onVisible = () => document.visibilityState === 'visible' && load();
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void load();
+      void clearNotifications(`group-${id}`);
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       unwatch();

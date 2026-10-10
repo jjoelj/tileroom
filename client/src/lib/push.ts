@@ -10,10 +10,22 @@ export function registerServiceWorker() {
   navigator.serviceWorker.register(url, { type: import.meta.env.DEV ? 'module' : 'classic', scope: '/' }).catch(() => {});
 }
 
-/** Closes this device's notifications for a game: once it's on screen, they've been seen. */
-export async function clearGameNotifications(gameId: string) {
+/** Closes this device's notifications for a game ("game-ID") or group ("group-ID"): it's on screen, so they're seen. */
+export async function clearNotifications(tag: string) {
   const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
-  for (const n of (await reg?.getNotifications({ tag: `game-${gameId}` })) ?? []) n.close();
+  for (const n of (await reg?.getNotifications({ tag })) ?? []) n.close();
+}
+
+/** Closes notifications seen since they were sent, on any device: that game or group opened, or one swiped away. */
+export async function closeSeenNotifications() {
+  const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+  const shown = ((await reg?.getNotifications().catch(() => [])) ?? []).filter((n) => n.tag);
+  if (!shown.length) return; // nothing up: no request
+  const seen = await api<Record<string, number>>('/push/seen').catch(() => ({}) as Record<string, number>);
+  for (const n of shown) {
+    const at = seen[n.tag];
+    if (at !== undefined && ((n.data as { sentAt?: number } | null)?.sentAt ?? 0) <= at) n.close();
+  }
 }
 
 const toBytes =(b64url: string) => {

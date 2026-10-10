@@ -3,6 +3,13 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- Tapping a pop-up message about another game or group works like tapping its notification: it opens there with the latest.
+- Back from a game opened from a notification or a link goes to your games instead of closing the app. Back from a game you just started or joined goes to where you started it, like its group, not the New game or Join screen.
+- Notifications you've already opened or swiped away on one device clear on your others the next time Tileroom opens there. A phone that was offline gets only the latest notification for each game.
+- The swap sheet shows your tiles in the same order as your rack.
+
 ## v0.6.0 (2026-10-09)
 
 - Android's back button works throughout: it closes an open sheet, menu or dialog first, then goes back a screen. The back arrows in the app do the same.

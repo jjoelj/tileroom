@@ -10,7 +10,7 @@ import { newJoinCode, normalizeCode, randomId } from './codes';
 import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { approvedWords, deleteEmptyOrphans, expireProposals, gameOpened } from './groups';
-import { notify } from './push';
+import { markSeen, notify } from './push';
 import { changed, groupChanged, viewOf, watching } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { clientIp } from './runtime/ip';
@@ -184,7 +184,11 @@ export const gameRoutes = new Hono<AppEnv>()
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
-  .get('/games/:id', (c) => c.json(visibleGame(c.req.param('id'), c.var.user.id).view))
+  .get('/games/:id', (c) => {
+    const { view } = visibleGame(c.req.param('id'), c.var.user.id);
+    markSeen(c.var.user.id, `game-${view.id}`); // on screen: its notifications on other devices can go
+    return c.json(view);
+  })
 
   .patch('/games/:id', async (c) => {
     const { g } = myGame(c.req.param('id'), c.var.user.id);

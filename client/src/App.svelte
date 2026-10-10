@@ -6,7 +6,7 @@
   import Toast from './lib/Toast.svelte';
   import { rise, show } from './lib/motion';
   import { preloadWords } from './lib/dict';
-  import { pushSupported, subscribe } from './lib/push';
+  import { closeSeenNotifications, pushSupported, subscribe } from './lib/push';
   import { say } from './lib/say.svelte';
   import { markSeen, REPO, unseenReleases, VERSION } from './lib/changelog';
   import { update } from './lib/update.svelte';
@@ -48,7 +48,12 @@
     // Opened or resumed from a notification tap: ask the worker where it pointed (see sw.ts).
     const where = () => void navigator.serviceWorker?.ready.then((r) => r.active?.postMessage({ type: 'where' }));
     where();
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && where());
+    void closeSeenNotifications();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      where();
+      void closeSeenNotifications(); // opened or swiped away on another device meanwhile
+    });
     setTimeout(preloadWords, 500); // after first paint
   });
 

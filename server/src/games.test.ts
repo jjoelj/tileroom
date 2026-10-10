@@ -291,3 +291,17 @@ describe('7-day turn timeout', () => {
     expect(exists(id)).toBe(false);
   });
 });
+
+test("seen: opening a game or swiping a notification away marks it, for the user's other devices; only theirs", async () => {
+  const { id, players } = await started(2);
+  const [a, b] = [players[0]!, players[1]!];
+  const before = Date.now();
+  await call(`/games/${id}`, { cookie: a.cookie });
+  const mine = (await call('/push/seen', { cookie: a.cookie })).json;
+  expect(mine[`game-${id}`]).toBeGreaterThanOrEqual(before);
+  expect((await call('/push/seen', { cookie: b.cookie })).json[`game-${id}`]).toBeUndefined();
+
+  expect((await call('/push/seen', { method: 'POST', cookie: b.cookie, body: { tag: 'group-abc' } })).status).toBe(200);
+  expect((await call('/push/seen', { cookie: b.cookie })).json['group-abc']).toBeGreaterThanOrEqual(before);
+  expect((await call('/push/seen', { method: 'POST', cookie: b.cookie, body: { tag: 'anything else' } })).status).toBe(400);
+});

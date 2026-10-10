@@ -15,7 +15,7 @@
   import { say, sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
   import { live, watch } from '../lib/live.svelte';
-  import { clearGameNotifications } from '../lib/push';
+  import { clearNotifications } from '../lib/push';
   import { back, backCloses, go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
@@ -94,7 +94,7 @@
   });
   // Whenever this game is on screen, its notifications have been seen.
   $effect(() => {
-    if (view) void clearGameNotifications(id);
+    if (view) void clearNotifications(`game-${id}`);
   });
 
   // Android back closes the open sheet or menu before leaving the game
@@ -111,9 +111,9 @@
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
       void load();
-      void clearGameNotifications(id);
+      void clearNotifications(`game-${id}`);
     };
-    const onFocus = () => void clearGameNotifications(id); // desktop: back from another window
+    const onFocus = () => void clearNotifications(`game-${id}`); // desktop: back from another window
     document.addEventListener('visibilitychange', onVisible);
     addEventListener('focus', onFocus);
     return () => {
@@ -417,7 +417,7 @@
     if (!ok) return;
     try {
       await api(`/games/${id}/players/me`, { method: 'DELETE' });
-      go(view.group ? `/groups/${view.group.id}` : '/');
+      go(view.group ? `/groups/${view.group.id}` : '/', { replace: true }); // the game is gone: back skips it
     } catch (e) {
       sayError(e);
     }
@@ -755,7 +755,8 @@
     <div class="sheet" transition:rise role="dialog" aria-label="Swap tiles">
       <span class="label">Pick tiles to swap</span>
       <div class="rack" style="padding: 8px 0">
-        {#each rack as letter, i (i)}
+        {#each order as i (i)}
+          {@const letter = rack[i] ?? ''}
           <button
             class="rk tile-face"
             class:sel={swapPick.includes(i)}

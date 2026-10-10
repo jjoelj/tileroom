@@ -34,7 +34,7 @@
 
   function open(id: string) {
     forgetJoin();
-    go(`/games/${id}`);
+    go(`/games/${id}`, { replace: true });
   }
 
   async function join() {

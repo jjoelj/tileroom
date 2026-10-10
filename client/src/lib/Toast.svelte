@@ -3,7 +3,7 @@
 <script lang="ts">
   import { grow } from './motion';
   import { toast } from './say.svelte';
-  import { go } from './state.svelte';
+  import { go, updates } from './state.svelte';
 </script>
 
 <div class="region" aria-live="polite">
@@ -16,7 +16,10 @@
         transition:grow
         onclick={() => {
           toast.current = null;
-          if (t.url) go(t.url);
+          if (!t.url) return;
+          // the same as tapping the notification (App.svelte's 'navigate'): go there, with fresh data
+          go(t.url);
+          updates.n++;
         }}
       >
         {#if t.title}<span class="title">{t.title}</span>{/if}

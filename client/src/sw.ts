@@ -11,12 +11,12 @@ cleanupOutdatedCaches();
 self.addEventListener('install', () => void self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
-type Payload = { title: string; body: string; url?: string; tag?: string };
+type Payload = { title: string; body: string; url?: string; tag?: string; sentAt?: number };
 
 self.addEventListener('push', (e) => {
   const p: Payload = e.data?.json() ?? { title: 'Tileroom', body: '' };
   // renotify: a newer notification for the same game replaces the old one but still alerts (sound, pop-up).
-  const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/' }, icon: import.meta.env.VITE_STAGING === '1' ? '/icons/staging/icon-192.png' : '/icons/icon-192.png' };
+  const options: NotificationOptions & { renotify?: boolean } = { body: p.body, tag: p.tag, renotify: !!p.tag, data: { url: p.url ?? '/', sentAt: p.sentAt ?? Date.now() }, icon: import.meta.env.VITE_STAGING === '1' ? '/icons/staging/icon-192.png' : '/icons/icon-192.png' };
   e.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: 'window' });
@@ -54,6 +54,13 @@ self.addEventListener('notificationclick', (e) => {
       front.postMessage({ type: 'navigate', url });
     })(),
   );
+});
+
+// Swiped away: seen, so the user's other devices close theirs when Tileroom next opens there (push.ts `seen`).
+// Not on iOS, which doesn't report it.
+self.addEventListener('notificationclose', (e) => {
+  const tag = e.notification.tag;
+  if (tag) e.waitUntil(fetch('/api/push/seen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tag }) }).catch(() => {}));
 });
 
 self.addEventListener('message', (e) => {
