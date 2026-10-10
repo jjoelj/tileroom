@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Groups and house words (SPEC §4.10). Words change only through proposals that every current member votes yes on.
-import { and, asc, count, desc, eq, inArray, like, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, like, lt, ne, or, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { WORD_RE } from '../../shared/dictionary';
@@ -197,7 +197,7 @@ function groupDetail(groupId: string, userId: string) {
     words: approvedWords(db, groupId),
     proposals: rows.filter((p) => p.status === 'open').map(proposal),
     history: rows.filter((p) => p.status !== 'open').slice(0, 20).map(proposal),
-    games: groupGames(groupId, userId),
+    ...groupGames(groupId, userId),
   };
 }
 
@@ -275,6 +275,14 @@ export const groupRoutes = new Hono<AppEnv>()
   })
 
   .get('/groups/:id', (c) => c.json(groupDetail(c.req.param('id'), c.var.user.id)))
+
+  .get('/groups/:id/past', (c) => {
+    const { group } = myGroup(db, c.req.param('id'), c.var.user.id);
+    const at = Number(c.req.query('at'));
+    const id = c.req.query('id') ?? '';
+    if (!Number.isFinite(at) || !id) throw new ApiError(400, 'invalid_cursor');
+    return c.json(pastGames(group.id, c.var.user.id, PAST_MORE, { at, id }));
+  })
 
   .post('/groups/:id/code', (c) => {
     const { group, role } = myGroup(db, c.req.param('id'), c.var.user.id);
@@ -415,9 +423,11 @@ export const groupRoutes = new Hono<AppEnv>()
     return c.json(groupDetail(p.groupId, uid));
   });
 
-/** Group games a member can see (for the group screen): players, and whether I'm in it. */
-export function groupGames(groupId: string, userId: string) {
-  const rows = db.select().from(games).where(eq(games.groupId, groupId)).orderBy(desc(games.createdAt)).limit(30).all();
+const PAST_PAGE = 10; // finished games on the group screen; Show more loads 20 at a time
+const PAST_MORE = 20;
+
+/** Players, and whether I'm in it, for each game row. */
+function withSeats(rows: (typeof games.$inferSelect)[], userId: string) {
   return rows.map((g) => {
     const seats = db
       .select({ userId: gamePlayers.userId, displayName: users.displayName, score: gamePlayers.score, seat: gamePlayers.seat })
@@ -430,9 +440,30 @@ export function groupGames(groupId: string, userId: string) {
       id: g.id,
       status: g.status,
       currentSeat: g.currentSeat,
+      finishedAt: g.finishedAt,
       players: seats,
       mine: seats.some((s) => s.userId === userId),
       joinCode: g.status === 'lobby' ? formatJoinCode(g.joinCode) : null, // members may join any group lobby
     };
   });
+}
+
+/** Finished games, newest first, after the cursor (the last one shown: its finish time, then id for ties). */
+function pastGames(groupId: string, userId: string, limit: number, after?: { at: number; id: string }) {
+  const cursor = after ? or(lt(games.finishedAt, after.at), and(eq(games.finishedAt, after.at), lt(games.id, after.id))) : undefined;
+  const rows = db
+    .select()
+    .from(games)
+    .where(and(eq(games.groupId, groupId), eq(games.status, 'finished'), cursor))
+    .orderBy(desc(games.finishedAt), desc(games.id))
+    .limit(limit + 1) // one extra says whether there are more
+    .all();
+  return { games: withSeats(rows.slice(0, limit), userId), more: rows.length > limit };
+}
+
+/** Group games for the group screen: every one still going, and the latest finished ones (more on request). */
+export function groupGames(groupId: string, userId: string) {
+  const going = db.select().from(games).where(and(eq(games.groupId, groupId), ne(games.status, 'finished'))).orderBy(desc(games.createdAt)).all();
+  const past = pastGames(groupId, userId, PAST_PAGE);
+  return { games: [...withSeats(going, userId), ...past.games], morePast: past.more };
 }

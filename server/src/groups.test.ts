@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { gamePlayers, games, groups, groupWords } from './db/schema';
+import { randomId } from './codes';
 import { deleteEmptyOrphans, expireProposals } from './groups';
 import { sockets } from './realtime';
 import { resetRateLimits } from './http';
@@ -354,4 +355,33 @@ test('opening a group game tells the other members, except anyone on the group p
   expect(pushesTo(b)).toHaveLength(bBefore); // on the page: sees it live instead
   expect(got).toContainEqual({ t: 'group' });
   sockets.close(ws, w);
+});
+
+test('past games page: the latest 10 with the group, then 20 at a time, none skipped or repeated (ties too)', async () => {
+  const { id, members } = await groupOf(2);
+  const [a, b] = members as [TestUser, TestUser];
+  const t0 = 1_700_000_000_000;
+  const made: string[] = [];
+  for (let i = 0; i < 14; i++) {
+    const gid = randomId();
+    made.push(gid);
+    // games 3 and 4 finish in the same millisecond, 10th and 11th newest: right across the page boundary
+    const finishedAt = t0 + (i === 4 ? 3 : i) * 1000;
+    db.insert(games).values({ id: gid, hostId: a.id, bagSize: 100, randomOrder: false, joinCode: randomId().slice(0, 6), status: 'finished', groupId: id, finishedAt }).run();
+    db.insert(gamePlayers).values([{ gameId: gid, seat: 0, userId: a.id, score: 10 + i }, { gameId: gid, seat: 1, userId: b.id, score: 5 }]).run();
+  }
+  const detail = (await call(`/groups/${id}`, { cookie: a.cookie })).json;
+  const first = detail.games.filter((g: { status: string }) => g.status === 'finished');
+  expect(first).toHaveLength(10);
+  expect(detail.morePast).toBe(true);
+
+  const last = first.at(-1);
+  const page = (await call(`/groups/${id}/past?at=${last.finishedAt}&id=${last.id}`, { cookie: a.cookie })).json;
+  expect(page.more).toBe(false);
+  const seen = [...first, ...page.games].map((g: { id: string }) => g.id);
+  expect(new Set(seen).size).toBe(14);
+  expect(seen.sort()).toEqual([...made].sort());
+
+  const outsider = await newUser();
+  expect((await call(`/groups/${id}/past?at=${last.finishedAt}&id=${last.id}`, { cookie: outsider.cookie })).status).toBe(404);
 });

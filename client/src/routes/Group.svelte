@@ -33,7 +33,8 @@
     words: { add: string[]; ban: string[] };
     proposals: Proposal[];
     history: Proposal[];
-    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
+    morePast: boolean;
+    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; finishedAt: number | null; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
   };
   /** Where a word stands in this group (the lookup behind the propose button). */
   type Standing = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
@@ -203,7 +204,31 @@
         ? 'Finished'
         : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn`;
   const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
-  const past = $derived(group?.games.filter((g) => g.status === 'finished') ?? []);
+  // Past games: the group screen brings the latest few; Show more pages back from the last one shown.
+  type GameRow = Detail['games'][number];
+  let older = $state<GameRow[]>([]);
+  let moreOlder = $state<boolean | null>(null); // null until a page is loaded: the group screen's flag applies
+  const past = $derived.by(() => {
+    const first = group?.games.filter((g) => g.status === 'finished') ?? [];
+    const ids = new Set(first.map((g) => g.id));
+    return [...first, ...older.filter((g) => !ids.has(g.id))];
+  });
+  const morePast = $derived(moreOlder ?? group?.morePast ?? false);
+  let loadingPast = $state(false);
+  async function showMore() {
+    const last = past.at(-1);
+    if (!last) return;
+    loadingPast = true;
+    try {
+      const page = await api<{ games: GameRow[]; more: boolean }>(`/groups/${id}/past?at=${last.finishedAt}&id=${last.id}`);
+      older = [...older, ...page.games];
+      moreOlder = page.more;
+    } catch (err) {
+      sayError(err);
+    } finally {
+      loadingPast = false;
+    }
+  }
   /** "You won with 312", "Sam & Ben won with 280" (ties share it). */
   const result = (g: Detail['games'][number]) => {
     const best = Math.max(...g.players.map((p) => p.score));
@@ -329,7 +354,7 @@
 
     {#if past.length}
       <details class="fold">
-        <summary class="label">Past games ({past.length})</summary>
+        <summary class="label">Past games</summary>
         {#each past as g (g.id)}
           <div class="card item">
             <span class="grow">
@@ -339,6 +364,7 @@
             <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>View</button>
           </div>
         {/each}
+        {#if morePast}<button class="textbtn" disabled={loadingPast} onclick={showMore}>{loadingPast ? 'Loading…' : 'Show more'}</button>{/if}
       </details>
     {/if}
 
