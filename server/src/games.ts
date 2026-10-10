@@ -4,6 +4,7 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { names } from '../../shared/plural';
+import { LAYOUTS } from '../../shared/board';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
@@ -73,6 +74,14 @@ const notifyGame = (g: LoadedGame, userIds: string[], body: string) => {
   }
 };
 
+/** A game's settings: chosen at New game, changeable by the host until the start, then fixed. */
+const Settings = z.object({
+  bagSize: z.union([z.literal(100), z.literal(150)]),
+  randomOrder: z.boolean(),
+  expandedWords: z.boolean(),
+  layout: z.enum(LAYOUTS),
+});
+
 const Turn = z.int().nonnegative();
 const MoveBody = z.discriminatedUnion('type', [
   z.object({
@@ -130,10 +139,9 @@ export const gameRoutes = new Hono<AppEnv>()
   .post('/games', async (c) => {
     const b = await body(
       c,
-      z.object({
-        bagSize: z.union([z.literal(100), z.literal(150)]),
-        randomOrder: z.boolean(),
+      Settings.extend({
         expandedWords: z.boolean().default(false),
+        layout: z.enum(LAYOUTS).default('classic'),
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),
     );
@@ -191,7 +199,7 @@ export const gameRoutes = new Hono<AppEnv>()
 
   .patch('/games/:id', async (c) => {
     const { g } = myGame(c.req.param('id'), c.var.user.id);
-    const b = await body(c, z.object({ expandedWords: z.boolean().optional() }));
+    const b = await body(c, Settings.partial());
     if (g.game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
@@ -223,7 +231,7 @@ export const gameRoutes = new Hono<AppEnv>()
         [order[i], order[j]] = [order[j]!, order[i]!];
       }
     }
-    const state = newGame(order.length, game.bagSize, randomInt);
+    const state = newGame(order.length, game.bagSize, game.layout, randomInt);
     const now = Date.now();
     db.transaction((tx) => {
       tx.delete(gamePlayers).where(eq(gamePlayers.gameId, game.id)).run();

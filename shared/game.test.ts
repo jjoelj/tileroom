@@ -15,6 +15,7 @@ function game(racks: string[], bag: Bag = {}): GameState {
   board[CENTER]![CENTER] = { letter: 'A', blank: false, seat: 0, turn: 0 };
   return {
     status: 'active',
+    layout: 'special', // the scores below were worked out on it
     board,
     bag,
     players: racks.map((r) => ({ rack: [...r], score: 0 })),
@@ -40,15 +41,15 @@ const err = (f: () => unknown) => {
 
 describe('newGame', () => {
   test.each([2, 3, 4, 5, 6])('%i players draw 7 each', (n) => {
-    const s = newGame(n, 100, first);
+    const s = newGame(n, 100, 'classic', first);
     expect(s.players.map((p) => p.rack.length)).toEqual(Array(n).fill(7));
     expect(bagCount(s.bag)).toBe(100 - 7 * n);
     expect(BAGS[100].A).toBe(9); // the template isn't mutated
   });
 
   test('rejects 1 or 7 players', () => {
-    expect(err(() => newGame(1, 100, first))).toBe('A game has 2 to 6 players');
-    expect(err(() => newGame(7, 150, first))).toBe('A game has 2 to 6 players');
+    expect(err(() => newGame(1, 100, 'classic', first))).toBe('A game has 2 to 6 players');
+    expect(err(() => newGame(7, 150, 'classic', first))).toBe('A game has 2 to 6 players');
   });
 });
 
@@ -202,7 +203,7 @@ test('property: random games conserve tiles, follow the final round, and always 
       const it = rand[Symbol.iterator]();
       const r = (max: number) => it.next().value % max;
       const full = Object.entries(BAGS[size]).flatMap(([l, k]) => Array(k).fill(l)).sort().join('');
-      let s = newGame(n, size, r);
+      let s = newGame(n, size, 'classic', r);
       let turnsAfterFinal = 0;
       for (let i = 0; i < 2000 && s.status === 'active'; i++) {
         const seat = s.currentSeat;

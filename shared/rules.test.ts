@@ -2,9 +2,12 @@
 import { describe, expect, test } from 'bun:test';
 import { emptyBoard } from './board';
 import { previewPlay } from './rules';
+import type { IsWord } from './dictionary';
 import type { Board, Placement } from './types';
 
 const any = () => true;
+// The scores below were worked out on the special board.
+const play = (b: Board, t: Placement[], isWord: IsWord) => previewPlay(b, t, isWord, 'special');
 
 /** Lays `word` on the board as already-played tiles. */
 function lay(board: Board, r: number, c: number, word: string, dir: 'across' | 'down' = 'across') {
@@ -24,7 +27,7 @@ const tiles = (r: number, c: number, word: string, dir: 'across' | 'down' = 'acr
   }));
 
 const reason = (b: Board, t: Placement[]) => {
-  const p = previewPlay(b, t, any);
+  const p = play(b, t, any);
   return p.ok ? null : p.reason;
 };
 
@@ -71,25 +74,25 @@ describe('words and scoring', () => {
   test('the main word (listed first) is the one most of the placed tiles went into', () => {
     // SUN goes down from the end of CAT: S also makes CATS, found first, but only SUN holds all 3 new tiles.
     const b = lay(emptyBoard(), 7, 6, 'CAT');
-    const p = previewPlay(b, tiles(7, 9, 'SUN', 'down'), any);
+    const p = play(b, tiles(7, 9, 'SUN', 'down'), any);
     expect(p.ok && p.words.map((w) => w.word)).toEqual(['SUN', 'CATS']);
   });
 
   test('main word ties (one tile, two words) go to the higher score, then the longer word', () => {
     // One S at (8,8): across it makes AS (2), found first; down it makes QS (11). QS leads.
     const b = lay(lay(emptyBoard(), 8, 7, 'A'), 7, 8, 'Q');
-    const p = previewPlay(b, tiles(8, 8, 'S'), any);
+    const p = play(b, tiles(8, 8, 'S'), any);
     expect(p.ok && p.words.map((w) => w.word)).toEqual(['QS', 'AS']);
   });
 
   test('first move, center has no bonus', () => {
-    const p = previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any);
+    const p = play(emptyBoard(), tiles(7, 6, 'CAT'), any);
     expect(p).toMatchObject({ ok: true, score: 5, words: [{ word: 'CAT', score: 5, r: 7, c: 6, dir: 'across', length: 3 }] });
   });
 
   test('DW + DW in one word is ×4; TL under a pre-existing tile is ignored', () => {
     const b = lay(emptyBoard(), 3, 7, 'A'); // (3,7) is TL
-    const p = previewPlay(b, tiles(2, 6, 'COW'), any); // (2,6) and (2,8) are DW
+    const p = play(b, tiles(2, 6, 'COW'), any); // (2,6) and (2,8) are DW
     expect(p.ok && p.words.map((w) => [w.word, w.score])).toEqual([
       ['COW', 32],
       ['OA', 2],
@@ -98,46 +101,51 @@ describe('words and scoring', () => {
   });
 
   test('a blank on TL scores 0 for that letter', () => {
-    expect(previewPlay(emptyBoard(), tiles(7, 3, 'QUEEN'), any)).toMatchObject({ score: 34 });
-    expect(previewPlay(emptyBoard(), tiles(7, 3, 'qUEEN'), any)).toMatchObject({ score: 4 });
+    expect(play(emptyBoard(), tiles(7, 3, 'QUEEN'), any)).toMatchObject({ score: 34 });
+    expect(play(emptyBoard(), tiles(7, 3, 'qUEEN'), any)).toMatchObject({ score: 4 });
   });
 
   test('blanks already on the board stay 0', () => {
     const b = lay(emptyBoard(), 7, 7, 'Q');
     b[7]![7]!.blank = true;
-    expect(previewPlay(b, tiles(7, 8, 'I'), any)).toMatchObject({ score: 1 });
+    expect(play(b, tiles(7, 8, 'I'), any)).toMatchObject({ score: 1 });
   });
 
   test('bonus squares are one-time: J on TL scores 30, later JOT through it counts 10', () => {
-    expect(previewPlay(lay(emptyBoard(), 5, 6, 'O'), tiles(5, 5, 'J'), any)).toMatchObject({ score: 31 });
-    expect(previewPlay(lay(emptyBoard(), 5, 5, 'J'), tiles(5, 6, 'OT'), any)).toMatchObject({ score: 12 });
+    expect(play(lay(emptyBoard(), 5, 6, 'O'), tiles(5, 5, 'J'), any)).toMatchObject({ score: 31 });
+    expect(play(lay(emptyBoard(), 5, 5, 'J'), tiles(5, 6, 'OT'), any)).toMatchObject({ score: 12 });
   });
 
   test('TW', () => {
     const b = lay(emptyBoard(), 0, 0, 'Z'); // (0,3) is TW
-    expect(previewPlay(b, tiles(0, 1, 'ABC'), any)).toMatchObject({ score: (10 + 1 + 3 + 3) * 3 });
+    expect(play(b, tiles(0, 1, 'ABC'), any)).toMatchObject({ score: (10 + 1 + 3 + 3) * 3 });
   });
 
   test('7-tile play adds 40', () => {
-    expect(previewPlay(emptyBoard(), tiles(7, 4, 'ABCDEFG'), any)).toMatchObject({ score: 16 + 40 });
+    expect(play(emptyBoard(), tiles(7, 4, 'ABCDEFG'), any)).toMatchObject({ score: 16 + 40 });
   });
 
   test('a single tile forms words both ways', () => {
     const b = lay(lay(emptyBoard(), 7, 6, 'CA'), 5, 8, 'TA', 'down');
-    const p = previewPlay(b, tiles(7, 8, 'T'), any);
+    const p = play(b, tiles(7, 8, 'T'), any);
     expect(p.ok && p.words.map((w) => w.word)).toEqual(['CAT', 'TAT']);
   });
 
   test('an invalid cross-word is named', () => {
     const isWord = (w: string) => w === 'COW';
-    const p = previewPlay(lay(emptyBoard(), 3, 7, 'A'), tiles(2, 6, 'COW'), isWord);
+    const p = play(lay(emptyBoard(), 3, 7, 'A'), tiles(2, 6, 'COW'), isWord);
     expect(p).toMatchObject({ ok: true, invalid: ['OA'] });
   });
 
   test('score bubble anchors on the bottom-rightmost tile of all words', () => {
     const b = lay(emptyBoard(), 7, 6, 'CAT');
-    expect(previewPlay(b, tiles(8, 5, 'AT'), any)).toMatchObject({ anchor: { r: 8, c: 6 } });
-    expect(previewPlay(b, tiles(4, 8, 'BAT', 'down'), any)).toMatchObject({ anchor: { r: 7, c: 8 } });
-    expect(previewPlay(b, tiles(8, 8, 'O', 'down'), any)).toMatchObject({ anchor: { r: 8, c: 8 } });
+    expect(play(b, tiles(8, 5, 'AT'), any)).toMatchObject({ anchor: { r: 8, c: 6 } });
+    expect(play(b, tiles(4, 8, 'BAT', 'down'), any)).toMatchObject({ anchor: { r: 7, c: 8 } });
+    expect(play(b, tiles(8, 8, 'O', 'down'), any)).toMatchObject({ anchor: { r: 8, c: 8 } });
   });
+});
+
+test('classic board: the start square doubles the first word', () => {
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'classic')).toMatchObject({ score: (3 + 1 + 1) * 2 });
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'special')).toMatchObject({ score: 3 + 1 + 1 });
 });

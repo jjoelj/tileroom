@@ -43,6 +43,7 @@ export function stateOf({ game, seats }: LoadedGame): GameState {
   if (game.status === 'lobby' || !game.board || !game.bag) throw new Error('game not started');
   return {
     status: game.status,
+    layout: game.layout,
     board: game.board,
     bag: game.bag,
     players: seats.map((s) => ({ rack: s.rack, score: s.score })),

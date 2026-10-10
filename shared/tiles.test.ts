@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { expect, test } from 'bun:test';
 import { randomInt } from 'node:crypto';
-import { premiumAt, SIZE } from './board';
+import { LAYOUTS, premiumAt, SIZE } from './board';
 import { effectiveDictionary, parseWordList } from './dictionary';
 import type { Bag } from './types';
 import { BAGS, bagCount, draw, returnToBag, VALUES } from './tiles';
@@ -12,14 +12,26 @@ test('bag totals', () => {
   expect(Object.keys(VALUES)).toHaveLength(27);
 });
 
-test('premium layout is symmetric on both axes', () => {
-  for (let r = 0; r < SIZE; r++)
-    for (let c = 0; c < SIZE; c++) {
-      expect(premiumAt(r, c)).toBe(premiumAt(SIZE - 1 - r, c));
-      expect(premiumAt(r, c)).toBe(premiumAt(r, SIZE - 1 - c));
-    }
-  expect(premiumAt(7, 7)).toBe('*');
-  expect(premiumAt(0, 3)).toBe('T');
+test('both layouts are symmetric on both axes', () => {
+  for (const layout of LAYOUTS)
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++) {
+        expect(premiumAt(layout, r, c)).toBe(premiumAt(layout, SIZE - 1 - r, c));
+        expect(premiumAt(layout, r, c)).toBe(premiumAt(layout, r, SIZE - 1 - c));
+      }
+  expect(premiumAt('special', 7, 7)).toBe('*');
+  expect(premiumAt('special', 0, 3)).toBe('T');
+});
+
+test('classic layout: the standard counts, and a double-word start square', () => {
+  const count: Record<string, number> = {};
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) count[premiumAt('classic', r, c)] = (count[premiumAt('classic', r, c)] ?? 0) + 1;
+  expect(count).toMatchObject({ T: 8, D: 16, '+': 1, t: 12, d: 24 });
+  expect(premiumAt('classic', 7, 7)).toBe('+');
+  expect(premiumAt('classic', 0, 0)).toBe('T');
+  expect(premiumAt('classic', 1, 1)).toBe('D');
+  expect(premiumAt('classic', 1, 5)).toBe('t');
+  expect(premiumAt('classic', 0, 3)).toBe('d');
 });
 
 test('draw takes what is there and stops when empty', () => {

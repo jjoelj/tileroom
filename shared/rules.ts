@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { CENTER, SIZE, emptyBoard, inBounds, premiumAt } from './board';
+import { CENTER, type Layout, SIZE, emptyBoard, inBounds, premiumAt } from './board';
 import type { IsWord } from './dictionary';
 import { BAGS, BLANK, RACK_SIZE, VALUES, bagCount, draw, returnToBag } from './tiles';
 import type { Board, FormedWord, GameState, Move, MoveRecord, Placement, RandomInt } from './types';
@@ -29,7 +29,7 @@ const DIRS = [
 ] as const;
 
 /** Checks geometry, finds every word formed and scores them. Used for the live preview and by applyMove. */
-export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): Preview {
+export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord, layout: Layout): Preview {
   const fail = (reason: string): Preview => ({ ok: false, reason });
   if (tiles.length < 1 || tiles.length > RACK_SIZE) return fail('Place 1 to 7 tiles');
 
@@ -82,10 +82,10 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
         let v = (p ? p.blank : b!.blank) ? 0 : VALUES[letterAt(r, c)!]!;
         if (p) {
           mine++;
-          const prem = premiumAt(r, c);
+          const prem = premiumAt(layout, r, c);
           if (prem === 'd') v *= 2;
           if (prem === 't') v *= 3;
-          if (prem === 'D') mult *= 2;
+          if (prem === 'D' || prem === '+') mult *= 2;
           if (prem === 'T') mult *= 3;
         }
         sum += v;
@@ -104,11 +104,12 @@ export function previewPlay(board: Board, tiles: Placement[], isWord: IsWord): P
 }
 
 /** Each player draws a full rack. Seat order is decided by the caller. */
-export function newGame(seatCount: number, bagSize: 100 | 150, randomInt: RandomInt): GameState {
+export function newGame(seatCount: number, bagSize: 100 | 150, layout: Layout, randomInt: RandomInt): GameState {
   if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > MAX_PLAYERS) throw new RuleError('A game has 2 to 6 players');
   const bag = { ...BAGS[bagSize] };
   return {
     status: 'active',
+    layout,
     board: emptyBoard(),
     bag,
     players: Array.from({ length: seatCount }, () => ({ rack: draw(bag, RACK_SIZE, randomInt), score: 0 })),
@@ -166,7 +167,7 @@ export function applyMove(state: GameState, seat: number, move: Move, isWord: Is
   if (move.type === 'play') {
     const tiles = move.tiles.map((t) => ({ r: t.r, c: t.c, letter: t.letter, blank: t.blank === true }));
     player.rack = takeFromRack(player.rack, tiles.map((t) => (t.blank ? BLANK : t.letter)));
-    const p = previewPlay(s.board, tiles, isWord);
+    const p = previewPlay(s.board, tiles, isWord, s.layout);
     if (!p.ok) throw new RuleError(p.reason);
     if (p.invalid.length) throw new RuleError(`${p.invalid.join(', ')} ${p.invalid.length > 1 ? "aren't" : "isn't"} in this game's word list`);
     for (const t of tiles) s.board[t.r]![t.c] = { letter: t.letter, blank: t.blank, seat, turn: record.turn };

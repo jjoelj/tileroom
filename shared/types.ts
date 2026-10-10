@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { Layout } from './board';
 
 /** A tile on the board. `letter` is what it reads as, even for blanks. */
 export type BoardTile = { letter: string; blank: boolean; seat: number; turn: number };
@@ -19,6 +20,7 @@ export type PlayerState = { rack: string[]; score: number };
 /** Server-side state. Never sent to clients as-is; see toView (SPEC §6.1). */
 export type GameState = {
   status: 'active' | 'finished';
+  layout: Layout;
   board: Board;
   bag: Bag;
   players: PlayerState[]; // index = seat
@@ -66,6 +68,8 @@ export type GameView = {
   /** Only while in the lobby, for sharing. */
   joinCode: string | null;
   bagSize: 100 | 150;
+  randomOrder: boolean;
+  layout: Layout;
   /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
   expandedWords: boolean;
   turnNumber: number;

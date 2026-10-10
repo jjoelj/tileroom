@@ -9,6 +9,7 @@
   import { api, ApiError } from '../lib/api';
   import Board, { type PendingTile } from '../lib/Board.svelte';
   import Count from '../lib/Count.svelte';
+  import GameSettings, { type Settings } from '../lib/GameSettings.svelte';
   import { devicePixel, grow, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
   import { confirm } from '../lib/ask.svelte';
@@ -136,7 +137,7 @@
   // Geometry and score are plain arithmetic: computed at once. Only the word lookup (worker) is async; until it
   // answers for the current words, the move isn't shown as valid and the last message stays (no flicker).
   const preview = $derived.by((): Preview | null =>
-    view && placed.length ? previewPlay(view.board, $state.snapshot(placed) as PendingTile[], () => true) : null, // not a blank still being chosen
+    view && placed.length ? previewPlay(view.board, $state.snapshot(placed) as PendingTile[], () => true, view.layout) : null, // not a blank still being chosen
   );
   const words = $derived(preview?.ok ? preview.words.map((w) => w.word).join(' ') : '');
   let lookup = $state<{ words: string; invalid: string[] } | null>(null);
@@ -429,6 +430,15 @@
     }
   }
 
+  /** The host changing a setting before the start; everyone in the lobby sees it live. */
+  async function changeSettings(change: Partial<Settings>) {
+    try {
+      apply(await api<GameView>(`/games/${id}`, { method: 'PATCH', body: change }));
+    } catch (e) {
+      sayError(e);
+    }
+  }
+
   // Before the start, a player can leave; the host leaving (or the last one out) cancels the game.
   async function leaveGame() {
     if (!view) return;
@@ -522,8 +532,8 @@
       </button>
       <div class="title">
         <h1>{title}</h1>
-        {#if view.group || view.expandedWords}
-          <span>{[view.group?.name, view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
+        {#if view.group || view.expandedWords || view.layout === 'special'}
+          <span>{[view.group?.name, view.layout === 'special' && 'Special board', view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
         {/if}
       </div>
       <!-- Players always know they're watched (SPEC §4.11): an eye and a count, hidden at 0. -->
@@ -588,6 +598,7 @@
             </div>
           {/each}
         </div>
+        <GameSettings value={view} disabled={view.hostUserId !== session.me?.id} onchange={changeSettings} />
         {#if view.hostUserId === session.me?.id}
           <button class="primary" disabled={busy || view.players.length < 2} onclick={start}>
             Start with {plural(view.players.length, 'player', 'players')}
@@ -639,6 +650,7 @@
         <Board
           bind:this={boardRef}
           board={view.board}
+          layout={view.layout}
           pending={onBoard}
           quiet={hush}
           {dropping}

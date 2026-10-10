@@ -3,6 +3,7 @@
   import { MAX_PLAYERS } from '../../../shared/rules';
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
+  import GameSettings, { type Settings } from '../lib/GameSettings.svelte';
   import { show } from '../lib/motion';
   import { back, go } from '../lib/state.svelte';
 
@@ -32,15 +33,13 @@
     };
   });
 
-  let bagSize = $state<100 | 150>(100);
-  let randomOrder = $state(true);
-  let expandedWords = $state(false);
+  const settings = $state<Settings>({ bagSize: 100, randomOrder: true, expandedWords: false, layout: 'classic' });
   let busy = $state(false);
 
   async function create() {
     busy = true;
     try {
-      const view = await api<{ id: string }>('/games', { method: 'POST', body: { bagSize, randomOrder, expandedWords, ...(groupId && { groupId }) } });
+      const view = await api<{ id: string }>('/games', { method: 'POST', body: { ...settings, ...(groupId && { groupId }) } });
       go(`/games/${view.id}`, { replace: true }); // back goes where New game was opened from
     } catch (err) {
       sayError(err);
@@ -89,38 +88,7 @@
       </div>
     {/if}
 
-    <div class="card">
-      <div class="line">
-        <div class="stack" style="gap: 1px">
-          <span class="strong">Tile bag</span>
-          <span class="hint">{bagSize === 150 ? 'Big bag, good for 5 or 6 players' : 'Standard bag'}</span>
-        </div>
-        <div class="segment" role="radiogroup" aria-label="Tile bag">
-          {#each [100, 150] as const as size (size)}
-            <button
-              role="radio"
-              aria-checked={bagSize === size}
-              class:on={bagSize === size}
-              onclick={() => (bagSize = size)}>{size}</button
-            >
-          {/each}
-        </div>
-      </div>
-      <label class="line toggle">
-        <span class="stack" style="gap: 1px">
-          <span>Random turn order</span>
-          <span class="hint">{randomOrder ? 'Shuffled at start' : 'Order joined, you first'}</span>
-        </span>
-        <input type="checkbox" bind:checked={randomOrder} />
-      </label>
-      <label class="line toggle">
-        <span class="stack" style="gap: 1px">
-          <span>Use expanded word list</span>
-          <span class="hint">{expandedWords ? 'Abbreviations like FAQ allowed' : 'Standard words only'}</span>
-        </span>
-        <input type="checkbox" bind:checked={expandedWords} />
-      </label>
-    </div>
+    <GameSettings value={settings} onchange={(change) => Object.assign(settings, change)} />
   </div>
 
   <div style="padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px">
@@ -143,10 +111,5 @@
   .words .what { font-size: 15px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
   .words .list { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-align: right; line-height: 1.5; overflow-wrap: anywhere; max-height: 90px; overflow: auto; }
   .strong { font-weight: 800; font-size: 16px; }
-  .segment { display: flex; background: var(--well); border-radius: 12px; padding: 3px; }
   select { height: 44px; max-width: 55%; padding: 0 12px; border: none; border-radius: 12px; background: var(--well); color: var(--ink); font-weight: 700; font-size: 14px; }
-  .segment button { height: 38px; min-width: 52px; padding: 0 12px; border-radius: 9px; border: none; background: transparent; font-weight: 700; font-size: 14px; }
-  .segment button.on { background: var(--surface); }
-  .toggle { padding-right: 14px; font-weight: 800; font-size: 15px; }
-  .toggle input { width: 22px; height: 22px; accent-color: var(--ink); flex-shrink: 0; }
 </style>

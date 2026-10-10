@@ -57,6 +57,13 @@
       "when": 1791591123879,
       "tag": "0007_show_on_global",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791604967218,
+      "tag": "0008_board_layout",
+      "breakpoints": true
     }
   ]
 }

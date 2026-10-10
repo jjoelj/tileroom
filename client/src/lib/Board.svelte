@@ -5,13 +5,14 @@
 </script>
 
 <script lang="ts">
-  import { premiumAt, SIZE } from '../../../shared/board';
+  import { type Layout, premiumAt, SIZE } from '../../../shared/board';
   import { VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
   import { devicePixel, drop, ms, pop, show } from './motion';
 
   let {
     board,
+    layout,
     pending,
     lastTurn,
     outlines,
@@ -23,6 +24,7 @@
     onPendingDown,
   }: {
     board: (BoardTile | null)[][];
+    layout: Layout;
     pending: PendingTile[];
     /** Turn number of the last play, to mark its tiles. */
     lastTurn: number | null;
@@ -39,8 +41,8 @@
     onPendingDown: (e: PointerEvent, r: number, c: number) => void;
   } = $props();
 
-  const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '★' } as const;
-  const NAME = { '.': '', d: 'double letter', t: 'triple letter', D: 'double word', T: 'triple word', '*': 'start' } as const;
+  const LABEL = { '.': '', d: '2L', t: '3L', D: '2W', T: '3W', '*': '★', '+': '★' } as const;
+  const NAME = { '.': '', d: 'double letter', t: 'triple letter', D: 'double word', T: 'triple word', '*': 'start', '+': 'start, double word' } as const;
   const COLS = 'ABCDEFGHIJKLMNO';
 
   /** Tiles in the order they're set down: reading order. */
@@ -55,7 +57,7 @@
       const c = i % SIZE;
       const t = board[r]![c];
       const p = at.get(i);
-      const prem = premiumAt(r, c);
+      const prem = premiumAt(layout, r, c);
       const tile = t ?? p ?? null;
       return {
         i,
@@ -66,7 +68,7 @@
         pending: !!p,
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
-        square: `p-${prem === '*' ? 'star' : prem}`,
+        square: prem === '*' ? 'p-star' : prem === '+' ? 'p-D p-star' : `p-${prem}`,
         piece: p ? 'pending' : t && t.turn === lastTurn ? 'last' : '',
         label: `${COLS[c]}${r + 1}${tile ? `, ${tile.letter}${tile.blank ? ' (blank)' : ''}` : NAME[prem] ? `, ${NAME[prem]}` : ''}${p ? ', placed this turn' : ''}`,
       };

@@ -3,6 +3,11 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- New games use the classic board by default, with fewer bonus squares and a double-word start. The old board is still there as Special when you start a game. Games already running keep their board.
+- The host can change a game's settings (board, tile bag, turn order, word list) in the lobby until it starts. Everyone waiting sees them.
+
 ## v0.7.1 (2026-10-09)
 
 - Back no longer closes the app after an update, or after opening a game from a notification and tapping around.

@@ -153,9 +153,9 @@ describe('moves', () => {
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ turnNumber: 1, currentSeat: 1 });
     expect(r.json.myRack).toHaveLength(7);
-    expect(r.json.players[0].score).toBe(5);
-    expect(r.json.lastMove).toEqual({ seat: 0, turn: 0, type: 'play', tiles: CAT.tiles.map((t) => ({ ...t, blank: false })), words: [{ word: 'CAT', score: 5 }], score: 5 });
-    expect(pushesTo(players[1]!).at(-1)).toMatch(/^Your turn. User \d+ played CAT \(5\)$/);
+    expect(r.json.players[0].score).toBe(10); // the classic start square doubles it
+    expect(r.json.lastMove).toEqual({ seat: 0, turn: 0, type: 'play', tiles: CAT.tiles.map((t) => ({ ...t, blank: false })), words: [{ word: 'CAT', score: 10 }], score: 10 });
+    expect(pushesTo(players[1]!).at(-1)).toMatch(/^Your turn. User \d+ played CAT \(10\)$/);
   });
 
   test('stale turn number: 409 and nothing changes', async () => {
@@ -212,7 +212,7 @@ describe('expanded word list', () => {
     setRack(id, 0, 'FAQXYZE');
     const played = await move(id, host, FAQ);
     expect(played.status).toBe(200);
-    expect(played.json.lastMove.words).toEqual([{ word: 'FAQ', score: 15 }]);
+    expect(played.json.lastMove.words).toEqual([{ word: 'FAQ', score: 30 }]);
   });
 });
 
@@ -304,4 +304,22 @@ test("seen: opening a game or swiping a notification away marks it, for the user
   expect((await call('/push/seen', { method: 'POST', cookie: b.cookie, body: { tag: 'group-abc' } })).status).toBe(200);
   expect((await call('/push/seen', { cookie: b.cookie })).json['group-abc']).toBeGreaterThanOrEqual(before);
   expect((await call('/push/seen', { method: 'POST', cookie: b.cookie, body: { tag: 'anything else' } })).status).toBe(400);
+});
+
+test('settings: classic unless asked; the host can change any of them until the start, then they are fixed', async () => {
+  const [host, guest] = [await newUser(), await newUser()];
+  const make = async (body: object) => (await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder: false, ...body } })).json;
+  expect((await make({})).layout).toBe('classic');
+  expect((await make({ layout: 'special' })).layout).toBe('special');
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder: false, layout: 'other' } })).status).toBe(400);
+
+  const g = await make({});
+  const patch = (u: TestUser, body: object) => call(`/games/${g.id}`, { method: 'PATCH', cookie: u.cookie, body });
+  const changed = (await patch(host, { layout: 'special', bagSize: 150, randomOrder: true, expandedWords: true })).json;
+  expect(changed).toMatchObject({ layout: 'special', bagSize: 150, randomOrder: true, expandedWords: true });
+  await call(`/join/${g.joinCode}`, { method: 'POST', cookie: guest.cookie });
+  expect((await patch(guest, { layout: 'classic' })).status).toBe(403); // only the host
+  await call(`/games/${g.id}/start`, { method: 'POST', cookie: host.cookie });
+  expect((await patch(host, { layout: 'classic' })).status).toBe(409); // fixed once it starts
+  expect((await call(`/games/${g.id}`, { cookie: host.cookie })).json).toMatchObject({ layout: 'special', bagSize: 150 });
 });
