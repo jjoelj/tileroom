@@ -26,12 +26,23 @@ document.addEventListener('visibilitychange', () => {
 // Back button (Android's, the browser's, and our own arrows) walks real history. Each entry records how many in-app
 // screens sit below it (`depth`), so an arrow knows whether going back stays in the app.
 const depth = () => (history.state as { depth?: number } | null)?.depth ?? 0;
+// Chrome's back button skips a screen whose page added a history entry before the user had touched it (its
+// "history manipulation" intervention), so entries are only ever added once they have.
+const touched = () => navigator.userActivation?.hasBeenActive ?? true;
 if ((history.state as { depth?: number } | null)?.depth === undefined && location.pathname !== '/') {
-  // Opened straight onto a screen (a notification, a link): put the games list under it, so back goes home
-  // instead of closing the app. A reload keeps its state, so this runs once per fresh start.
+  // Opened straight onto a screen (a notification, a link): put the games list under it on the first tap, so back
+  // goes home instead of closing the app. A reload keeps its state, so this runs once per fresh start.
   const here = location.pathname + location.search;
-  history.replaceState({ depth: 0 }, '', '/');
-  history.pushState({ depth: 1 }, '', here);
+  history.replaceState({ depth: 0 }, '');
+  addEventListener(
+    'click',
+    () => {
+      if (depth() !== 0 || location.pathname + location.search !== here) return;
+      history.replaceState({ depth: 0 }, '', '/');
+      history.pushState({ depth: 1 }, '', here);
+    },
+    { capture: true, once: true }, // before the tap's own handler, which may navigate
+  );
 } else history.replaceState({ ...history.state, depth: depth() }, '');
 
 /**
@@ -65,7 +76,7 @@ export function backCloses(open: () => boolean, close: () => void) {
   $effect(() => {
     if (!open()) return;
     overlays.push(close);
-    if (!entry) {
+    if (!entry && touched()) {
       history.pushState({ depth: depth(), overlay: true }, '');
       entry = true;
     }
@@ -129,5 +140,8 @@ addEventListener('popstate', () => {
     }
     return;
   }
+  // Back while an overlay that has no entry of its own is open (one that opened before any tap, like What's new
+  // after an update): it closes along with the screen change.
+  while (!entry && overlays.length) overlays.pop()?.();
   if (route.path !== location.pathname) route.path = location.pathname;
 });
