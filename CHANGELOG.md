@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.12.0 (2026-10-12)
 
 - A group's page shows its games the same way the main screen does: scores, colors and Play when it's your turn.
 - Opening a game shows every move since your last one: their tiles drop in one play at a time and stay marked on the board.
