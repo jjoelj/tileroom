@@ -51,7 +51,7 @@
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
   let dropping = $state<{ r: number; c: number }[]>([]); // another player's tiles arriving now (Board `dropping`)
-  /** Moves since my last one, oldest first, when there's more than one to catch up on (fetched on open). */
+  /** Moves since my last one, oldest first (fetched on open). */
   let catchUp = $state<PublicMove[]>([]);
   /** While catch-up plays replay on open: tiles from later turns stay off the board until their play drops in. */
   let upTo = $state<number | null>(null);
@@ -149,7 +149,7 @@
       const mineAt = moves.findIndex((m) => m.seat === v.mySeat); // newest first
       const since = (mineAt < 0 ? moves : moves.slice(0, mineAt)).reverse();
       const plays = since.filter((m) => m.type === 'play');
-      if (v.mySeat !== null && v.status === 'active' && since.length > 1) {
+      if (v.mySeat !== null && v.status === 'active' && since.length) {
         catchUp = since;
         if (plays.length) upTo = plays[0]!.turn - 1;
       }
