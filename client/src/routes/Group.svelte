@@ -2,7 +2,7 @@
 <!-- A group (SPEC §4.10): its games, open votes on house words, the word list, members and settings. -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ago, names, plural } from '../../../shared/plural';
+  import { plural } from '../../../shared/plural';
   import { tally } from '../../../shared/votes';
   import { api, ApiError } from '../lib/api';
   import { confirm, prompt } from '../lib/ask.svelte';
@@ -11,6 +11,7 @@
   import { say, sayError } from '../lib/say.svelte';
   import { canShare, copy, shareText } from '../lib/share';
   import { show } from '../lib/motion';
+  import GameCard, { type GameSummary } from '../lib/GameCard.svelte';
   import { back, go, session, updates } from '../lib/state.svelte';
 
   let { id }: { id: string } = $props();
@@ -37,7 +38,7 @@
     proposals: Proposal[];
     history: Proposal[];
     morePast: boolean;
-    games: { id: string; status: 'lobby' | 'active' | 'finished'; currentSeat: number; turnStartedAt: number | null; finishedAt: number | null; players: { userId: string; displayName: string; seat: number; score: number }[]; mine: boolean; joinCode: string | null }[];
+    games: (GameSummary & { joinCode: string | null })[];
   };
   /** Where a word stands in this group (the lookup behind the propose button). */
   type Standing = { word: string; inBase: boolean; approved: 'add' | 'ban' | null; openProposal: { id: string; action: Action } | null };
@@ -227,14 +228,6 @@
     if (ok) await goodbye(`/groups/${id}`, 'DELETE');
   }
 
-  const others = (g: Detail['games'][number]) => g.players.filter((p) => p.userId !== me).map((p) => p.displayName);
-  const gameTitle = (g: Detail['games'][number]) => (g.mine ? names(others(g)) || 'Waiting for players' : names(g.players.map((p) => p.displayName)));
-  const gameLine = (g: Detail['games'][number]) =>
-    g.status === 'lobby'
-      ? `Starting soon · ${plural(g.players.length, 'player', 'players')}`
-      : g.status === 'finished'
-        ? 'Finished'
-        : `${g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? ''}'s turn${g.turnStartedAt === null ? '' : ` · ${ago(Date.now() - g.turnStartedAt)}`}`;
   const current = $derived(group?.games.filter((g) => g.status !== 'finished') ?? []);
   // Past games: the group screen brings the latest few; Show more pages back from the last one shown.
   type GameRow = Detail['games'][number];
@@ -261,12 +254,6 @@
       loadingPast = false;
     }
   }
-  /** "You won with 312", "Sam & Ben won with 280" (ties share it). */
-  const result = (g: Detail['games'][number]) => {
-    const best = Math.max(...g.players.map((p) => p.score));
-    const top = g.players.filter((p) => p.score === best);
-    return top.some((p) => p.userId === me) ? `You won with ${best}` : `${names(top.map((p) => p.displayName))} won with ${best}`;
-  };
   const outcome = (p: Proposal) => (p.status === 'passed' ? 'passed' : p.status === 'expired' ? 'ran out of time' : 'was voted down');
   const daysLeft = (p: Proposal) => Math.max(1, Math.ceil((p.closesAt - Date.now()) / DAY));
 </script>
@@ -311,21 +298,13 @@
     </div>
     {#if !current.length}<button class="primary" disabled={starting} onclick={newGame}>New {group.name} game</button>{/if}
     {#each current as g (g.id)}
-      <div class="card item">
-        <span class="grow">
-          <span class="strong">{gameTitle(g)}</span>
-          <span class="hint">{gameLine(g)}</span>
-        </span>
-        {#if g.mine && g.status === 'active' && g.players.find((p) => p.seat === g.currentSeat)?.userId === me}
-          <button class="pill play" onclick={() => go(`/games/${g.id}`)}>Play</button>
-        {:else if g.mine}
-          <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>Open</button>
-        {:else if g.status === 'lobby' && g.joinCode}
-          <button class="pill" disabled={busy} onclick={() => joinGame(g.joinCode!)}>Join</button>
-        {:else}
-          <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>Watch</button>
-        {/if}
-      </div>
+      {#if g.mySeat !== null}
+        <GameCard {g} />
+      {:else if g.status === 'lobby' && g.joinCode}
+        <GameCard {g} action="Join" onclick={() => !busy && joinGame(g.joinCode!)} />
+      {:else}
+        <GameCard {g} action="Watch" />
+      {/if}
     {/each}
 
     {#if group.proposals.length}
@@ -398,15 +377,7 @@
     {#if past.length}
       <details class="fold">
         <summary class="label">Past games</summary>
-        {#each past as g (g.id)}
-          <div class="card item">
-            <span class="grow">
-              <span class="strong">{names(g.players.map((p) => (p.userId === me ? 'You' : p.displayName)))}</span>
-              <span class="hint">{result(g)}</span>
-            </span>
-            <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>View</button>
-          </div>
-        {/each}
+        {#each past as g (g.id)}<GameCard {g} />{/each}
         {#if morePast}<button class="textbtn" disabled={loadingPast} onclick={showMore}>{loadingPast ? 'Loading…' : 'Show more'}</button>{/if}
       </details>
     {/if}
@@ -491,7 +462,6 @@
   .sub { font-weight: 800; margin-top: 12px; }
   .pill { min-height: 40px; padding: 0 14px; border-radius: 999px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 13px; flex-shrink: 0; }
   .pill.quiet { background: var(--well); color: var(--ink); }
-  .pill.play { background: var(--p0-bg); color: var(--on-color); } /* the lobby's Play */
   .pill:disabled { opacity: 0.4; }
   .proposal { padding: 14px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
   .votes { display: flex; flex-wrap: wrap; gap: 6px; }

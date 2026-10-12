@@ -3,24 +3,14 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ms, show } from '../lib/motion';
-  import { ago, names, plural } from '../../../shared/plural';
-  import { MAX_PLAYERS } from '../../../shared/rules';
+  import { plural } from '../../../shared/plural';
+  import GameCard, { type GameSummary } from '../lib/GameCard.svelte';
   import { api, ApiError } from '../lib/api';
   import { sayError } from '../lib/say.svelte';
   import { live, watch } from '../lib/live.svelte';
   import { go, session, updates } from '../lib/state.svelte';
 
-  type Summary = {
-    id: string;
-    status: 'lobby' | 'active' | 'finished';
-    currentSeat: number;
-    turnStartedAt: number | null;
-    finishedAt: number | null;
-    mySeat: number;
-    group: { id: string; name: string } | null;
-    players: { seat: number; displayName: string; score: number; colorIndex: number }[];
-  };
-  type Games = { yourTurn: Summary[]; waiting: Summary[]; lobby: Summary[]; finished: Summary[] };
+  type Games = { yourTurn: GameSummary[]; waiting: GameSummary[]; lobby: GameSummary[]; finished: GameSummary[] };
 
   let games = $state<Games | null>(null);
   type GroupSummary = { id: string; name: string; memberCount: number; wordCount: number; pendingVotes: number };
@@ -87,38 +77,7 @@
     }
   }
 
-  const tag = (g: Summary) => (g.group ? `${g.group.name} · ` : '');
-  const others = (g: Summary) => g.players.filter((p) => p.seat !== g.mySeat);
-  // Games have no names: they're called by who else is in them.
-  const title = (g: Summary) => names(others(g).map((p) => p.displayName)) || 'Waiting for players';
-  const turnOf = (g: Summary) => g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '';
-  /** Me first, then the others in turn order. */
-  const meFirst = (g: Summary) => [...g.players].sort((a, b) => (a.seat === g.mySeat ? -1 : b.seat === g.mySeat ? 1 : a.seat - b.seat));
-  const won = (g: Summary, seat: number) => g.status === 'finished' && g.players.find((p) => p.seat === seat)!.score === Math.max(...g.players.map((p) => p.score));
 </script>
-
-<!-- A game on the list: everyone's score and name (me first; a crown on the winner), then how long ago its last move
-     or its end was, and what to do. -->
-{#snippet card(g: Summary)}
-  {@const mine = g.status === 'active' && g.currentSeat === g.mySeat}
-  <button class="card game" class:mine class:done={g.status === 'finished'} in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-    <span class="players">
-      {#each meFirst(g) as p (p.seat)}
-        <span class="pl" class:turn={g.status === 'active' && p.seat === g.currentSeat && !mine} style="color: var(--p{p.colorIndex % 6})">
-          <span class="score"
-            >{p.score}{#if won(g, p.seat)}<svg class="crown" viewBox="0 0 24 24" aria-label="won"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}</span
-          >
-          <span class="pn">{p.seat === g.mySeat ? 'You' : p.displayName}</span>
-        </span>
-      {/each}
-    </span>
-    <span class="foot">
-      <span class="sub">{g.group ? `${g.group.name} · ` : ''}{ago(Date.now() - (g.status === 'finished' ? g.finishedAt! : g.turnStartedAt!))}</span>
-      <span class="rule"></span>
-      {#if mine}<span class="play">Play</span>{:else if g.status === 'active'}<span class="sub">{turnOf(g)}'s turn</span>{/if}
-    </span>
-  </button>
-{/snippet}
 
 <main class="screen" style="padding: 0 16px 32px">
   <header style="padding: 28px 0 20px; display: flex; align-items: flex-end; justify-content: space-between; ">
@@ -157,7 +116,7 @@
   {#if games}
     {#if games.yourTurn.length}
       <h2 class="label section">Your turn</h2>
-      {#each games.yourTurn as g (g.id)}{@render card(g)}{/each}
+      {#each games.yourTurn as g (g.id)}<GameCard {g} />{/each}
     {/if}
 
     <div class="row section">
@@ -187,22 +146,17 @@
 
     {#if games.waiting.length}
       <h2 class="label section">Waiting on others</h2>
-      {#each games.waiting as g (g.id)}{@render card(g)}{/each}
+      {#each games.waiting as g (g.id)}<GameCard {g} />{/each}
     {/if}
 
     {#if games.lobby.length}
       <h2 class="label section">Starting soon</h2>
-      {#each games.lobby as g (g.id)}
-        <button class="card game" in:show={{ y: 8 }} onclick={() => go(`/games/${g.id}`)}>
-          <span class="name small">{title(g)}</span>
-          <span class="sub">{tag(g)}{plural(g.players.length, 'player', 'players')} joined · up to {MAX_PLAYERS}</span>
-        </button>
-      {/each}
+      {#each games.lobby as g (g.id)}<GameCard {g} />{/each}
     {/if}
 
     {#if games.finished.length}
       <h2 class="label section">Finished</h2>
-      {#each games.finished as g (g.id)}{@render card(g)}{/each}
+      {#each games.finished as g (g.id)}<GameCard {g} />{/each}
     {/if}
 
     {#if !games.yourTurn.length && !games.waiting.length && !games.lobby.length && !games.finished.length}
@@ -221,18 +175,6 @@
   .outline { border: 1.5px solid var(--ink); background: transparent; white-space: nowrap; padding: 0 12px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-  .game.mine { outline: 2px solid var(--p0); }
-  .game.done { background: transparent; border: 1.5px solid var(--line); border-radius: 16px; }
-  .players { display: flex; flex-wrap: wrap; gap: 12px 20px; }
-  .pl { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-  .score { display: flex; align-items: center; gap: 4px; font-family: var(--display); font-weight: 800; font-size: 20px; }
-  .crown { width: 16px; height: 16px; fill: var(--gold); }
-  .pn { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
-  .pl.turn .pn { text-decoration: underline 2px; text-underline-offset: 3px; } /* whose turn it is */
-  .foot { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
-  .foot .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rule { flex: 1; min-width: 12px; height: 1px; background: var(--line); }
-  .play { flex: none; font-size: 14px; font-weight: 800; color: var(--on-color); background: var(--p0-bg); padding: 8px 22px; border-radius: 999px; }
   .row { display: flex; justify-content: space-between; align-items: center; }
   .name { font-family: var(--display); font-weight: 800; font-size: 20px; }
   .name.small { font-family: var(--ui); font-size: 16px; }

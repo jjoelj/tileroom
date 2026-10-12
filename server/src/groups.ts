@@ -442,11 +442,11 @@ export const groupRoutes = new Hono<AppEnv>()
 const PAST_PAGE = 10; // finished games on the group screen; Show more loads 20 at a time
 const PAST_MORE = 20;
 
-/** Players, and whether I'm in it, for each game row. */
+/** Players (colored as in the game), and my seat if I'm in it, for each game row. */
 function withSeats(rows: (typeof games.$inferSelect)[], userId: string) {
   return rows.map((g) => {
     const seats = db
-      .select({ userId: gamePlayers.userId, displayName: users.displayName, score: gamePlayers.score, seat: gamePlayers.seat })
+      .select({ userId: gamePlayers.userId, displayName: users.displayName, score: gamePlayers.score, seat: gamePlayers.seat, colorIndex: users.colorIndex })
       .from(gamePlayers)
       .innerJoin(users, eq(users.id, gamePlayers.userId))
       .where(eq(gamePlayers.gameId, g.id))
@@ -458,8 +458,8 @@ function withSeats(rows: (typeof games.$inferSelect)[], userId: string) {
       currentSeat: g.currentSeat,
       turnStartedAt: g.turnStartedAt,
       finishedAt: g.finishedAt,
-      players: seats,
-      mine: seats.some((s) => s.userId === userId),
+      players: seats.map((s) => ({ ...s, colorIndex: s.colorIndex ?? s.seat })),
+      mySeat: seats.find((s) => s.userId === userId)?.seat ?? null,
       joinCode: g.status === 'lobby' ? formatJoinCode(g.joinCode) : null, // members may join any group lobby
     };
   });
