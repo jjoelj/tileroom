@@ -3,6 +3,11 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- A group's page shows Play on games where it's your turn.
+- Opening a game shows every move since your last one, and marks all their tiles on the board.
+
 ## v0.11.0 (2026-10-10)
 
 - A group game's lobby has a House words button, so you can see the group's words before the game starts.

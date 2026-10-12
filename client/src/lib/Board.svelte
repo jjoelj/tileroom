@@ -27,7 +27,7 @@
     board: (BoardTile | null)[][];
     layout: Layout;
     pending: PendingTile[];
-    /** Turn number of the last play, to mark its tiles. */
+    /** Tiles played on this turn or later are marked (the last play, or every play since mine). */
     lastTurn: number | null;
     /** Words to outline in lime (only when the whole move is valid). */
     outlines: FormedWord[];
@@ -74,7 +74,7 @@
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
         square: prem === '*' ? 'p-star' : prem === '+' ? 'p-D p-star' : `p-${prem}`,
-        piece: p ? 'pending' : t && t.turn === lastTurn ? 'last' : '',
+        piece: p ? 'pending' : t && lastTurn !== null && t.turn >= lastTurn ? 'last' : '',
         label: `${COLS[c]}${r + 1}${tile ? `, ${tile.letter}${tile.blank ? ' (blank)' : ''}` : NAME[prem] ? `, ${NAME[prem]}` : ''}${p ? ', placed this turn' : ''}`,
       };
     });

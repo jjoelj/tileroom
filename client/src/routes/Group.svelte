@@ -316,8 +316,10 @@
           <span class="strong">{gameTitle(g)}</span>
           <span class="hint">{gameLine(g)}</span>
         </span>
-        {#if g.mine}
-          <button class="pill" onclick={() => go(`/games/${g.id}`)}>Open</button>
+        {#if g.mine && g.status === 'active' && g.players.find((p) => p.seat === g.currentSeat)?.userId === me}
+          <button class="pill play" onclick={() => go(`/games/${g.id}`)}>Play</button>
+        {:else if g.mine}
+          <button class="pill quiet" onclick={() => go(`/games/${g.id}`)}>Open</button>
         {:else if g.status === 'lobby' && g.joinCode}
           <button class="pill" disabled={busy} onclick={() => joinGame(g.joinCode!)}>Join</button>
         {:else}
@@ -489,6 +491,7 @@
   .sub { font-weight: 800; margin-top: 12px; }
   .pill { min-height: 40px; padding: 0 14px; border-radius: 999px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 800; font-size: 13px; flex-shrink: 0; }
   .pill.quiet { background: var(--well); color: var(--ink); }
+  .pill.play { background: var(--p0-bg); color: var(--on-color); } /* the lobby's Play */
   .pill:disabled { opacity: 0.4; }
   .proposal { padding: 14px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
   .votes { display: flex; flex-wrap: wrap; gap: 6px; }

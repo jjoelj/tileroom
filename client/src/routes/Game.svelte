@@ -51,6 +51,8 @@
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
   let dropping = $state<{ r: number; c: number }[]>([]); // another player's tiles arriving now (Board `dropping`)
+  /** Moves since my last one, oldest first, when there's more than one to catch up on (fetched on open). */
+  let catchUp = $state<PublicMove[]>([]);
   let deal = $state(0); // bumped when the server deals a new rack, so its tiles animate in
 
   /** Applies a fresh view, keeping placed tiles while they still fit the rack and board. */
@@ -61,6 +63,7 @@
     const m = v.lastMove;
     const fresh = view && m?.type === 'play' && m.turn !== view.lastMove?.turn ? m : null;
     const mine = fresh?.seat === v.mySeat;
+    if (view && m && m.turn !== view.lastMove?.turn) catchUp = []; // a move while open: back to just the last one
     dropping = fresh && !mine ? fresh.tiles : [];
     if (fresh) void tick().then(() => boardRef?.placed(fresh.tiles, mine));
     view = v;
@@ -125,7 +128,11 @@
   backCloses(() => watchersOpen, () => (watchersOpen = false));
 
   onMount(() => {
-    void load();
+    void load().then(() => api<{ moves: PublicMove[] }>(`/games/${id}/log`)).then(({ moves }) => {
+      const mineAt = moves.findIndex((m) => m.seat === view?.mySeat); // newest first
+      const since = mineAt < 0 ? moves : moves.slice(0, mineAt);
+      if (view?.mySeat !== null && view?.status === 'active' && since.length > 1) catchUp = since.reverse();
+    }, () => {});
     const unwatch = watch(id);
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
@@ -525,7 +532,7 @@
       ? ''
       : view.status === 'finished'
         ? 'Game over'
-        : [view.lastMove && describe(view.lastMove), !myTurn && `${nameOf(view.currentSeat)} is next`].filter(Boolean).join(' · '), // my turn: the pill
+        : [...(catchUp.length ? catchUp.map(describe) : [view.lastMove && describe(view.lastMove)]), !myTurn && `${nameOf(view.currentSeat)} is next`].filter(Boolean).join(' · '), // my turn: the pill
   );
   const line = $derived(
     message ||
@@ -682,7 +689,7 @@
           quiet={hush}
           {dropping}
           ghosts={theirs}
-          lastTurn={view.lastMove?.type === 'play' ? view.lastMove.turn : null}
+          lastTurn={(catchUp.length ? catchUp : [view.lastMove]).find((m) => m?.type === 'play')?.turn ?? null}
           {outlines}
           {bubble}
           onCell={tapCell}
