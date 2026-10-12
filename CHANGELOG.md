@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- Drag a tile from your tray onto one you already placed to swap them: the placed tile goes back to your tray.
+
 ## v0.12.0 (2026-10-12)
 
 - A group's page shows its games the same way the main screen does: scores, colors and Play when it's your turn.

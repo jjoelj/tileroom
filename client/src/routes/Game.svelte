@@ -351,9 +351,25 @@
   /** Where a released tile goes, without changing anything yet. Null: nowhere valid. */
   async function planDrop(from: DragFrom, slot: number, x: number, y: number): Promise<Plan | null> {
     const cell = boardRef?.cellAt(x, y); // exactly where it's released
-    // A placed tile dropped on another placed tile: they swap squares.
-    const other = from.kind === 'board' && cell && pending.find((p) => p.r === cell.r && p.c === cell.c && !(p.r === from.r && p.c === from.c));
-    if (other) {
+    // Dropped on another placed tile: a placed tile swaps squares with it; a rack tile takes its square and sends it
+    // back to the rack, into the gap the dragged tile left.
+    const hit = cell && pending.find((p) => p.r === cell.r && p.c === cell.c && !(from.kind === 'board' && p.r === from.r && p.c === from.c));
+    // Only a drop over the middle of that tile swaps (inner half each way), so grazing a neighbor doesn't.
+    const box = hit && boardRef?.cellRect(hit.r, hit.c);
+    const other = box && Math.abs(x - (box.left + box.width / 2)) <= box.width / 4 && Math.abs(y - (box.top + box.height / 2)) <= box.height / 4 ? hit : undefined;
+    if (other && from.kind === 'rack') {
+      return {
+        rect: boardRef?.cellRect(other.r, other.c),
+        onBoard: true,
+        commit: () => {
+          moveSlot(other.slot, order.indexOf(slot));
+          pending = pending.filter((p) => p !== other);
+          if (rack[slot] === '?') blankAt = { r: other.r, c: other.c, slot };
+          else pending.push({ r: other.r, c: other.c, letter: rack[slot]!, blank: false, slot });
+        },
+      };
+    }
+    if (other && from.kind === 'board') {
       return {
         rect: boardRef?.cellRect(other.r, other.c),
         onBoard: true,
