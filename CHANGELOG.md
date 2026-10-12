@@ -6,7 +6,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 ## Unreleased
 
 - A group's page shows Play on games where it's your turn.
-- Opening a game shows every move since your last one, and marks all their tiles on the board.
+- Opening a game shows every move since your last one: their tiles drop in one play at a time and stay marked on the board.
 
 ## v0.11.0 (2026-10-10)
 

@@ -10,7 +10,7 @@
   import Board, { type PendingTile } from '../lib/Board.svelte';
   import Count from '../lib/Count.svelte';
   import GameSettings, { type Settings } from '../lib/GameSettings.svelte';
-  import { devicePixel, grow, pop, rise, show } from '../lib/motion';
+  import { devicePixel, grow, ms, pop, rise, show } from '../lib/motion';
   import { invalidWords } from '../lib/dict';
   import { confirm } from '../lib/ask.svelte';
   import { say, sayError } from '../lib/say.svelte';
@@ -53,6 +53,9 @@
   let dropping = $state<{ r: number; c: number }[]>([]); // another player's tiles arriving now (Board `dropping`)
   /** Moves since my last one, oldest first, when there's more than one to catch up on (fetched on open). */
   let catchUp = $state<PublicMove[]>([]);
+  /** While catch-up plays replay on open: tiles from later turns stay off the board until their play drops in. */
+  let upTo = $state<number | null>(null);
+  const shownBoard = $derived(view && upTo !== null ? view.board.map((row) => row.map((t) => (t && t.turn > upTo! ? null : t))) : view?.board);
   let deal = $state(0); // bumped when the server deals a new rack, so its tiles animate in
 
   /** Applies a fresh view, keeping placed tiles while they still fit the rack and board. */
@@ -63,7 +66,7 @@
     const m = v.lastMove;
     const fresh = view && m?.type === 'play' && m.turn !== view.lastMove?.turn ? m : null;
     const mine = fresh?.seat === v.mySeat;
-    if (view && m && m.turn !== view.lastMove?.turn) catchUp = []; // a move while open: back to just the last one
+    if (view && m && m.turn !== view.lastMove?.turn) [catchUp, upTo] = [[], null]; // a move while open: back to just the last one
     dropping = fresh && !mine ? fresh.tiles : [];
     if (fresh) void tick().then(() => boardRef?.placed(fresh.tiles, mine));
     view = v;
@@ -90,6 +93,19 @@
   $effect(() => {
     localStorage.setItem(storeKey, JSON.stringify(pending));
   });
+
+  const wait = (n: number) => new Promise((done) => setTimeout(done, ms(n)));
+  async function replay(plays: PublicMove[]) {
+    for (const p of plays) {
+      await wait(400);
+      if (upTo === null || p.type !== 'play') return; // a live move took over
+      [upTo, dropping] = [p.turn, p.tiles];
+      await tick();
+      boardRef?.placed(p.tiles, false);
+      await wait(560 + p.tiles.length * 90); // Board's drop delays, plus the drop itself
+    }
+    if (upTo !== null) [upTo, dropping] = [null, []];
+  }
 
   async function load() {
     try {
@@ -128,11 +144,18 @@
   backCloses(() => watchersOpen, () => (watchersOpen = false));
 
   onMount(() => {
-    void load().then(() => api<{ moves: PublicMove[] }>(`/games/${id}/log`)).then(({ moves }) => {
-      const mineAt = moves.findIndex((m) => m.seat === view?.mySeat); // newest first
-      const since = mineAt < 0 ? moves : moves.slice(0, mineAt);
-      if (view?.mySeat !== null && view?.status === 'active' && since.length > 1) catchUp = since.reverse();
-    }, () => {});
+    // the log comes with the first view, so catch-up plays can start hidden and drop in one by one
+    void Promise.all([api<GameView>(`/games/${id}`), api<{ moves: PublicMove[] }>(`/games/${id}/log`)]).then(([v, { moves }]) => {
+      const mineAt = moves.findIndex((m) => m.seat === v.mySeat); // newest first
+      const since = (mineAt < 0 ? moves : moves.slice(0, mineAt)).reverse();
+      const plays = since.filter((m) => m.type === 'play');
+      if (v.mySeat !== null && v.status === 'active' && since.length > 1) {
+        catchUp = since;
+        if (plays.length) upTo = plays[0]!.turn - 1;
+      }
+      apply(v);
+      void replay(plays);
+    }, load);
     const unwatch = watch(id);
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
@@ -683,7 +706,7 @@
       <div style="position: relative">
         <Board
           bind:this={boardRef}
-          board={view.board}
+          board={shownBoard!}
           layout={view.layout}
           pending={onBoard}
           quiet={hush}
