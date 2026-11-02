@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.14.0 (2026-11-02)
 
 - The dot on newly played tiles is in the color of the player who played them.
 - Game cards list players in turn order.
