@@ -8,7 +8,7 @@ import { WORD_RE } from '../../shared/dictionary';
 import { tally } from '../../shared/votes';
 import type { AppEnv } from './auth';
 import { formatGroupCode, formatJoinCode, newGroupCode, normalizeCode, randomId } from './codes';
-import { gamePlayers, games, groupMembers, groups, groupWords, moves, proposals, proposalVotes, users } from './db/schema';
+import { gamePlayers, games, groupMembers, groups, groupWords, proposals, proposalVotes, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { markSeen, notify } from './push';
 import { changed, groupChanged, watchingGroup } from './realtime';
@@ -52,19 +52,10 @@ export function approvedWords(q: Q, groupId: string) {
   return { add: rows.filter((r) => r.kind === 'add').map((r) => r.word), ban: rows.filter((r) => r.kind === 'ban').map((r) => r.word) };
 }
 
-/** How many times each of the group's added words has been played in the group's games. */
-export function wordUses(q: Q, groupId: string, added: string[]) {
-  const uses: Record<string, number> = Object.fromEntries(added.map((w) => [w, 0]));
-  if (!added.length) return uses;
-  // ponytail: scans every play in the group's games; fine for friend-group volumes, keep a counter if it shows up
-  const rows = q
-    .select({ words: moves.words })
-    .from(moves)
-    .innerJoin(games, eq(games.id, moves.gameId))
-    .where(and(eq(games.groupId, groupId), eq(moves.type, 'play')))
-    .all();
-  for (const r of rows) for (const w of r.words ?? []) if (w.word in uses) uses[w.word]!++;
-  return uses;
+/** Times each added word has been played in the group's games. */
+function wordUses(groupId: string) {
+  const rows = db.select({ word: groupWords.word, uses: groupWords.uses }).from(groupWords).where(and(eq(groupWords.groupId, groupId), eq(groupWords.kind, 'add'))).all();
+  return Object.fromEntries(rows.map((r) => [r.word, r.uses]));
 }
 
 const kindOf = (q: Q, groupId: string, word: string) =>
@@ -217,7 +208,7 @@ function groupDetail(groupId: string, userId: string) {
     myRole: role,
     members: members.map((m) => ({ userId: m.userId, displayName: m.displayName, colorIndex: m.colorIndex ?? 0, role: m.role })),
     words,
-    uses: wordUses(db, groupId, words.add),
+    uses: wordUses(groupId),
     proposals: rows.filter((p) => p.status === 'open').map(proposal),
     history: rows.filter((p) => p.status !== 'open').slice(0, 20).map(proposal),
     ...groupGames(groupId, userId),

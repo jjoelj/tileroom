@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { randomInt } from 'node:crypto';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { names } from '../../shared/plural';
@@ -8,7 +8,7 @@ import { CHOICES } from '../../shared/board';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
-import { gamePlayers, games, gameWords, groups, moves, users } from './db/schema';
+import { gamePlayers, games, gameWords, groups, groupWords, moves, users } from './db/schema';
 import { ApiError, body, rateLimit } from './http';
 import { approvedWords, deleteEmptyOrphans, expireProposals, gameOpened } from './groups';
 import { markSeen, notify } from './push';
@@ -333,6 +333,13 @@ export const gameRoutes = new Hono<AppEnv>()
           private: record.private ?? null,
         })
         .run();
+      // house word usage: one per word formed (a no-op for base words, which have no 'add' row)
+      if (g.game.groupId)
+        for (const w of record.words ?? [])
+          tx.update(groupWords)
+            .set({ uses: sql`${groupWords.uses} + 1` })
+            .where(and(eq(groupWords.groupId, g.game.groupId), eq(groupWords.word, w.word), eq(groupWords.kind, 'add')))
+            .run();
       return { g, seat, state, record };
     });
     if (!result) throw new ApiError(410, 'game_expired', 'This game was cancelled after 7 days without a move');
