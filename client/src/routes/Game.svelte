@@ -729,6 +729,7 @@
           {dropping}
           ghosts={theirs}
           lastTurn={(catchUp.length ? catchUp : [view.lastMove]).find((m) => m?.type === 'play')?.turn ?? null}
+          colorOf={(seat) => view!.players.find((p) => p.seat === seat)?.colorIndex ?? seat}
           {outlines}
           {bubble}
           onCell={tapCell}

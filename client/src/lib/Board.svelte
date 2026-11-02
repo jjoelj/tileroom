@@ -15,6 +15,7 @@
     layout,
     pending,
     lastTurn,
+    colorOf,
     outlines,
     bubble,
     quiet,
@@ -29,6 +30,8 @@
     pending: PendingTile[];
     /** Tiles played on this turn or later are marked (the last play, or every play since mine). */
     lastTurn: number | null;
+    /** A seat's color index: the last-move dot is drawn in the color of whoever played the tile. */
+    colorOf: (seat: number) => number;
     /** Words to outline in lime (only when the whole move is valid). */
     outlines: FormedWord[];
     bubble: { r: number; c: number; score: number; valid: boolean } | null;
@@ -74,6 +77,7 @@
         letter: tile?.letter ?? '',
         blank: tile?.blank ?? false,
         square: prem === '*' ? 'p-star' : prem === '+' ? 'p-D p-star' : `p-${prem}`,
+        dot: t ? `--dot: var(--p${colorOf(t.seat) % 6}-bg)` : undefined,
         piece: p ? 'pending' : t && lastTurn !== null && t.turn >= lastTurn ? 'last' : '',
         label: `${COLS[c]}${r + 1}${tile ? `, ${tile.letter}${tile.blank ? ' (blank)' : ''}` : NAME[prem] ? `, ${NAME[prem]}` : ''}${p ? ', placed this turn' : ''}`,
       };
@@ -368,7 +372,7 @@
           <span class="lab" aria-hidden="true">{LABEL[cell.prem]}</span>
         {/if}
         {#if cell.letter || cell.pending}<!-- pending with no letter: a blank still being chosen -->
-          <span class="piece tile-face {cell.piece}" in:enter={{ quiet, drop: cell.drop }} out:pop={{ quiet, duration: 140 }}>
+          <span class="piece tile-face {cell.piece}" style={cell.dot} in:enter={{ quiet, drop: cell.drop }} out:pop={{ quiet, duration: 140 }}>
             <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
             {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}
           </span>
@@ -424,7 +428,7 @@
   .piece { position: absolute; inset: 0; border-radius: calc(var(--cs) * 0.16); z-index: 1; transition: filter 300ms; }
   /* last move: a warm wash and a dot that fade in and out */
   .piece::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--tile-last); opacity: 0; transition: opacity 400ms; }
-  .piece::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--p4-bg); opacity: 0; transition: opacity 400ms; }
+  .piece::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 2px; background: var(--dot); opacity: 0; transition: opacity 400ms; }
   .piece.last::before { opacity: 0.6; }
   .piece.last::after { opacity: 1; }
   /* placed this turn: the normal tile (same bevel, same size), much paler; fades back once played */

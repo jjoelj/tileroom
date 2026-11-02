@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- A game on a list (the lobby, a group's page): everyone's score and name (me first; a crown on the winner), then
+<!-- A game on a list (the lobby, a group's page): everyone's score and name (in turn order; a crown on the winner), then
      how long ago its last move or its end was, and what to do. A game still in its lobby shows who's in. -->
 <script lang="ts" module>
   export type GameSummary = {
@@ -28,8 +28,7 @@
   // Games have no names: they're called by who else is in them.
   const title = $derived(names(g.players.filter((p) => p.seat !== g.mySeat).map((p) => p.displayName)) || 'Waiting for players');
   const turnOf = $derived(g.players.find((p) => p.seat === g.currentSeat)?.displayName ?? '');
-  /** Me first, then the others in turn order. */
-  const meFirst = $derived([...g.players].sort((a, b) => (a.seat === g.mySeat ? -1 : b.seat === g.mySeat ? 1 : a.seat - b.seat)));
+  const inOrder = $derived([...g.players].sort((a, b) => a.seat - b.seat)); // turn order
   const best = $derived(Math.max(...g.players.map((p) => p.score)));
   const mine = $derived(g.status === 'active' && g.currentSeat === g.mySeat);
 </script>
@@ -45,7 +44,7 @@
 {:else}
   <button class="card game" class:mine class:done={g.status === 'finished'} in:show={{ y: 8 }} onclick={open}>
     <span class="players">
-      {#each meFirst as p (p.seat)}
+      {#each inOrder as p (p.seat)}
         <span class="pl" class:turn={g.status === 'active' && p.seat === g.currentSeat && !mine} style="color: var(--p{p.colorIndex % 6})">
           <span class="score"
             >{p.score}{#if g.status === 'finished' && p.score === best}<svg class="crown" viewBox="0 0 24 24" aria-label="won"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>{/if}</span
