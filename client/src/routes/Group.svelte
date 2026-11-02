@@ -35,7 +35,7 @@
     myRole: 'admin' | 'member';
     members: { userId: string; displayName: string; colorIndex: number; role: 'admin' | 'member' }[];
     words: { add: string[]; ban: string[] };
-    /** Times each added word has been played in this group's games. */
+    /** Times each added word has been played in this group's finished games. */
     uses: Record<string, number>;
     proposals: Proposal[];
     history: Proposal[];

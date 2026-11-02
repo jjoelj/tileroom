@@ -110,7 +110,7 @@ export const groupWords = sqliteTable(
     kind: text('kind', { enum: ['add', 'ban'] }).notNull(),
     approvedAt: ms('approved_at').notNull().default(now()),
     proposalId: text('proposal_id').references(() => proposals.id),
-    uses: integer('uses').notNull().default(0), // added words: times played in the group's games, bumped with each move
+    uses: integer('uses').notNull().default(0), // added words: times played in the group's finished games, added when a game ends
   },
   (t) => [primaryKey({ columns: [t.groupId, t.word] })],
 );

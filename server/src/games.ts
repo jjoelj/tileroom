@@ -333,9 +333,10 @@ export const gameRoutes = new Hono<AppEnv>()
           private: record.private ?? null,
         })
         .run();
-      // house word usage: one per word formed (a no-op for base words, which have no 'add' row)
-      if (g.game.groupId)
-        for (const w of record.words ?? [])
+      // house word usage, counted once the game ends (voided games never count): one per word formed in the whole
+      // game, this move included. A no-op for base words, which have no 'add' row.
+      if (g.game.groupId && state.status === 'finished')
+        for (const w of tx.select({ words: moves.words }).from(moves).where(eq(moves.gameId, id)).all().flatMap((m) => m.words ?? []))
           tx.update(groupWords)
             .set({ uses: sql`${groupWords.uses} + 1` })
             .where(and(eq(groupWords.groupId, g.game.groupId), eq(groupWords.word, w.word), eq(groupWords.kind, 'add')))

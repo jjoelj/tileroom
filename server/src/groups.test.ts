@@ -297,7 +297,11 @@ describe('group games', () => {
     expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 0 });
     expect((await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: a.cookie, body: across('QXZJ') })).status).toBe(200);
     expect((await call(`/games/${g.json.id}`, { cookie: b.cookie })).json.houseWords).toEqual({ add: ['QXZJ'], ban: ['CAT'] });
-    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 1 }); // the group page counts plays of its house words
+    // the group page counts plays of its house words, once the game ends (here by four scoreless turns)
+    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 0 });
+    for (let t = 1; t <= 4; t++) await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: (t % 2 ? b : a).cookie, body: { turnNumber: t, type: 'pass' } });
+    expect((await call(`/games/${g.json.id}`, { cookie: a.cookie })).json.status).toBe('finished');
+    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 1 });
   });
 });
 

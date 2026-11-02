@@ -52,7 +52,7 @@ export function approvedWords(q: Q, groupId: string) {
   return { add: rows.filter((r) => r.kind === 'add').map((r) => r.word), ban: rows.filter((r) => r.kind === 'ban').map((r) => r.word) };
 }
 
-/** Times each added word has been played in the group's games. */
+/** Times each added word has been played in the group's finished games. */
 function wordUses(groupId: string) {
   const rows = db.select({ word: groupWords.word, uses: groupWords.uses }).from(groupWords).where(and(eq(groupWords.groupId, groupId), eq(groupWords.kind, 'add'))).all();
   return Object.fromEntries(rows.map((r) => [r.word, r.uses]));
