@@ -35,6 +35,8 @@
     myRole: 'admin' | 'member';
     members: { userId: string; displayName: string; colorIndex: number; role: 'admin' | 'member' }[];
     words: { add: string[]; ban: string[] };
+    /** Times each added word has been played in this group's games. */
+    uses: Record<string, number>;
     proposals: Proposal[];
     history: Proposal[];
     morePast: boolean;
@@ -355,7 +357,7 @@
     </form>
     {#if group.words.add.length}
       <span class="sub">Added <span class="hint">· tap to propose removing</span></span>
-      <div class="chips">{#each group.words.add as w (w)}<button class="chip" onclick={() => proposeUndo(w, 'remove')}>{w}</button>{/each}</div>
+      <div class="chips">{#each group.words.add as w (w)}<button class="chip" onclick={() => proposeUndo(w, 'remove')}>{w} <span class="uses">{plural(group.uses[w] ?? 0, 'play', 'plays')}</span></button>{/each}</div>
     {/if}
     {#if group.words.ban.length}
       <span class="sub">Banned <span class="hint">· tap to propose unbanning</span></span>
@@ -479,6 +481,7 @@
   .propose .field { text-transform: uppercase; letter-spacing: 0.05em; }
   .propose .field::placeholder { text-transform: none; letter-spacing: normal; } /* only typed words are capitals */
   .next { min-height: 2.9em; }
+  .uses { font-weight: 600; letter-spacing: 0; color: var(--muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .chip { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
   .list { padding: 4px 0; }

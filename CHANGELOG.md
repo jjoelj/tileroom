@@ -7,6 +7,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 - The dot on newly played tiles is in the color of the player who played them.
 - Game cards list players in turn order.
+- A group's house words show how many times each has been played in the group's games.
 
 ## v0.13.0 (2026-10-12)
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { gamePlayers, games, groups, groupWords } from './db/schema';
+import { gamePlayers, games, groups, groupWords, moves } from './db/schema';
 import { randomId } from './codes';
 import { deleteEmptyOrphans, expireProposals } from './groups';
 import { sockets } from './realtime';
@@ -162,6 +162,26 @@ describe('house words (unanimous)', () => {
     expect(done.json.proposals).toHaveLength(0);
     expect(done.json.words.add).toEqual(['QXZJ']);
     expect(pushesTo(a).at(-1)).toBe('QXZJ is now a house word');
+  });
+
+  test("the group page counts plays of each added word in the group's games only", async () => {
+    const { id, members } = await groupOf(1);
+    const [a] = members as [TestUser];
+    await propose(id, a, 'qxzj', 'add');
+    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 0 });
+    const game = (groupId: string | null) => {
+      const gid = randomId();
+      db.insert(games).values({ id: gid, hostId: a.id, bagSize: 100, randomOrder: false, joinCode: randomId().slice(0, 6), status: 'active', groupId }).run();
+      return gid;
+    };
+    const play = (gameId: string, turnNumber: number, words: string[]) =>
+      db.insert(moves).values({ gameId, turnNumber, seat: 0, type: 'play', words: words.map((word) => ({ word, score: 1 })), score: 1 }).run();
+    const g1 = game(id);
+    play(g1, 0, ['QXZJ', 'AT']);
+    play(g1, 1, ['QXZJS', 'QXZJ']);
+    play(game(id), 0, ['QXZJ']);
+    play(game(null), 0, ['QXZJ']); // an open game: not this group's
+    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 3 });
   });
 
   test('one no rejects at once', async () => {
