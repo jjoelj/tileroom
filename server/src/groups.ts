@@ -80,6 +80,13 @@ function checkAction(q: Q, groupId: string, word: string, action: Action) {
   } else if (kind !== 'ban') throw bad(`${word} isn't banned in this group`);
 }
 
+/** Times `word` was formed in the group's finished games. Raw SQL: json_each over the moves' words has no Drizzle form. */
+function pastUses(q: Q, groupId: string, word: string) {
+  return q.get<[number]>(sql`
+    SELECT count(*) FROM moves m JOIN games g ON g.id = m.game_id, json_each(m.words) w
+    WHERE g.group_id = ${groupId} AND g.status = 'finished' AND m.type = 'play' AND json_extract(w.value, '$.word') = ${word}`)[0]; // raw get: a row is an array
+}
+
 type Outcome = { id: string; groupId: string; word: string; action: Action; status: 'passed' | 'rejected' | 'expired' };
 
 /** Settles one open proposal if its current members' votes decide it under the group's rule (`tally`). */
@@ -95,7 +102,8 @@ function resolve(tx: Tx, proposalId: string, now = Date.now()): Outcome | null {
   tx.update(proposals).set({ status, resolvedAt: now }).where(eq(proposals.id, p.id)).run();
   if (status === 'passed') {
     const where = and(eq(groupWords.groupId, p.groupId), eq(groupWords.word, p.word));
-    if (p.action === 'add' || p.action === 'ban') tx.insert(groupWords).values({ groupId: p.groupId, word: p.word, kind: p.action, approvedAt: now, proposalId: p.id }).run();
+    const uses = p.action === 'add' ? pastUses(tx, p.groupId, p.word) : 0; // a re-added word keeps its earlier plays
+    if (p.action === 'add' || p.action === 'ban') tx.insert(groupWords).values({ groupId: p.groupId, word: p.word, kind: p.action, approvedAt: now, proposalId: p.id, uses }).run();
     else tx.delete(groupWords).where(where).run();
   }
   return { id: p.id, groupId: p.groupId, word: p.word, action: p.action, status };

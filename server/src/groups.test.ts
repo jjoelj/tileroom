@@ -302,6 +302,10 @@ describe('group games', () => {
     for (let t = 1; t <= 4; t++) await call(`/games/${g.json.id}/moves`, { method: 'POST', cookie: (t % 2 ? b : a).cookie, body: { turnNumber: t, type: 'pass' } });
     expect((await call(`/games/${g.json.id}`, { cookie: a.cookie })).json.status).toBe('finished');
     expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 1 });
+    await pass('QXZJ', 'remove');
+    expect((await detail(id, a)).json.uses).toEqual({});
+    await pass('QXZJ', 'add'); // added again: its earlier plays count
+    expect((await detail(id, a)).json.uses).toEqual({ QXZJ: 1 });
   });
 });
 
