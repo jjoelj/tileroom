@@ -8,6 +8,8 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 - The dot on newly played tiles is in the color of the player who played them.
 - Game cards list players in turn order.
 - A group's house words show how many times each has been played in the group's finished games.
+- New game asks where to play when you're in a group: an open game or one of your groups.
+- A game that's never started closes on its own after 7 days.
 
 ## v0.13.0 (2026-10-12)
 

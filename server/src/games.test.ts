@@ -273,6 +273,19 @@ describe('7-day turn timeout', () => {
     expect(pushesTo(players[0]!)).toHaveLength(before);
   });
 
+  test('a game never started closes 7 days after it was made', async () => {
+    const host = await newUser();
+    const make = async () => (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json.id as string;
+    const old = await make();
+    const young = await make();
+    const made = (id: string, ms: number) => db.update(games).set({ createdAt: Date.now() - ms }).where(eq(games.id, id)).run();
+    made(old, TURN_TIMEOUT_MS);
+    made(young, TURN_TIMEOUT_MS - DAY);
+    await runJobs();
+    expect(exists(old)).toBe(false);
+    expect(exists(young)).toBe(true);
+  });
+
   test('a move or a view on an expired game voids it', async () => {
     const a = await started(2);
     age(a.id, TURN_TIMEOUT_MS);

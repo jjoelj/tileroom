@@ -29,10 +29,12 @@
   }
   let joining = $state(false);
   // A new game opens straight into its lobby with the default settings; the host changes them there.
+  // With groups, New game first asks where: an open game or one of the groups.
   let starting = $state(false);
-  const newGame = () => {
+  let picking = $state(false);
+  const newGame = (groupId?: string) => {
     starting = true;
-    api<{ id: string }>('/games', { method: 'POST', body: {} }).then((v) => go(`/games/${v.id}`), (e) => ((starting = false), sayError(e)));
+    api<{ id: string }>('/games', { method: 'POST', body: groupId ? { groupId } : {} }).then((v) => go(`/games/${v.id}`), (e) => ((starting = false), sayError(e)));
   };
   let code = $state('');
 
@@ -96,12 +98,22 @@
   </header>
 
   <div style="display: flex; gap: 8px">
-    <button class="big dark" disabled={starting} onclick={newGame}>
+    <button class="big dark" disabled={starting} aria-expanded={groups.length ? picking : undefined} onclick={() => (groups.length ? ((picking = !picking), (joining = false)) : newGame())}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
       New game
     </button>
-    <button class="big outline" aria-expanded={joining} onclick={() => (joining = !joining)}>Join game or group</button>
+    <button class="big outline" aria-expanded={joining} onclick={() => ((joining = !joining), (picking = false))}>Join game or group</button>
   </div>
+
+  {#if picking}
+    <div transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+      <span class="label">Start a game in</span>
+      <button class="pick" disabled={starting} onclick={() => newGame()}>Open game <span class="hint">Standard words, anyone with the code</span></button>
+      {#each groups as gr (gr.id)}
+        <button class="pick" disabled={starting} onclick={() => newGame(gr.id)}>{gr.name} <span class="hint">{plural(gr.memberCount, 'member', 'members')}</span></button>
+      {/each}
+    </div>
+  {/if}
 
   {#if joining}
     <form onsubmit={join} transition:slide={{ duration: ms(180) }} style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
@@ -172,6 +184,8 @@
   .big { flex: 1; height: 56px; border-radius: 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .dark { border: none; background: var(--primary); color: var(--on-primary); }
   .newgroup { height: 44px; padding: 0 16px; border-radius: 22px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; }
+  .pick { min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+  .pick .hint { font-weight: 600; font-size: 13px; }
   .outline { border: 1.5px solid var(--ink); background: transparent; white-space: nowrap; padding: 0 12px; }
   .section { margin: 28px 0 10px; }
   .game { width: 100%; text-align: left; border: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }

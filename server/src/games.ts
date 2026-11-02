@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { randomInt } from 'node:crypto';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { names } from '../../shared/plural';
@@ -380,12 +380,12 @@ export const gameRoutes = new Hono<AppEnv>()
     return c.json({ ok: true });
   });
 
-/** Every 10 minutes: void games past the 7-day turn timeout, send 1-day-left reminders (SPEC §4.8). */
+/** Every 10 minutes: void games past the 7-day turn timeout or never started in 7 days, send 1-day-left reminders (SPEC §4.8). */
 export async function runJobs(now = Date.now()) {
   expireProposals(now);
   deleteEmptyOrphans();
-  // ponytail: scans every active game; fine at friends scale, add an index on turn_started_at if it grows
-  const active = db.select().from(games).where(eq(games.status, 'active')).orderBy(asc(games.turnStartedAt)).all();
+  // ponytail: scans every active or unstarted game; fine at friends scale, add an index on turn_started_at if it grows
+  const active = db.select().from(games).where(inArray(games.status, ['active', 'lobby'])).orderBy(asc(games.turnStartedAt)).all();
   for (const game of active) {
     if (isExpired(game, now)) {
       cancel(db, loadGame(db, game.id)!);

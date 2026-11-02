@@ -57,8 +57,9 @@ export function stateOf({ game, seats }: LoadedGame): GameState {
 export const lastMove = (q: Q, gameId: string) =>
   q.select().from(moves).where(eq(moves.gameId, gameId)).orderBy(desc(moves.id)).limit(1).get();
 
+/** A turn left 7 days, or a game never started 7 days after it was made. */
 export const isExpired = (game: GameRow, now = Date.now()) =>
-  game.status === 'active' && game.turnStartedAt !== null && turnExpired(game.turnStartedAt, now);
+  game.status === 'active' ? game.turnStartedAt !== null && turnExpired(game.turnStartedAt, now) : game.status === 'lobby' && turnExpired(game.createdAt, now);
 
 /** "As if it never happened" (SPEC §4.8): players and moves go with it via ON DELETE CASCADE. */
 export const voidGame = (q: Q, id: string) => q.delete(games).where(eq(games.id, id)).run();
