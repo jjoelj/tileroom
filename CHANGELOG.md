@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.15.0 (2026-11-03)
 
 - The host can set a game to start by itself once 2 to 6 players have joined.
 
