@@ -71,6 +71,8 @@ export type GameView = {
   randomOrder: boolean;
   /** Others see where the mover's tiles are during their turn (squares only). */
   livePlacing: boolean;
+  /** Starts by itself once this many have joined; null = the host starts it. */
+  autoStart: number | null;
   layout: Layout;
   /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
   expandedWords: boolean;

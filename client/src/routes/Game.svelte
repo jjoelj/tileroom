@@ -675,7 +675,9 @@
             Start with {plural(view.players.length, 'player', 'players')}
           </button>
           <span class="hint" style="text-align: center">
-            {view.players.length < 2
+            {view.autoStart && view.players.length < view.autoStart
+              ? `Starts by itself at ${view.autoStart} players`
+              : view.players.length < 2
               ? 'Waiting for at least one more player'
               : view.players.length < MAX_PLAYERS
                 ? `Start now, or wait for more (up to ${MAX_PLAYERS})`
@@ -684,7 +686,7 @@
         {:else if view.role === 'spectator' && view.joinCode && view.players.length < MAX_PLAYERS}
           <button class="primary" disabled={busy} onclick={joinGame}>Join this game</button>
         {:else}
-          <span class="hint" style="text-align: center">Waiting for the host to start</span>
+          <span class="hint" style="text-align: center">{view.autoStart ? `Starts when ${view.autoStart} have joined` : 'Waiting for the host to start'}</span>
         {/if}
         {#if view.role === 'player'}
           <button class="textbtn leave" onclick={leaveGame}>{view.players.length === 1 || view.hostUserId === session.me?.id ? 'Cancel game' : 'Leave game'}</button>

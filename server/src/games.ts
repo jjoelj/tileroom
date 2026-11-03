@@ -90,6 +90,7 @@ const Settings = z.object({
   expandedWords: z.boolean(),
   livePlacing: z.boolean(),
   layout: z.enum(CHOICES), // not special: that's only for games started on it
+  autoStart: z.int().min(2).max(MAX_PLAYERS).nullable(), // start by itself at this many players
 });
 
 const Turn = z.int().nonnegative();
@@ -112,6 +113,55 @@ function joinTarget(c: { req: { param: (k: 'code') => string } }, ip: string) {
   const row = code.length === 6 && db.select({ id: games.id }).from(games).where(eq(games.joinCode, code)).get();
   if (!row) throw new ApiError(404, 'not_found', 'No game with that code');
   return loadGame(db, row.id)!;
+}
+
+/** Start a lobby game: turn order, bag, racks; group games freeze their words and tray setting. */
+function startGame(g: LoadedGame) {
+  const { game } = g;
+    const order = [...g.seats];
+    if (game.randomOrder) {
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [order[i], order[j]] = [order[j]!, order[i]!];
+      }
+    }
+    const state = newGame(order.length, game.bagSize, game.layout, randomInt);
+    const now = Date.now();
+    db.transaction((tx) => {
+      tx.delete(gamePlayers).where(eq(gamePlayers.gameId, game.id)).run();
+      tx.insert(gamePlayers)
+        .values(order.map((s, seat) => ({ gameId: game.id, seat, userId: s.userId, joinedAt: s.joinedAt, rack: state.players[seat]!.rack })))
+        .run();
+      tx.update(games)
+        .set({
+          status: 'active',
+          startedAt: now,
+          turnStartedAt: now,
+          board: state.board,
+          bag: state.bag,
+          turnNumber: state.turnNumber,
+          currentSeat: state.currentSeat,
+        })
+        .where(eq(games.id, game.id))
+        .run();
+      if (game.groupId) {
+        // Freeze the group's words and tray setting: later votes and "on" switches don't touch this game (SPEC §4.10, §4.11).
+        const words = approvedWords(tx, game.groupId);
+        const rows = [...words.add.map((word) => ({ word, kind: 'add' as const })), ...words.ban.map((word) => ({ word, kind: 'ban' as const }))];
+        if (rows.length) tx.insert(gameWords).values(rows.map((r) => ({ gameId: game.id, ...r }))).run();
+        const group = tx.select({ racks: groups.spectatorsSeeRacks }).from(groups).where(eq(groups.id, game.groupId)).get();
+        tx.update(games).set({ spectatorRacks: !!group?.racks }).where(eq(games.id, game.id)).run();
+      }
+    });
+    // only whoever goes first hears about it: everyone else gets their turn's push when it comes
+    notifyGame(g, [order[state.currentSeat]!.userId], 'Your turn. The game has started.');
+    changed(game.id);
+}
+
+/** Starts the game if the host's auto-start count has been reached. */
+function maybeAutoStart(id: string) {
+  const g = loadGame(db, id)!;
+  if (g.game.status === 'lobby' && g.game.autoStart !== null && g.seats.length >= g.game.autoStart) startGame(g);
 }
 
 export const gameRoutes = new Hono<AppEnv>()
@@ -156,6 +206,7 @@ export const gameRoutes = new Hono<AppEnv>()
         expandedWords: z.boolean().default(false),
         livePlacing: z.boolean().default(true),
         layout: z.enum(CHOICES).default('default'),
+        autoStart: Settings.shape.autoStart.default(null),
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),
     );
@@ -202,6 +253,7 @@ export const gameRoutes = new Hono<AppEnv>()
     });
     changed(g.game.id);
     notifyGame(loadGame(db, g.game.id)!, [g.game.hostId], `${c.var.user.displayName} joined your game`);
+    maybeAutoStart(g.game.id);
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
@@ -218,6 +270,7 @@ export const gameRoutes = new Hono<AppEnv>()
     if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     db.update(games).set(b).where(eq(games.id, g.game.id)).run();
     changed(g.game.id);
+    maybeAutoStart(g.game.id); // lowered to the count already seated
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
@@ -234,49 +287,11 @@ export const gameRoutes = new Hono<AppEnv>()
 
   .post('/games/:id/start', (c) => {
     const { g } = myGame(c.req.param('id'), c.var.user.id);
-    const { game } = g;
-    if (game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
-    if (game.status !== 'lobby') throw new ApiError(409, 'already_started');
+    if (g.game.hostId !== c.var.user.id) throw new ApiError(403, 'not_host');
+    if (g.game.status !== 'lobby') throw new ApiError(409, 'already_started');
     if (g.seats.length < 2) throw new ApiError(409, 'not_enough_players', 'Wait for at least one more player');
-    const order = [...g.seats];
-    if (game.randomOrder) {
-      for (let i = order.length - 1; i > 0; i--) {
-        const j = randomInt(i + 1);
-        [order[i], order[j]] = [order[j]!, order[i]!];
-      }
-    }
-    const state = newGame(order.length, game.bagSize, game.layout, randomInt);
-    const now = Date.now();
-    db.transaction((tx) => {
-      tx.delete(gamePlayers).where(eq(gamePlayers.gameId, game.id)).run();
-      tx.insert(gamePlayers)
-        .values(order.map((s, seat) => ({ gameId: game.id, seat, userId: s.userId, joinedAt: s.joinedAt, rack: state.players[seat]!.rack })))
-        .run();
-      tx.update(games)
-        .set({
-          status: 'active',
-          startedAt: now,
-          turnStartedAt: now,
-          board: state.board,
-          bag: state.bag,
-          turnNumber: state.turnNumber,
-          currentSeat: state.currentSeat,
-        })
-        .where(eq(games.id, game.id))
-        .run();
-      if (game.groupId) {
-        // Freeze the group's words and tray setting: later votes and "on" switches don't touch this game (SPEC §4.10, §4.11).
-        const words = approvedWords(tx, game.groupId);
-        const rows = [...words.add.map((word) => ({ word, kind: 'add' as const })), ...words.ban.map((word) => ({ word, kind: 'ban' as const }))];
-        if (rows.length) tx.insert(gameWords).values(rows.map((r) => ({ gameId: game.id, ...r }))).run();
-        const group = tx.select({ racks: groups.spectatorsSeeRacks }).from(groups).where(eq(groups.id, game.groupId)).get();
-        tx.update(games).set({ spectatorRacks: !!group?.racks }).where(eq(games.id, game.id)).run();
-      }
-    });
-    // only whoever goes first hears about it: everyone else gets their turn's push when it comes
-    notifyGame(g, [order[state.currentSeat]!.userId], 'Your turn. The game has started.');
-    changed(game.id);
-    return c.json(viewFor(game.id, c.var.user.id));
+    startGame(g);
+    return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
   .post('/games/:id/moves', async (c) => {

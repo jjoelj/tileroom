@@ -49,6 +49,7 @@ function loaded(s: GameState): LoadedGame {
       status: s.status,
       layout: s.layout,
       livePlacing: true,
+      autoStart: null,
       bagSize: 100,
       randomOrder: false,
       expandedWords: false,

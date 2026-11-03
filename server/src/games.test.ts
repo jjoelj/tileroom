@@ -339,3 +339,19 @@ test('settings: defaults unless asked; the host can change any of them until the
   expect((await patch(host, { layout: 'default' })).status).toBe(409); // fixed once it starts
   expect((await call(`/games/${g.id}`, { cookie: host.cookie })).json).toMatchObject({ layout: 'classic', bagSize: 150 });
 });
+
+test('auto-start: the game starts itself once that many have joined, or when the host lowers it to the count seated', async () => {
+  const host = await newUser();
+  const r = (await call('/games', { method: 'POST', cookie: host.cookie, body: { autoStart: 3, randomOrder: false } })).json;
+  expect(r.autoStart).toBe(3);
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { autoStart: 1 } })).status).toBe(400);
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { autoStart: 7 } })).status).toBe(400);
+  expect((await call(`/join/${r.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json.status).toBe('lobby');
+  expect((await call(`/join/${r.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json).toMatchObject({ status: 'active', bagCount: 79 });
+  expect(pushesTo(host)).toContain('Your turn. The game has started.');
+
+  const g = (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json;
+  await call(`/join/${g.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie });
+  const patched = await call(`/games/${g.id}`, { method: 'PATCH', cookie: host.cookie, body: { autoStart: 2 } });
+  expect(patched.json.status).toBe('active');
+});

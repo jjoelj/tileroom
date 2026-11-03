@@ -2,8 +2,9 @@
 <!-- A game's settings, on New game and in the lobby: the host changes them until the start; others just see them. -->
 <script lang="ts" module>
   import type { Layout } from '../../../shared/board';
+  import { MAX_PLAYERS } from '../../../shared/rules';
 
-  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; livePlacing: boolean; layout: Layout };
+  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; livePlacing: boolean; layout: Layout; autoStart: number | null };
 </script>
 
 <script lang="ts">
@@ -39,6 +40,16 @@
   </div>
   <label class="line toggle">
     <span class="stack" style="gap: 1px">
+      <span>Auto-start</span>
+      <span class="hint">{value.autoStart ? `Starts when ${value.autoStart} have joined` : 'The host starts it'}</span>
+    </span>
+    <select value={value.autoStart ?? ''} {disabled} onchange={(e) => onchange?.({ autoStart: e.currentTarget.value ? Number(e.currentTarget.value) : null })}>
+      <option value="">Off</option>
+      {#each Array.from({ length: MAX_PLAYERS - 1 }, (_, i) => i + 2) as n (n)}<option value={n}>{n}</option>{/each}
+    </select>
+  </label>
+  <label class="line toggle">
+    <span class="stack" style="gap: 1px">
       <span>Random turn order</span>
       <span class="hint">{value.randomOrder ? 'Shuffled at start' : 'Order joined, host first'}</span>
     </span>
@@ -70,5 +81,6 @@
   .segment button.on { background: var(--surface); }
   .segment button:disabled:not(.on) { opacity: 0.5; }
   .toggle { padding-right: 14px; font-weight: 800; font-size: 15px; }
+  .toggle select { height: 44px; min-width: 72px; padding: 0 10px; border-radius: 12px; border: none; background: var(--well); font: inherit; font-weight: 700; font-size: 14px; touch-action: manipulation; }
   .toggle input { width: 22px; height: 22px; accent-color: var(--ink); flex-shrink: 0; }
 </style>

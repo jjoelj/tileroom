@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `auto_start` integer;

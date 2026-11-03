@@ -85,6 +85,13 @@
       "when": 1793647643987,
       "tag": "0011_house_word_uses",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793738589826,
+      "tag": "0012_auto_start",
+      "breakpoints": true
     }
   ]
 }
