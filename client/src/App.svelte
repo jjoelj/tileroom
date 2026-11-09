@@ -21,6 +21,7 @@
   import Lobby from './routes/Lobby.svelte';
   import Notify from './routes/Notify.svelte';
   import SignIn from './routes/SignIn.svelte';
+  import ResetPassword from './routes/ResetPassword.svelte';
   import Settings from './routes/Settings.svelte';
   import Admin from './routes/Admin.svelte';
   import Leaderboard from './routes/Leaderboard.svelte';
@@ -88,7 +89,7 @@
 
   // Which screen is up; changing it fades the new one in.
   const screen = $derived(
-    session.me === undefined
+    route.path === '/reset-password' ? 'reset-password' : session.me === undefined
       ? 'loading'
       : session.me === null
         ? route.path.startsWith('/signup') ? 'signup' : 'signin'
@@ -110,7 +111,9 @@
 
 {#key screen}
 <div in:show={{ duration: 180 }}>
-{#if session.me === undefined}
+{#if route.path === '/reset-password'}
+  <ResetPassword />
+{:else if session.me === undefined}
   <div class="screen" aria-busy="true"></div>
 {:else if session.me === null}
   {#if route.path.startsWith('/signup')}<SignUp />{:else}<SignIn />{/if}
@@ -147,7 +150,7 @@
   <a href={`${REPO}${VERSION === 'dev' ? '' : `/tree/${VERSION}`}`} target="_blank" rel="noopener" title="View source" aria-label={`View source (${VERSION})`}>{VERSION}</a>
 </footer>
 
-{#if news.length && session.me?.pushReady && device.permission === 'granted'}
+{#if route.path !== '/reset-password' && news.length && session.me?.pushReady && device.permission === 'granted'}
   <div class="bg" transition:show role="presentation" onclick={closeNews}></div>
   <div class="sheet" transition:rise role="dialog" aria-modal="true" aria-labelledby="news-title">
     <h2 id="news-title" class="h1" style="font-size: 22px">What's new</h2>

@@ -22,9 +22,29 @@
   let groups = $state<Group[] | null>(null);
   let ungrouped = $state<Ungrouped | null>(null);
   let fresh = $state(''); // the code just made: shown once, only its hash is stored
+  type Account = { id: string; username: string; displayName: string };
+  let accounts = $state<Account[]>([]);
+  let resetting = $state('');
+  let resetLink = $state('');
+  let resetName = $state('');
+
+  async function makeReset(user: Account) {
+    resetting = user.id;
+    try {
+      const { token } = await api<{ token: string }>(`/admin/users/${user.id}/password-reset`, { method: 'POST' });
+      resetName = user.username;
+      resetLink = `${location.origin}/reset-password#${token}`;
+      copy(resetLink, 'Reset link');
+    } catch (err) {
+      sayError(err);
+    } finally {
+      resetting = '';
+    }
+  }
 
   const loadInvites = () => api<{ invites: Invite[] }>('/admin/invites').then((r) => (invites = r.invites), () => {});
   onMount(() => {
+    void api<{ users: Account[] }>('/admin/users').then((r) => (accounts = r.users), sayError);
     void loadInvites();
     void api<{ groups: Group[]; ungrouped: Ungrouped }>('/admin/groups').then((r) => ((groups = r.groups), (ungrouped = r.ungrouped)), sayError);
   });
@@ -60,6 +80,22 @@
   </header>
 
   <div style="padding: 4px 16px 32px; display: flex; flex-direction: column; gap: 10px">
+    <span class="label">Password resets</span>
+    <p class="hint" style="margin: 0">Links work once and expire after 24 hours. Creating another replaces the previous link.</p>
+    {#if resetLink}
+      <div class="card fresh">
+        <label for="reset-link" class="hint">Reset link for @{resetName}</label>
+        <input id="reset-link" class="field" readonly value={resetLink} onclick={(e) => e.currentTarget.select()} />
+        <button class="secondary" onclick={() => copy(resetLink, 'Reset link')}>Copy link</button>
+      </div>
+    {/if}
+    {#each accounts as account (account.id)}
+      <div class="card item">
+        <span class="grow">{account.displayName}<span class="hint">@{account.username}</span></span>
+        <button class="secondary small" disabled={!!resetting} onclick={() => makeReset(account)}>{resetting === account.id ? 'Creating…' : 'Create & copy link'}</button>
+      </div>
+    {/each}
+
     <span class="label">Invites</span>
     <button class="primary" onclick={makeInvite}>Create invite</button>
     {#if fresh}

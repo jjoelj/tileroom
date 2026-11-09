@@ -40,6 +40,12 @@ export const sessions = sqliteTable('sessions', {
   userAgent: text('user_agent'),
 });
 
+export const passwordResets = sqliteTable('password_resets', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: text('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: ms('expires_at').notNull(),
+});
+
 export const invites = sqliteTable('invites', {
   codeHash: text('code_hash').primaryKey(),
   codeHint: text('code_hint').notNull(),

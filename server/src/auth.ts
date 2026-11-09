@@ -6,9 +6,9 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { parse } from 'hono/utils/cookie';
 import { z } from 'zod';
 import { newToken, normalizeCode, randomId, sha256 } from './codes';
-import { invites, sessions, users } from './db/schema';
+import { invites, passwordResets, sessions, users } from './db/schema';
 import { ApiError, body, PUBLIC_ORIGINS, rateLimit } from './http';
-import { renamed } from './realtime';
+import { disconnect, renamed } from './realtime';
 import { db, type Tx } from './runtime/db';
 import { hashPassword, needsRehash, verifyPassword } from './runtime/hash';
 import { clientIp } from './runtime/ip';
@@ -39,6 +39,10 @@ export function createSession(tx: Tx, c: Context, userId: string) {
   tx.insert(sessions)
     .values({ id: sha256(token), userId, expiresAt: Date.now() + SESSION_MS, userAgent: c.req.header('user-agent')?.slice(0, 200) })
     .run();
+  setSessionCookie(c, token);
+}
+
+function setSessionCookie(c: Context, token: string) {
   setCookie(c, COOKIE, token, {
     httpOnly: true,
     secure: PUBLIC_ORIGINS.every((o) => o.startsWith('https:')), // production; dev may mix http://localhost in
@@ -50,10 +54,13 @@ export function createSession(tx: Tx, c: Context, userId: string) {
 
 /** Loads the session if there is one. Sliding expiry, refreshed at most once a day. */
 export const loadSession: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const row = sessionFor(getCookie(c, COOKIE));
+  const token = getCookie(c, COOKIE);
+  const row = sessionFor(token);
   if (row) {
     c.set('session', row.sessions);
     c.set('user', row.users);
+    // Renew the browser lifetime too, including when a WebSocket already extended the DB expiry.
+    setSessionCookie(c, token!);
   }
   await next();
 };
@@ -95,6 +102,26 @@ const usableInvite = (codeHash: string, now: number) =>
 let dummyHash: Promise<string> | undefined;
 
 export const auth = new Hono<AppEnv>()
+  .post('/auth/reset-password', async (c) => {
+    rateLimit(`reset:${clientIp(c)}`, 10);
+    const b = await body(c, z.object({ token: z.string().min(1).max(128), password: Password }));
+    const tokenHash = sha256(b.token);
+    const valid = () => and(eq(passwordResets.tokenHash, tokenHash), gt(passwordResets.expiresAt, Date.now()));
+    const row = db.select().from(passwordResets).innerJoin(users, eq(users.id, passwordResets.userId)).where(valid()).get();
+    const invalid = () => new ApiError(400, 'reset_invalid', 'This reset link has expired or was already used. Ask an admin for a new one.');
+    if (!row) throw invalid();
+    checkPassword(b.password, row.users.username);
+    const passwordHash = await hashPassword(b.password);
+    db.transaction((tx) => {
+      // Recheck after hashing: only one submission can consume the link.
+      if (tx.delete(passwordResets).where(valid()).returning().all().length !== 1) throw invalid();
+      tx.update(users).set({ passwordHash, passwordChangedAt: Date.now() }).where(eq(users.id, row.users.id)).run();
+      tx.delete(sessions).where(eq(sessions.userId, row.users.id)).run();
+    });
+    disconnect(row.users.id);
+    return c.json({ ok: true });
+  })
+
   .post('/invites/check', async (c) => {
     rateLimit(`invite:${clientIp(c)}`, 10);
     const { inviteCode } = await body(c, z.object({ inviteCode: z.string().max(40) }));
@@ -189,7 +216,8 @@ export const auth = new Hono<AppEnv>()
     checkPassword(b.password, u.username);
     const passwordHash = await hashPassword(b.password);
     db.transaction((tx) => {
-      tx.update(users).set({ passwordHash }).where(eq(users.id, u.id)).run();
+      tx.update(users).set({ passwordHash, passwordChangedAt: Date.now() }).where(eq(users.id, u.id)).run();
+      tx.delete(passwordResets).where(eq(passwordResets.userId, u.id)).run();
       // Other devices sign out (the usual reason to change it); this one stays signed in.
       tx.delete(sessions).where(and(eq(sessions.userId, u.id), ne(sessions.id, c.var.session.id))).run();
     });

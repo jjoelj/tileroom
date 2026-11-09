@@ -7,7 +7,7 @@ import { deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import { type AppEnv, COOKIE } from './auth';
 import { newToken, randomId } from './codes';
-import { gamePlayers, games, groupMembers, invites, proposalVotes, pushSubs, sessions, users } from './db/schema';
+import { gamePlayers, games, groupMembers, invites, passwordResets, proposalVotes, pushSubs, sessions, users } from './db/schema';
 import { changed, disconnect, groupChanged, renamed } from './realtime';
 import { leaveLobby } from './games';
 import { announce, leaveGroup } from './groups';
@@ -41,6 +41,7 @@ export const accountRoutes = new Hono<AppEnv>().delete('/me', async (c) => {
     tx.delete(invites).where(and(eq(invites.createdBy, u.id), isNull(invites.usedBy))).run();
     tx.delete(pushSubs).where(eq(pushSubs.userId, u.id)).run();
     tx.delete(sessions).where(eq(sessions.userId, u.id)).run();
+    tx.delete(passwordResets).where(eq(passwordResets.userId, u.id)).run();
     tx.update(users)
       .set({ username: `${DELETED_PREFIX}${randomId()}`, displayName: DELETED_NAME, passwordHash: unusable, showOnGlobal: false, remindTurn: false })
       .where(eq(users.id, u.id))

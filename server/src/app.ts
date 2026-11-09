@@ -10,7 +10,7 @@ import { ApiError } from './http';
 import { push, requirePush } from './push';
 
 /** The only routes a signed-out client may call. Everything else needs a session (default deny). */
-export const PUBLIC = new Set(['POST /api/auth/login', 'POST /api/auth/signup', 'POST /api/auth/logout', 'POST /api/invites/check']);
+export const PUBLIC = new Set(['POST /api/auth/login', 'POST /api/auth/signup', 'POST /api/auth/logout', 'POST /api/auth/reset-password', 'POST /api/invites/check']);
 
 const api = new Hono<AppEnv>()
   .use(checkOrigin, loadSession)

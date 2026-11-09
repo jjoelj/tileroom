@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Admin tools. Admins make as many invites as they like and see who used each one, and see every group with its
 // members and how many games it has. Counts only: no boards, racks or moves (no game visibility, SPEC §6.1).
-import { and, asc, count, desc, eq, isNotNull, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNotNull, isNull, ne, notLike } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { AppEnv } from './auth';
-import { gamePlayers, games, groupMembers, groups, invites, users } from './db/schema';
-import { ApiError } from './http';
+import { gamePlayers, games, groupMembers, groups, invites, passwordResets, users } from './db/schema';
+import { newToken, sha256 } from './codes';
+import { ApiError, rateLimit } from './http';
 import { db } from './runtime/db';
-import { createInvite } from './store';
+import { createInvite, DELETED_PREFIX } from './store';
 
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!c.var.user.isAdmin) throw new ApiError(403, 'admin_only');
@@ -39,6 +40,20 @@ function ungrouped() {
 }
 
 export const adminRoutes = new Hono<AppEnv>()
+  .get('/admin/users', (c) => c.json({ users: db.select({ id: users.id, username: users.username, displayName: users.displayName }).from(users).where(notLike(users.username, `${DELETED_PREFIX}%`)).orderBy(asc(users.username)).all() }))
+
+  .post('/admin/users/:id/password-reset', (c) => {
+    rateLimit(`reset-create:${c.var.user.id}`, 20);
+    const userId = c.req.param('id');
+    if (!db.select({ id: users.id }).from(users).where(and(eq(users.id, userId), notLike(users.username, `${DELETED_PREFIX}%`))).get()) throw new ApiError(404, 'not_found');
+    const token = newToken();
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    db.insert(passwordResets).values({ tokenHash: sha256(token), userId, expiresAt })
+      .onConflictDoUpdate({ target: passwordResets.userId, set: { tokenHash: sha256(token), expiresAt } }).run();
+    c.header('Cache-Control', 'no-store');
+    return c.json({ token, expiresAt }, 201);
+  })
+
   .post('/admin/invites', (c) => c.json({ code: createInvite(db, c.var.user.id) }, 201))
 
   .get('/admin/invites', (c) => {
