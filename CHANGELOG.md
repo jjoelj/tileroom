@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.16.0 (2026-11-09)
 
 - Forgotten your password? An admin can send you a link to choose a new one.
 - Stay signed in while you keep using Tileroom, instead of being signed out after 30 days.
