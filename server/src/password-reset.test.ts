@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { beforeEach, expect, test } from 'bun:test';
+import { beforeEach, expect, spyOn, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { app } from './app';
 import { sha256 } from './codes';
 import { passwordResets, sessions, users } from './db/schema';
 import { resetRateLimits } from './http';
 import { db } from './runtime/db';
+import * as hashing from './runtime/hash';
 import { call, newUser, ORIGIN, PASSWORD } from './test-utils';
 
 beforeEach(resetRateLimits);
@@ -19,6 +20,31 @@ async function setup() {
 }
 
 const redeem = (token: string, password = 'a different secret 42') => call('/auth/reset-password', { method: 'POST', body: { token, password } });
+
+for (const action of ['login', 'change', 'delete'] as const) {
+  test(`reset rejects an in-flight old-password ${action}`, async () => {
+    const { user, create } = await setup();
+    const { token } = (await create()).json;
+    const verify = hashing.verifyPassword;
+    const spy = spyOn(hashing, 'verifyPassword').mockImplementationOnce(async (password, hash) => {
+      const ok = await verify(password, hash);
+      expect((await redeem(token)).status).toBe(200);
+      return ok;
+    });
+    try {
+      const result = action === 'login'
+        ? await call('/auth/login', { method: 'POST', body: { username: user.username, password: PASSWORD } })
+        : action === 'change'
+          ? await call('/me/password', { method: 'POST', cookie: user.cookie, body: { current: PASSWORD, password: 'stale request password' } })
+          : await call('/me', { method: 'DELETE', cookie: user.cookie, body: { password: PASSWORD } });
+      expect(result.status).toBe(401);
+      expect(db.select().from(sessions).where(eq(sessions.userId, user.id)).all()).toHaveLength(0);
+      expect((await call('/auth/login', { method: 'POST', body: { username: user.username, password: 'a different secret 42' } })).status).toBe(200);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+}
 
 test('only admins list users and issue reset links; issuing does not sign anyone out', async () => {
   const { admin, user, create } = await setup();

@@ -5,7 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
-import { type AppEnv, COOKIE } from './auth';
+import { type AppEnv, COOKIE, requireUnchangedPassword } from './auth';
 import { newToken, randomId } from './codes';
 import { gamePlayers, games, groupMembers, invites, passwordResets, proposalVotes, pushSubs, sessions, users } from './db/schema';
 import { changed, disconnect, groupChanged, renamed } from './realtime';
@@ -33,6 +33,7 @@ export const accountRoutes = new Hono<AppEnv>().delete('/me', async (c) => {
   const groupIds = db.select({ id: groupMembers.groupId }).from(groupMembers).where(eq(groupMembers.userId, u.id)).all().map((g) => g.id);
 
   const { outcomes, stay } = db.transaction((tx: Tx) => {
+    requireUnchangedPassword(tx, u);
     // Games not started: they leave (theirs are cancelled). Games being played are left alone: they void after
     // 7 days of this seat not moving (SPEC turn timeout).
     const stay = lobbies.filter((g) => !leaveLobby(tx, g.id, u.id)).map((g) => g.id);

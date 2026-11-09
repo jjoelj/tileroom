@@ -34,6 +34,12 @@ export function checkPassword(password: string, username: string) {
   if (COMMON.has(p) || p === username) throw new ApiError(400, 'weak_password', 'Pick a less common password');
 }
 
+/** Call inside the write transaction after async verification/hashing, which can race a reset. */
+export function requireUnchangedPassword(tx: Tx, user: User) {
+  const current = tx.select({ hash: users.passwordHash }).from(users).where(eq(users.id, user.id)).get();
+  if (current?.hash !== user.passwordHash) throw new ApiError(401, 'credentials_changed', 'Your password changed. Please sign in again.');
+}
+
 export function createSession(tx: Tx, c: Context, userId: string) {
   const token = newToken();
   tx.insert(sessions)
@@ -182,6 +188,7 @@ export const auth = new Hono<AppEnv>()
     if (!user || !ok) throw new ApiError(401, 'invalid_credentials', 'Wrong username or password');
     const rehash = needsRehash(user.passwordHash) ? await hashPassword(b.password) : null;
     db.transaction((tx) => {
+      requireUnchangedPassword(tx, user);
       if (rehash) tx.update(users).set({ passwordHash: rehash }).where(eq(users.id, user.id)).run();
       if (c.var.session) tx.delete(sessions).where(eq(sessions.id, c.var.session.id)).run();
       createSession(tx, c, user.id);
@@ -216,6 +223,7 @@ export const auth = new Hono<AppEnv>()
     checkPassword(b.password, u.username);
     const passwordHash = await hashPassword(b.password);
     db.transaction((tx) => {
+      requireUnchangedPassword(tx, u);
       tx.update(users).set({ passwordHash, passwordChangedAt: Date.now() }).where(eq(users.id, u.id)).run();
       tx.delete(passwordResets).where(eq(passwordResets.userId, u.id)).run();
       // Other devices sign out (the usual reason to change it); this one stays signed in.

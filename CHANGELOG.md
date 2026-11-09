@@ -7,6 +7,7 @@ number, features the middle one. Production runs the newest `v*` tag; staging ru
 
 - Forgotten your password? An admin can send you a link to choose a new one.
 - Stay signed in while you keep using Tileroom, instead of being signed out after 30 days.
+- Resetting your password also blocks requests still using your old password from signing in or changing your account.
 
 ## v0.15.0 (2026-11-03)
 
