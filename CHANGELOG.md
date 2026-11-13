@@ -3,7 +3,7 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
-## Unreleased
+## v0.17.2 (2026-11-12)
 
 - When the last player joins and your game starts by itself with you going first, you get just the "Your turn" notification, not a "joined" one too.
 
