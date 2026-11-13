@@ -32,7 +32,7 @@
   <div class="line">
     <div class="stack" style="gap: 1px">
       <span class="strong">Tile values</span>
-      <span class="hint">{value.tileValues === 'classic' ? 'The usual points' : value.tileValues === 'special' ? "Tileroom's first points" : 'G, J and V worth more, H less'}</span>
+      <span class="hint">{value.tileValues === 'classic' ? 'The usual points' : value.tileValues === 'special' ? "Tileroom's first points" : 'B G J K L U V W up, H down'}</span>
     </div>
     <div class="segment" role="radiogroup" aria-label="Tile values">
       {#each valueSets as [tileValues, name] (tileValues)}

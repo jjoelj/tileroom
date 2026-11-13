@@ -3,6 +3,10 @@
 What changed in each release of Tileroom. Versions follow [semver](https://semver.org): fixes bump the last
 number, features the middle one. Production runs the newest `v*` tag; staging runs `master`.
 
+## Unreleased
+
+- The Default tile values setting now names every letter it changes.
+
 ## v0.17.0 (2026-11-12)
 
 - New games can pick tile values: Default (G, J, V and a few others worth more, H less) or Classic (the usual points). Games already under way keep their points, shown as Special; games not started yet switch to Default.
