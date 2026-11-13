@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `tile_values` text DEFAULT 'special' NOT NULL;

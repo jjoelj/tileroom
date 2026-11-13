@@ -7,9 +7,16 @@ export const BLANK = '?';
 const counts = (s: string): Record<string, number> =>
   Object.fromEntries(s.split(' ').map((t) => [t[0]!, Number(t.slice(1))]));
 
-export const VALUES = counts(
-  'A1 B3 C3 D2 E1 F4 G2 H3 I1 J10 K5 L1 M3 N1 O1 P3 Q10 R1 S1 T1 U1 V6 W4 X8 Y4 Z10 ?0',
-);
+const SPECIAL = 'A1 B3 C3 D2 E1 F4 G2 H3 I1 J10 K5 L1 M3 N1 O1 P3 Q10 R1 S1 T1 U1 V6 W4 X8 Y4 Z10 ?0';
+
+/** Points per letter, picked per game in its lobby (default unless changed). Special: Tileroom's first values, kept for games started on them. */
+export type TileValues = 'default' | 'classic' | 'special';
+export const VALUE_CHOICES = ['default', 'classic'] as const satisfies TileValues[];
+export const VALUES: Record<TileValues, Record<string, number>> = {
+  default: { ...counts(SPECIAL), ...counts('B4 G4 K6 L2 U2 W5') },
+  classic: { ...counts(SPECIAL), ...counts('H4 J8 V4') },
+  special: counts(SPECIAL),
+};
 
 export const BAGS: Record<100 | 150, Bag> = {
   100: counts('A9 B2 C2 D4 E11 F2 G3 H2 I9 J1 K1 L4 M2 N6 O8 P2 Q1 R6 S4 T6 U4 V2 W2 X1 Y2 Z1 ?3'),

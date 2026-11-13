@@ -3,14 +3,16 @@
 <script lang="ts" module>
   import type { Layout } from '../../../shared/board';
   import { MAX_PLAYERS } from '../../../shared/rules';
+  import type { TileValues } from '../../../shared/tiles';
 
-  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; livePlacing: boolean; layout: Layout; autoStart: number | null };
+  export type Settings = { bagSize: 100 | 150; randomOrder: boolean; expandedWords: boolean; livePlacing: boolean; layout: Layout; tileValues: TileValues; autoStart: number | null };
 </script>
 
 <script lang="ts">
   // no `onchange`: read-only (a game under way)
   let { value, onchange }: { value: Settings; onchange?: (change: Partial<Settings>) => void } = $props();
   const disabled = $derived(!onchange);
+  const valueSets = $derived([['default', 'Default'], ['classic', 'Classic'], ...(value.tileValues === 'special' ? [['special', 'Special']] : [])] as [TileValues, string][]);
   // Special can't be picked any more, but a game played on it still says so
   const boards = $derived([['default', 'Default'], ['classic', 'Classic'], ...(value.layout === 'special' ? [['special', 'Special']] : [])] as [Layout, string][]);
 </script>
@@ -24,6 +26,17 @@
     <div class="segment" role="radiogroup" aria-label="Board">
       {#each boards as [layout, name] (layout)}
         <button role="radio" aria-checked={value.layout === layout} class:on={value.layout === layout} {disabled} onclick={() => onchange?.({ layout })}>{name}</button>
+      {/each}
+    </div>
+  </div>
+  <div class="line">
+    <div class="stack" style="gap: 1px">
+      <span class="strong">Tile values</span>
+      <span class="hint">{value.tileValues === 'classic' ? 'The usual points' : value.tileValues === 'special' ? "Tileroom's first points" : 'G, J and V worth more, H less'}</span>
+    </div>
+    <div class="segment" role="radiogroup" aria-label="Tile values">
+      {#each valueSets as [tileValues, name] (tileValues)}
+        <button role="radio" aria-checked={value.tileValues === tileValues} class:on={value.tileValues === tileValues} {disabled} onclick={() => onchange?.({ tileValues })}>{name}</button>
       {/each}
     </div>
   </div>

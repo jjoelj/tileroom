@@ -323,7 +323,9 @@ test("seen: opening a game or swiping a notification away marks it, for the user
 test('settings: defaults unless asked; the host can change any of them until the start, then they are fixed', async () => {
   const [host, guest] = [await newUser(), await newUser()];
   const make = async (body: object) => (await call('/games', { method: 'POST', cookie: host.cookie, body: { bagSize: 100, randomOrder: false, ...body } })).json;
-  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json).toMatchObject({ layout: 'default', bagSize: 100, randomOrder: true, expandedWords: false });
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json).toMatchObject({ layout: 'default', tileValues: 'default', bagSize: 100, randomOrder: true, expandedWords: false });
+  expect((await make({ tileValues: 'classic' })).tileValues).toBe('classic');
+  expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { tileValues: 'special' } })).status).toBe(400);
   expect((await make({ layout: 'classic' })).layout).toBe('classic');
   for (const layout of ['special', 'other']) // special is only for games started on it
     expect((await call('/games', { method: 'POST', cookie: host.cookie, body: { layout } })).status).toBe(400);

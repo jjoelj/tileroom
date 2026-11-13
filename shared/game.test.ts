@@ -16,6 +16,7 @@ function game(racks: string[], bag: Bag = {}): GameState {
   return {
     status: 'active',
     layout: 'special', // the scores below were worked out on it
+    tileValues: 'special',
     board,
     bag,
     players: racks.map((r) => ({ rack: [...r], score: 0 })),
@@ -48,6 +49,11 @@ describe('newGame', () => {
     expect(BAGS[100].A).toBe(9); // the template isn't mutated
   });
 
+  test('keeps the tile values it was started with', () => {
+    expect(newGame(2, 100, 'default', first, 'classic').tileValues).toBe('classic');
+    expect(newGame(2, 100, 'default', first, 'default').tileValues).toBe('default');
+  });
+
   test('rejects 1 or 7 players', () => {
     expect(err(() => newGame(1, 100, 'default', first))).toBe('A game has 2 to 6 players');
     expect(err(() => newGame(7, 150, 'default', first))).toBe('A game has 2 to 6 players');
@@ -55,6 +61,11 @@ describe('newGame', () => {
 });
 
 describe('play', () => {
+  test("scores with the game's tile values", () => {
+    expect(move(game(['G']), 0, play('G', 7, 8)).players[0]!.score).toBe(1 + 2);
+    expect(move({ ...game(['G']), tileValues: 'default' }, 0, play('G', 7, 8)).players[0]!.score).toBe(1 + 4);
+  });
+
   test('places tiles, scores, refills, records drawn tiles privately', () => {
     const before = game(['ZQ', 'B'], { E: 3 });
     const { state, record } = applyMove(before, 0, { type: 'play', tiles: [{ r: 7, c: 8, letter: 'Z' }] }, any, first);

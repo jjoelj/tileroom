@@ -48,6 +48,7 @@ function loaded(s: GameState): LoadedGame {
       hostId: 'u0',
       status: s.status,
       layout: s.layout,
+      tileValues: s.tileValues,
       livePlacing: true,
       autoStart: null,
       bagSize: 100,

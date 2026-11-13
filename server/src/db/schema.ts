@@ -130,6 +130,7 @@ export const games = sqliteTable('games', {
   expandedWords: bool('expanded_words').notNull().default(false), // also accept SCOWL abbreviations (SPEC §4.9)
   livePlacing: bool('live_placing').notNull().default(true), // others see where the mover's tiles are, mid-turn
   layout: text('layout', { enum: ['default', 'classic', 'special'] }).notNull().default('default'), // premium squares (shared/board.ts)
+  tileValues: text('tile_values', { enum: ['default', 'classic', 'special'] }).notNull().default('special'), // points per letter (shared/tiles.ts); games from before the setting are special
   autoStart: integer('auto_start'), // start by itself once this many have joined; null = the host starts it
   groupId: text('group_id').references(() => groups.id), // null = open game: base words only, no spectators
   spectatorRacks: bool('spectator_racks').notNull().default(false), // copied from the group at start; only true → false

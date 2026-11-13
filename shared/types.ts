@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { Layout } from './board';
+import type { TileValues } from './tiles';
 
 /** A tile on the board. `letter` is what it reads as, even for blanks. */
 export type BoardTile = { letter: string; blank: boolean; seat: number; turn: number };
@@ -21,6 +22,7 @@ export type PlayerState = { rack: string[]; score: number };
 export type GameState = {
   status: 'active' | 'finished';
   layout: Layout;
+  tileValues: TileValues;
   board: Board;
   bag: Bag;
   players: PlayerState[]; // index = seat
@@ -74,6 +76,7 @@ export type GameView = {
   /** Starts by itself once this many have joined; null = the host starts it. */
   autoStart: number | null;
   layout: Layout;
+  tileValues: TileValues;
   /** Abbreviations (FAQ, DIY…) are valid too (SPEC §4.9). */
   expandedWords: boolean;
   turnNumber: number;

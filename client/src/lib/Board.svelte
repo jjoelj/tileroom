@@ -6,13 +6,14 @@
 
 <script lang="ts">
   import { type Layout, premiumAt, SIZE } from '../../../shared/board';
-  import { VALUES } from '../../../shared/tiles';
+  import { type TileValues, VALUES } from '../../../shared/tiles';
   import type { BoardTile, FormedWord } from '../../../shared/types';
   import { devicePixel, drop, ms, pop, show } from './motion';
 
   let {
     board,
     layout,
+    tileValues,
     pending,
     lastTurn,
     colorOf,
@@ -27,6 +28,7 @@
   }: {
     board: (BoardTile | null)[][];
     layout: Layout;
+    tileValues: TileValues;
     pending: PendingTile[];
     /** Tiles played on this turn or later are marked (the last play, or every play since mine). */
     lastTurn: number | null;
@@ -374,7 +376,7 @@
         {#if cell.letter || cell.pending}<!-- pending with no letter: a blank still being chosen -->
           <span class="piece tile-face {cell.piece}" style={cell.dot} in:enter={{ quiet, drop: cell.drop }} out:pop={{ quiet, duration: 140 }}>
             <span class="ch" class:blank={cell.blank}>{cell.letter}</span>
-            {#if !cell.blank}<span class="pt">{VALUES[cell.letter]}</span>{/if}
+            {#if !cell.blank}<span class="pt">{VALUES[tileValues][cell.letter]}</span>{/if}
           </span>
         {:else if cell.ghost}
           <span class="piece tile-face ghost" aria-hidden="true" transition:pop={{ duration: 140 }}></span>

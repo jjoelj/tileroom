@@ -9,7 +9,15 @@ import { BAGS, bagCount, draw, returnToBag, VALUES } from './tiles';
 test('bag totals', () => {
   expect(bagCount(BAGS[100])).toBe(100);
   expect(bagCount(BAGS[150])).toBe(150);
-  expect(Object.keys(VALUES)).toHaveLength(27);
+  for (const v of Object.values(VALUES)) expect(Object.keys(v)).toHaveLength(27);
+});
+
+test('default values differ from classic in exactly B G H J K L U V W', () => {
+  const diff = Object.keys(VALUES.classic).filter((l) => VALUES.classic[l] !== VALUES.default[l]);
+  expect(diff).toEqual(['B', 'G', 'H', 'J', 'K', 'L', 'U', 'V', 'W']);
+  expect(diff.map((l) => VALUES.classic[l])).toEqual([3, 2, 4, 8, 5, 1, 1, 4, 4]);
+  expect(diff.map((l) => VALUES.default[l])).toEqual([4, 4, 3, 10, 6, 2, 2, 6, 5]);
+  expect(VALUES.special).toMatchObject({ G: 2, H: 3, J: 10, V: 6 }); // legacy mix, unchanged
 });
 
 test('both layouts are symmetric on both axes', () => {

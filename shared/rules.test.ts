@@ -149,4 +149,8 @@ test('only the classic start square doubles the first word', () => {
   expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'classic')).toMatchObject({ score: (3 + 1 + 1) * 2 });
   expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'default')).toMatchObject({ score: 3 + 1 + 1 });
   expect(previewPlay(emptyBoard(), tiles(7, 6, 'CAT'), any, 'special')).toMatchObject({ score: 3 + 1 + 1 });
+  // tile values: HUG is 4+1+2 classic, 3+2+4 default, 3+1+2 special
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'HUG'), any, 'default', 'classic')).toMatchObject({ score: 7 });
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'HUG'), any, 'default', 'default')).toMatchObject({ score: 9 });
+  expect(previewPlay(emptyBoard(), tiles(7, 6, 'HUG'), any, 'default')).toMatchObject({ score: 6 });
 });

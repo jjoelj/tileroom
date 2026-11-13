@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { names } from '../../shared/plural';
 import { CHOICES } from '../../shared/board';
+import { VALUE_CHOICES } from '../../shared/tiles';
 import { applyMove, MAX_PLAYERS, newGame, RuleError, TURN_TIMEOUT_MS } from '../../shared/rules';
 import type { AppEnv } from './auth';
 import { newJoinCode, normalizeCode, randomId } from './codes';
@@ -89,6 +90,7 @@ const Settings = z.object({
   randomOrder: z.boolean(),
   expandedWords: z.boolean(),
   livePlacing: z.boolean(),
+  tileValues: z.enum(VALUE_CHOICES), // not special: that's only for games started on it
   layout: z.enum(CHOICES), // not special: that's only for games started on it
   autoStart: z.int().min(2).max(MAX_PLAYERS).nullable(), // start by itself at this many players
 });
@@ -125,7 +127,7 @@ function startGame(g: LoadedGame) {
         [order[i], order[j]] = [order[j]!, order[i]!];
       }
     }
-    const state = newGame(order.length, game.bagSize, game.layout, randomInt);
+    const state = newGame(order.length, game.bagSize, game.layout, randomInt, game.tileValues);
     const now = Date.now();
     db.transaction((tx) => {
       tx.delete(gamePlayers).where(eq(gamePlayers.gameId, game.id)).run();
@@ -206,6 +208,7 @@ export const gameRoutes = new Hono<AppEnv>()
         expandedWords: z.boolean().default(false),
         livePlacing: z.boolean().default(true),
         layout: z.enum(CHOICES).default('default'),
+        tileValues: Settings.shape.tileValues.default('default'),
         autoStart: Settings.shape.autoStart.default(null),
         groupId: z.string().max(64).optional(), // a group game: that group's words, its members only
       }),

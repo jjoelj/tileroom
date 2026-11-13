@@ -44,6 +44,7 @@ export function stateOf({ game, seats }: LoadedGame): GameState {
   return {
     status: game.status,
     layout: game.layout,
+    tileValues: game.tileValues,
     board: game.board,
     bag: game.bag,
     players: seats.map((s) => ({ rack: s.rack, score: s.score })),

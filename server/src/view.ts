@@ -57,6 +57,7 @@ export function toView(
     livePlacing: game.livePlacing,
     autoStart: game.autoStart,
     layout: game.layout,
+    tileValues: game.tileValues,
     turnNumber: game.turnNumber,
     currentSeat: game.currentSeat,
     turnStartedAt: game.turnStartedAt,

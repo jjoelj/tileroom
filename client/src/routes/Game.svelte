@@ -48,6 +48,7 @@
   // Games have no names: they're called by who else is in them.
   const title = $derived(names(view?.players.filter((p) => p.seat !== view?.mySeat).map((p) => p.displayName) ?? []) || 'Waiting for players');
   const BOARD_NAME = { default: 'Default board', classic: 'Classic board', special: 'Special board' } as const;
+  const VALUES_NAME = { default: 'Default tiles', classic: 'Classic tiles', special: 'Special tiles' } as const;
   const nameOf = (seat: number) => (seat === view?.mySeat ? 'You' : (view?.players[seat]?.displayName ?? ''));
 
   let dropping = $state<{ r: number; c: number }[]>([]); // another player's tiles arriving now (Board `dropping`)
@@ -176,8 +177,9 @@
   // Geometry and score are plain arithmetic: computed at once. Only the word lookup (worker) is async; until it
   // answers for the current words, the move isn't shown as valid and the last message stays (no flicker).
   const preview = $derived.by((): Preview | null =>
-    view && placed.length ? previewPlay(view.board, $state.snapshot(placed) as PendingTile[], () => true, view.layout) : null, // not a blank still being chosen
+    view && placed.length ? previewPlay(view.board, $state.snapshot(placed) as PendingTile[], () => true, view.layout, view.tileValues) : null, // not a blank still being chosen
   );
+  const pts = $derived(VALUES[view?.tileValues ?? 'default']);
   const words = $derived(preview?.ok ? preview.words.map((w) => w.word).join(' ') : '');
   let lookup = $state<{ words: string; invalid: string[] } | null>(null);
   $effect(() => {
@@ -597,8 +599,8 @@
       </button>
       <div class="title">
         <h1>{title}</h1>
-        {#if view.group || view.expandedWords || view.layout !== 'default'}
-          <span>{[view.group?.name, view.layout !== 'default' && BOARD_NAME[view.layout], view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
+        {#if view.group || view.expandedWords || view.layout !== 'default' || view.tileValues !== 'default'}
+          <span>{[view.group?.name, view.layout !== 'default' && BOARD_NAME[view.layout], view.tileValues !== 'default' && VALUES_NAME[view.tileValues], view.expandedWords && 'Expanded word list'].filter(Boolean).join(' · ')}</span>
         {/if}
       </div>
       <!-- Players always know they're watched (SPEC §4.11): an eye and a count, hidden at 0. -->
@@ -726,6 +728,7 @@
           bind:this={boardRef}
           board={shownBoard!}
           layout={view.layout}
+          tileValues={view.tileValues}
           pending={onBoard}
           quiet={hush}
           {dropping}
@@ -778,9 +781,9 @@
             {#if used}
               <span class="rk empty" aria-hidden="true" in:show={{ duration: hush ? 0 : 160 }}></span>
             {:else}
-              <button in:pop={{ quiet: hush, delay: i * 40 }} class="rk tile-face" class:sel={selected === slot} onpointerdown={(e) => pointerDrag(e, { kind: 'rack', slot })} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(VALUES[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
+              <button in:pop={{ quiet: hush, delay: i * 40 }} class="rk tile-face" class:sel={selected === slot} onpointerdown={(e) => pointerDrag(e, { kind: 'rack', slot })} aria-pressed={selected === slot} aria-label={rack[slot] === '?' ? 'Blank tile' : `Tile ${rack[slot]}, ${plural(pts[rack[slot]!]!, 'point', 'points')}`} onclick={() => tapSlot(slot)}>
                 <span class="ch">{rack[slot] === '?' ? '' : rack[slot]}</span>
-                {#if rack[slot] !== '?'}<span class="pt">{VALUES[rack[slot]!]}</span>{/if}
+                {#if rack[slot] !== '?'}<span class="pt">{pts[rack[slot]!]}</span>{/if}
               </button>
             {/if}
             </div>
@@ -816,7 +819,7 @@
   {#if drag}
     <div class="ghost tile-face" class:landing bind:this={ghost} aria-hidden="true">
       <span class="ch">{drag.blank && drag.from.kind === 'rack' ? '' : drag.letter}</span>
-      {#if !drag.blank}<span class="pt">{VALUES[drag.letter]}</span>{/if}
+      {#if !drag.blank}<span class="pt">{pts[drag.letter]}</span>{/if}
     </div>
   {/if}
 
