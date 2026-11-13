@@ -351,6 +351,7 @@ test('auto-start: the game starts itself once that many have joined, or when the
   expect((await call(`/join/${r.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json.status).toBe('lobby');
   expect((await call(`/join/${r.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie })).json).toMatchObject({ status: 'active', bagCount: 79 });
   expect(pushesTo(host)).toContain('Your turn. The game has started.');
+  expect(pushesTo(host).filter((b) => b.endsWith('joined your game'))).toHaveLength(1); // not for the join that started it: the host goes first
 
   const g = (await call('/games', { method: 'POST', cookie: host.cookie, body: {} })).json;
   await call(`/join/${g.joinCode}`, { method: 'POST', cookie: (await newUser()).cookie });

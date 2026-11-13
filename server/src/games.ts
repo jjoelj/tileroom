@@ -156,14 +156,16 @@ function startGame(g: LoadedGame) {
       }
     });
     // only whoever goes first hears about it: everyone else gets their turn's push when it comes
-    notifyGame(g, [order[state.currentSeat]!.userId], 'Your turn. The game has started.');
+    const first = order[state.currentSeat]!.userId;
+    notifyGame(g, [first], 'Your turn. The game has started.');
     changed(game.id);
+    return first;
 }
 
-/** Starts the game if the host's auto-start count has been reached. */
+/** Starts the game if the host's auto-start count has been reached; returns who goes first, if it started. */
 function maybeAutoStart(id: string) {
   const g = loadGame(db, id)!;
-  if (g.game.status === 'lobby' && g.game.autoStart !== null && g.seats.length >= g.game.autoStart) startGame(g);
+  if (g.game.status === 'lobby' && g.game.autoStart !== null && g.seats.length >= g.game.autoStart) return startGame(g);
 }
 
 export const gameRoutes = new Hono<AppEnv>()
@@ -255,8 +257,8 @@ export const gameRoutes = new Hono<AppEnv>()
       tx.insert(gamePlayers).values({ gameId: g.game.id, seat: fresh.seats.length, userId: uid }).run();
     });
     changed(g.game.id);
-    notifyGame(loadGame(db, g.game.id)!, [g.game.hostId], `${c.var.user.displayName} joined your game`);
-    maybeAutoStart(g.game.id);
+    // a host who goes first in the game this join just started only needs the "Your turn" push
+    if (maybeAutoStart(g.game.id) !== g.game.hostId) notifyGame(loadGame(db, g.game.id)!, [g.game.hostId], `${c.var.user.displayName} joined your game`);
     return c.json(viewFor(g.game.id, c.var.user.id));
   })
 
